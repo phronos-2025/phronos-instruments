@@ -1,0 +1,62 @@
+---
+description: "API contract - field names are locked. DO NOT modify existing field names without approval."
+globs: ["**/models.py", "models.py"]
+alwaysApply: false
+---
+
+# ⛔ MODELS.PY - API CONTRACT
+
+## DO NOT modify existing field names
+
+The field names in models.py are the API contract with the frontend.
+Changing them breaks the client.
+
+## Adding New Fields
+
+If you need to add a field:
+1. ASK USER first
+2. Make it Optional with a default
+3. Document the addition
+
+```python
+# ✅ Safe addition
+class GameResponse(BaseModel):
+    existing_field: str
+    new_field: Optional[str] = None  # Added for X reason
+```
+
+## Removing Fields
+
+❌ NEVER remove fields without user approval.
+This will break frontend code.
+
+## Renaming Fields
+
+❌ NEVER rename fields.
+Add a new field, deprecate the old one.
+
+## Enums
+
+```python
+# These are locked
+class RecipientType(str, Enum):
+    NETWORK = "network"
+    STRANGER = "stranger"
+    LLM = "llm"
+
+class GameStatus(str, Enum):
+    PENDING_CLUES = "pending_clues"
+    PENDING_GUESS = "pending_guess"
+    COMPLETED = "completed"
+    EXPIRED = "expired"
+```
+
+Do not add/remove/rename enum values without explicit approval.
+
+## Cross-Reference
+
+When touching models.py, check ALL files that import from it:
+- games.py
+- users.py (pending)
+- share.py (pending)
+- Any route handler

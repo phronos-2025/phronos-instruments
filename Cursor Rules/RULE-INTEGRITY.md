@@ -1,0 +1,54 @@
+---
+description: "Integrity checks and cross-reference verification before submitting changes"
+alwaysApply: true
+---
+
+# Integrity Checks
+
+## Before Submitting ANY Changes
+
+1. **Run scoring tests**: `python -m pytest scoring.py -v`
+2. **Check imports**: No circular dependencies
+3. **Verify RLS**: Route handlers use `get_authenticated_client()`
+4. **Validate models**: Response shapes match models.py
+5. **Check error handling**: Use ErrorResponse dict format
+6. **Review security**: No service key in routes
+
+## Cross-Reference Matrix
+
+When modifying a file, ALWAYS check related files:
+
+| If you change... | Also verify... |
+|------------------|----------------|
+| models.py | All route handlers using those models |
+| auth.py | All files importing auth functions |
+| scoring.py | games.py, tests |
+| embeddings.py | games.py |
+| config.py | All files importing config values |
+| 001_initial.sql | All Python queries |
+| games.py | models.py shapes match |
+
+## Before Completing a Task
+
+Ask yourself:
+- Did I check all related files?
+- Did I run the tests?
+- Does this match the documented architecture?
+- Would this break existing functionality?
+
+If unsure about ANY of these, **ask the user**.
+
+## Common Breaking Changes
+
+- Changing model field names → breaks frontend
+- Changing scoring formulas → invalidates data
+- Changing LLM model → invalidates metrics
+- Using service key in routes → security breach
+- Changing halfvec to vector → exceeds storage
+
+## Rollback Plan
+
+For any significant change, consider:
+- What would rollback look like?
+- Is this reversible?
+- Should we discuss with user first?
