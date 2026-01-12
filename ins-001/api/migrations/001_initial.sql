@@ -231,10 +231,10 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Join game via share token (SECURITY DEFINER to bypass RLS)
+-- SECURITY FIX: Does NOT return seed_word (revealed only after guessing)
 CREATE OR REPLACE FUNCTION join_game_via_token(share_token_input TEXT)
 RETURNS TABLE(
     game_id UUID,
-    seed_word TEXT,
     clues TEXT[],
     noise_floor JSONB,
     sender_display_name TEXT
@@ -297,11 +297,10 @@ BEGIN
     -- Deactivate token
     UPDATE share_tokens SET is_active = FALSE WHERE token = share_token_input;
     
-    -- Return game details
+    -- Return game details (seed_word NOT included - security fix)
     RETURN QUERY
     SELECT 
         g.id,
-        g.seed_word,
         g.clues,
         g.noise_floor,
         u.display_name

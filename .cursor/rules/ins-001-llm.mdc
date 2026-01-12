@@ -1,0 +1,55 @@
+---
+name: ins-001-llm
+description: LOCKED - LLM model defines construct validity for LLM Alignment metric. DO NOT CHANGE MODEL.
+---
+
+# Overview
+
+## DO NOT change the model
+
+```python
+# ✅ REQUIRED - Claude Haiku 4.5 only
+MODEL = "claude-haiku-4-5-20251001"
+
+# ❌ FORBIDDEN - Any other model
+MODEL = "gpt-4o-mini"  # NO
+MODEL = "claude-3-opus"  # NO
+MODEL = "claude-sonnet-4-5-20250929"  # NO
+```
+
+## Why This Matters
+
+The LLM Alignment metric measures whether users "think like the statistical average."
+Changing the model changes what "statistical average" means, invalidating:
+- All historical LLM convergence scores
+- All archetype classifications
+- Research validity
+
+## Prompt Safety
+
+User clues are validated AND XML-escaped:
+
+```python
+# ✅ REQUIRED
+escaped_clues = [html.escape(c) for c in clues]
+clue_xml = "\n".join(f"  <clue>{c}</clue>" for c in escaped_clues)
+```
+
+Never put raw user input directly in prompts.
+
+## Temperature
+
+```python
+# ✅ REQUIRED
+max_tokens=100,  # Keep responses short
+
+# Temperature is set in config.py as LLM_TEMPERATURE = 0.3
+```
+
+## If Changes Seem Needed
+
+1. STOP
+2. Explain to user why change seems necessary
+3. Document impact on construct validity
+4. Get explicit approval
+5. Update DECISION-HISTORY.md

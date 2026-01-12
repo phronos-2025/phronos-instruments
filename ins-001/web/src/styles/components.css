@@ -1,0 +1,431 @@
+/**
+ * Component Styles - INS-001
+ * 
+ * Based on mockup and COMPONENTS.md
+ */
+
+/* ============================================
+   PANEL
+   ============================================ */
+
+.panel {
+  background: var(--card-bg);
+  border: var(--border-primary);
+  padding: var(--space-md);
+  margin-bottom: var(--space-md);
+  position: relative;
+}
+
+.panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    linear-gradient(var(--faded-ultra) 1px, transparent 1px),
+    linear-gradient(90deg, var(--faded-ultra) 1px, transparent 1px);
+  background-size: 20px 20px;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: var(--border-divider);
+  padding-bottom: var(--space-sm);
+  margin-bottom: var(--space-md);
+  position: relative;
+  z-index: 1;
+}
+
+.panel-title {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-wide);
+  color: var(--text-light);
+}
+
+.panel-meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--faded);
+}
+
+.panel-content {
+  position: relative;
+  z-index: 1;
+}
+
+/* ============================================
+   BUTTONS
+   ============================================ */
+
+.btn {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-wide);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid;
+  cursor: pointer;
+  transition: all var(--transition-default);
+  text-decoration: none;
+  display: inline-block;
+  background: transparent;
+}
+
+.btn-primary {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--bg-deep);
+}
+
+.btn-primary:hover:not(:disabled) {
+  box-shadow: var(--shadow-button-hover);
+  transform: translate(-2px, -2px);
+}
+
+.btn-secondary {
+  border-color: var(--faded-light);
+  color: var(--text-light);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.btn-ghost {
+  border-color: transparent;
+  color: var(--faded);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  color: var(--gold);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.btn-group {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-lg);
+}
+
+/* ============================================
+   PROGRESS BAR
+   ============================================ */
+
+.progress {
+  display: flex;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-lg);
+}
+
+.progress-step {
+  flex: 1;
+  height: 2px;
+  background: var(--faded-light);
+  position: relative;
+}
+
+.progress-step.active {
+  background: var(--gold);
+}
+
+.progress-step.completed {
+  background: var(--gold);
+}
+
+/* ============================================
+   CLUE INPUT
+   ============================================ */
+
+.clue-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.clue-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.clue-number {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--faded);
+  width: 20px;
+  text-align: right;
+}
+
+.clue-input {
+  flex: 1;
+  background: var(--bg-deep);
+  border: var(--border-primary);
+  color: var(--text-light);
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  padding: var(--space-xs) var(--space-sm);
+  outline: none;
+  transition: border-color var(--transition-default);
+}
+
+.clue-input:focus {
+  border-color: var(--gold);
+}
+
+.clue-input.valid {
+  border-color: var(--active);
+}
+
+.clue-input.invalid {
+  border-color: var(--alert);
+}
+
+.clue-status {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  width: 60px;
+  text-align: right;
+}
+
+.clue-status.valid {
+  color: var(--active);
+}
+
+.clue-status.invalid {
+  color: var(--alert);
+}
+
+/* ============================================
+   NOISE FLOOR
+   ============================================ */
+
+.noise-floor {
+  margin: var(--space-lg) 0;
+}
+
+.noise-words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-top: var(--space-sm);
+}
+
+.noise-word {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  padding: 4px 10px;
+  border: var(--border-primary);
+  color: var(--faded);
+  position: relative;
+  transition: all var(--transition-default);
+}
+
+.noise-word::after {
+  content: attr(data-similarity);
+  position: absolute;
+  top: -8px;
+  right: -4px;
+  font-size: var(--text-xs);
+  color: var(--faded);
+  opacity: 0;
+  transition: opacity var(--transition-default);
+  background: var(--card-bg);
+  padding: 2px 4px;
+  border: var(--border-primary);
+}
+
+.noise-word:hover {
+  border-color: var(--gold);
+  color: var(--text-light);
+}
+
+.noise-word:hover::after {
+  opacity: 1;
+}
+
+/* ============================================
+   SCORE CARD
+   ============================================ */
+
+.score-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-md);
+  margin: var(--space-lg) 0;
+}
+
+.score-card {
+  background: var(--card-bg);
+  border: var(--border-primary);
+  padding: var(--space-md);
+  position: relative;
+}
+
+.score-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    linear-gradient(var(--faded-ultra) 1px, transparent 1px),
+    linear-gradient(90deg, var(--faded-ultra) 1px, transparent 1px);
+  background-size: 20px 20px;
+  pointer-events: none;
+  opacity: 0.3;
+}
+
+.score-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-wide);
+  color: var(--faded);
+  margin-bottom: var(--space-xs);
+  position: relative;
+  z-index: 1;
+}
+
+.score-value {
+  font-family: var(--font-serif);
+  font-size: 2.5rem;
+  font-weight: var(--font-light);
+  color: var(--gold);
+  position: relative;
+  z-index: 1;
+}
+
+.score-interpretation {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-light);
+  margin-top: var(--space-xs);
+  position: relative;
+  z-index: 1;
+}
+
+.score-bar {
+  height: 4px;
+  background: var(--faded-ultra);
+  margin-top: var(--space-sm);
+  position: relative;
+  z-index: 1;
+}
+
+.score-bar-fill {
+  height: 100%;
+  background: var(--gold);
+  transition: width 0.5s ease;
+}
+
+/* ============================================
+   ARCHETYPE DISPLAY
+   ============================================ */
+
+.archetype-display {
+  text-align: center;
+  padding: var(--space-xl) 0;
+  border: var(--border-gold);
+  background: var(--gold-dim);
+  margin: var(--space-lg) 0;
+  position: relative;
+}
+
+.archetype-display::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    linear-gradient(var(--gold-dim) 1px, transparent 1px),
+    linear-gradient(90deg, var(--gold-dim) 1px, transparent 1px);
+  background-size: 20px 20px;
+  pointer-events: none;
+}
+
+.archetype-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-wider);
+  color: var(--gold);
+  margin-bottom: var(--space-sm);
+  position: relative;
+  z-index: 1;
+}
+
+.archetype-name {
+  font-family: var(--font-serif);
+  font-size: 2rem;
+  font-weight: var(--font-regular);
+  color: var(--text-light);
+  position: relative;
+  z-index: 1;
+}
+
+/* ============================================
+   SHARE LINK BOX
+   ============================================ */
+
+.share-link-box {
+  display: flex;
+  margin-top: var(--space-md);
+  border: var(--border-primary);
+}
+
+.share-link-input {
+  flex: 1;
+  background: var(--bg-deep);
+  border: none;
+  color: var(--faded);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  padding: var(--space-sm);
+  outline: none;
+}
+
+.share-link-btn {
+  background: var(--gold);
+  border: none;
+  color: var(--bg-deep);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  padding: var(--space-sm) var(--space-md);
+  cursor: pointer;
+  transition: all var(--transition-default);
+}
+
+.share-link-btn:hover {
+  background: var(--text-light);
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+
+@media (max-width: 768px) {
+  .score-grid {
+    grid-template-columns: 1fr;
+  }
+}

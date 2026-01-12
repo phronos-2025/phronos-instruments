@@ -1,29 +1,30 @@
--- Migration 001: Initial Schema
+-- Migration 001: Initial Schema (FALLBACK - uses vector instead of halfvec)
 -- INS-001 Semantic Associations
 -- 
--- IMPORTANT: Run these in order in Supabase SQL Editor
--- halfvec requires pgvector 0.6.0+ (Supabase has this)
+-- Use this if halfvec extension is not available in Supabase
+-- This uses vector(1536) instead of halfvec(1536)
+-- Storage: ~300MB instead of ~150MB (still fits in free tier)
 
 -- ============================================
 -- EXTENSIONS (run first)
 -- ============================================
 CREATE EXTENSION IF NOT EXISTS vector;
-CREATE EXTENSION IF NOT EXISTS pg_cron;
+-- Note: pg_cron may not be available on free tier - that's OK
 
 -- ============================================
 -- VOCABULARY EMBEDDINGS
--- Uses halfvec (16-bit) to fit in Free tier
+-- Uses vector (32-bit) - fallback if halfvec not available
 -- ============================================
 CREATE TABLE vocabulary_embeddings (
     word TEXT PRIMARY KEY,
-    embedding halfvec(1536),  -- NOT vector(1536)
+    embedding vector(1536),  -- Using vector instead of halfvec
     frequency_rank INT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Index MUST use halfvec_cosine_ops, NOT vector_cosine_ops
+-- Index uses vector_cosine_ops (not halfvec_cosine_ops)
 CREATE INDEX idx_vocab_embedding ON vocabulary_embeddings 
-    USING ivfflat (embedding halfvec_cosine_ops) WITH (lists = 100);
+    USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 
 -- ============================================
 -- USERS (extends Supabase Auth)
@@ -62,67 +63,45 @@ CREATE TRIGGER on_auth_user_created
 -- ============================================
 CREATE TABLE games (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    sender_id UUID NOT NULL REFERENCES auth.users(id),
-    recipient_id UUID REFERENCES auth.users(id),
+    sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    recipient_id UUID REFERENCES users(id) ON DELETE SET NULL,
     recipient_type TEXT NOT NULL CHECK (recipient_type IN ('network', 'stranger', 'llm')),
-    
     seed_word TEXT NOT NULL,
     seed_word_sense TEXT,  -- For polysemous words: "flying mammal"
-    seed_in_vocabulary BOOLEAN DEFAULT TRUE,  -- Was seed in vocabulary at creation?
-    noise_floor JSONB NOT NULL,  -- [{word, score}]
+    seed_in_vocabulary BOOLEAN,  -- Analytics: was seed in vocab at creation?
+    noise_floor JSONB NOT NULL,  -- [{word: "dog", similarity: 0.85}, ...]
     clues TEXT[],
     guesses TEXT[],
-    
     divergence_score FLOAT,
     convergence_score FLOAT,
-    
-    status TEXT DEFAULT 'pending_clues' CHECK (status IN ('pending_clues', 'pending_guess', 'completed', 'expired')),
+    status TEXT NOT NULL DEFAULT 'pending_clues' CHECK (status IN ('pending_clues', 'pending_guess', 'completed', 'expired')),
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '7 days')
+    expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '7 days')
 );
 
-CREATE INDEX idx_games_sender ON games(sender_id);
-CREATE INDEX idx_games_recipient ON games(recipient_id);
-CREATE INDEX idx_games_status ON games(status);
--- Partial index for analytics on open seeds (minority case)
-CREATE INDEX idx_games_seed_not_in_vocab ON games(seed_in_vocabulary) WHERE seed_in_vocabulary = FALSE;
-
 -- ============================================
--- SHARE TOKENS (separate from game_id)
+-- SHARE TOKENS
 -- ============================================
 CREATE TABLE share_tokens (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    token TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
     game_id UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
-    token TEXT UNIQUE NOT NULL DEFAULT encode(gen_random_bytes(16), 'hex'),
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '7 days'),
-    is_active BOOLEAN DEFAULT TRUE
-);
-
-CREATE INDEX idx_share_tokens_token ON share_tokens(token) WHERE is_active = TRUE;
-
--- ============================================
--- SOCIAL EDGES
--- ============================================
-CREATE TABLE social_edges (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    from_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    to_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    games_together INT DEFAULT 1,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(from_user_id, to_user_id)
+    is_active BOOLEAN DEFAULT TRUE,
+    expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '7 days'),
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- ============================================
--- USER PROFILES (computed aggregates)
+-- USER PROFILES
 -- ============================================
 CREATE TABLE user_profiles (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     
+    -- Divergence stats
     divergence_mean FLOAT,
     divergence_std FLOAT,
     divergence_n INT DEFAULT 0,
     
+    -- Convergence stats by recipient type
     network_convergence_mean FLOAT,
     network_convergence_n INT DEFAULT 0,
     
@@ -132,88 +111,84 @@ CREATE TABLE user_profiles (
     llm_convergence_mean FLOAT,
     llm_convergence_n INT DEFAULT 0,
     
-    semantic_portability FLOAT,
-    consistency_score FLOAT,
-    archetype TEXT,
+    -- Derived metrics
+    semantic_portability FLOAT,  -- stranger_conv / network_conv
+    consistency_score FLOAT,    -- 1 - (std / mean)
+    archetype TEXT,             -- "Creative Communicator", etc.
     
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- ============================================
--- RLS POLICIES
+-- SOCIAL EDGES (for future network features)
 -- ============================================
+CREATE TABLE social_edges (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    from_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    to_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    edge_type TEXT NOT NULL CHECK (edge_type IN ('friend', 'block')),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(from_user_id, to_user_id, edge_type)
+);
+
+-- ============================================
+-- ROW LEVEL SECURITY (RLS)
+-- ============================================
+
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE games ENABLE ROW LEVEL SECURITY;
 ALTER TABLE share_tokens ENABLE ROW LEVEL SECURITY;
-ALTER TABLE social_edges ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE social_edges ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vocabulary_embeddings ENABLE ROW LEVEL SECURITY;
 
--- Users: self only
-CREATE POLICY users_self ON users
-    FOR ALL USING (auth.uid() = id);
+-- Users: Can read own record, can update own record
+CREATE POLICY "Users can read own data" ON users
+    FOR SELECT USING (auth.uid() = id);
 
--- Games: sender can do everything
-CREATE POLICY games_sender ON games
-    FOR ALL USING (sender_id = auth.uid());
+CREATE POLICY "Users can update own data" ON users
+    FOR UPDATE USING (auth.uid() = id);
 
--- Games: recipient can read
-CREATE POLICY games_recipient ON games
-    FOR SELECT USING (recipient_id = auth.uid());
+-- Games: Can read games where you're sender or recipient
+CREATE POLICY "Users can read own games" ON games
+    FOR SELECT USING (auth.uid() = sender_id OR auth.uid() = recipient_id);
 
--- Share tokens: public read (needed for join flow)
-CREATE POLICY share_tokens_public_read ON share_tokens
-    FOR SELECT USING (true);
+CREATE POLICY "Users can create games" ON games
+    FOR INSERT WITH CHECK (auth.uid() = sender_id);
 
--- Share tokens: only sender can create
-CREATE POLICY share_tokens_sender_insert ON share_tokens
-    FOR INSERT WITH CHECK (
-        EXISTS (SELECT 1 FROM games WHERE id = game_id AND sender_id = auth.uid())
+CREATE POLICY "Users can update own games" ON games
+    FOR UPDATE USING (auth.uid() = sender_id OR auth.uid() = recipient_id);
+
+-- Share tokens: Can read if you're the sender
+CREATE POLICY "Senders can read share tokens" ON share_tokens
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM games 
+            WHERE games.id = share_tokens.game_id 
+            AND games.sender_id = auth.uid()
+        )
     );
 
--- Social edges: participants can read
-CREATE POLICY edges_participant ON social_edges
-    FOR SELECT USING (from_user_id = auth.uid() OR to_user_id = auth.uid());
+-- User profiles: Can read own profile
+CREATE POLICY "Users can read own profile" ON user_profiles
+    FOR SELECT USING (auth.uid() = user_id);
 
--- User profiles: self only
-CREATE POLICY profiles_self ON user_profiles
-    FOR ALL USING (user_id = auth.uid());
+-- Social edges: Can read edges involving you
+CREATE POLICY "Users can read own edges" ON social_edges
+    FOR SELECT USING (auth.uid() = from_user_id OR auth.uid() = to_user_id);
 
--- Vocabulary: public read
-CREATE POLICY vocab_public_read ON vocabulary_embeddings
-    FOR SELECT USING (true);
+-- Vocabulary: Read-only for all authenticated users
+CREATE POLICY "Authenticated users can read vocabulary" ON vocabulary_embeddings
+    FOR SELECT USING (auth.uid() IS NOT NULL);
 
 -- ============================================
--- FUNCTIONS
+-- SQL FUNCTIONS
 -- ============================================
 
--- LEGACY: Get noise floor for vocabulary seed words only
--- Kept for reference but unused - see get_noise_floor_by_embedding below
-CREATE OR REPLACE FUNCTION get_noise_floor(
-    seed_word_input TEXT,
-    k INT DEFAULT 20
-)
-RETURNS TABLE(word TEXT, similarity FLOAT) AS $$
-BEGIN
-    RETURN QUERY
-    WITH seed AS (
-        SELECT embedding FROM vocabulary_embeddings WHERE word = lower(seed_word_input)
-    )
-    SELECT 
-        v.word,
-        (1 - (v.embedding <=> s.embedding))::FLOAT as similarity
-    FROM vocabulary_embeddings v, seed s
-    WHERE v.word != lower(seed_word_input)
-    ORDER BY v.embedding <=> s.embedding
-    LIMIT k;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- ACTIVE: Get noise floor using a provided embedding vector
--- Essential for Open Seed mode - allows ANY word as seed
--- The embedding is computed on-demand by the backend via OpenAI
+-- Get noise floor using a provided embedding vector
+-- UPDATED: Uses vector instead of halfvec
 CREATE OR REPLACE FUNCTION get_noise_floor_by_embedding(
-    seed_embedding halfvec(1536),
+    seed_embedding vector(1536),  -- Changed from halfvec(1536)
     seed_word TEXT,
     k INT DEFAULT 20
 )
@@ -224,17 +199,17 @@ BEGIN
         v.word,
         (1 - (v.embedding <=> seed_embedding))::FLOAT as similarity
     FROM vocabulary_embeddings v
-    WHERE v.word != lower(seed_word)
+    WHERE v.word != seed_word
     ORDER BY v.embedding <=> seed_embedding
     LIMIT k;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Join game via share token (SECURITY DEFINER to bypass RLS)
+-- SECURITY FIX: Does NOT return seed_word (revealed only after guessing)
 CREATE OR REPLACE FUNCTION join_game_via_token(share_token_input TEXT)
 RETURNS TABLE(
     game_id UUID,
-    seed_word TEXT,
     clues TEXT[],
     noise_floor JSONB,
     sender_display_name TEXT
@@ -297,11 +272,10 @@ BEGIN
     -- Deactivate token
     UPDATE share_tokens SET is_active = FALSE WHERE token = share_token_input;
     
-    -- Return game details
+    -- Return game details (seed_word NOT included - security fix)
     RETURN QUERY
     SELECT 
         g.id,
-        g.seed_word,
         g.clues,
         g.noise_floor,
         u.display_name
@@ -311,43 +285,42 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- ============================================
--- CRON JOBS
--- ============================================
-
--- Expire old games (hourly)
-SELECT cron.schedule('expire-games', '0 * * * *', $$
-    UPDATE games SET status = 'expired' 
-    WHERE status IN ('pending_clues', 'pending_guess') 
-    AND expires_at < NOW()
-$$);
-
--- Clean up anonymous users (daily at 3am)
-SELECT cron.schedule('cleanup-anon-users', '0 3 * * *', $$
-    DELETE FROM auth.users 
-    WHERE id IN (
-        SELECT u.id FROM users u
-        WHERE u.is_anonymous = true 
-        AND u.created_at < NOW() - INTERVAL '30 days'
-        AND u.id NOT IN (
-            SELECT DISTINCT sender_id FROM games WHERE sender_id IS NOT NULL
-            UNION
-            SELECT DISTINCT recipient_id FROM games WHERE recipient_id IS NOT NULL
-        )
-    )
-$$);
-
--- ============================================
--- VOCABULARY INDEX RECREATION
--- ============================================
-
 -- Function to recreate vocabulary index after data load
--- This improves IVFFlat clustering when index is created on populated table
+-- UPDATED: Uses vector instead of halfvec
 CREATE OR REPLACE FUNCTION recreate_vocabulary_index()
 RETURNS void AS $$
 BEGIN
     DROP INDEX IF EXISTS idx_vocab_embedding;
     CREATE INDEX idx_vocab_embedding ON vocabulary_embeddings 
-        USING ivfflat (embedding halfvec_cosine_ops) WITH (lists = 100);
+        USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================
+-- CRON JOBS (Optional - may not work on free tier)
+-- ============================================
+
+-- Expire old games (hourly)
+-- Note: This may fail if pg_cron is not available - that's OK
+-- Commented out by default - uncomment if pg_cron is enabled
+-- SELECT cron.schedule('expire-games', '0 * * * *', $$
+--     UPDATE games SET status = 'expired' 
+--     WHERE status IN ('pending_clues', 'pending_guess') 
+--     AND expires_at < NOW()
+-- $$);
+
+-- Clean up anonymous users (daily at 3am)
+-- Commented out by default - uncomment if pg_cron is enabled
+-- SELECT cron.schedule('cleanup-anon-users', '0 3 * * *', $$
+--     DELETE FROM auth.users 
+--     WHERE id IN (
+--         SELECT u.id FROM users u
+--         WHERE u.is_anonymous = true 
+--         AND u.created_at < NOW() - INTERVAL '30 days'
+--         AND u.id NOT IN (
+--             SELECT DISTINCT sender_id FROM games WHERE sender_id IS NOT NULL
+--             UNION
+--             SELECT DISTINCT recipient_id FROM games WHERE recipient_id IS NOT NULL
+--         )
+--     )
+-- $$);
