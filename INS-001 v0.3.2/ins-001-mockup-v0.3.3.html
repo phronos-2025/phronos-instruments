@@ -1,0 +1,1391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>INS-001 · Semantic Associations | Phronos</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Fira+Code:wght@400;500;600&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+    
+    <style>
+        /* ============================================
+           PHRONOS DESIGN SYSTEM — DARK MODE (INSTRUMENTS)
+           ============================================ */
+        
+        :root {
+            /* Dark mode palette */
+            --bg-deep: #1A1A1A;
+            --text-light: #F2F0E9;
+            --gold: #B08D55;
+            --gold-dim: rgba(176, 141, 85, 0.15);
+            --gold-glow: rgba(176, 141, 85, 0.3);
+            --faded: rgba(242, 240, 233, 0.5);
+            --faded-light: rgba(242, 240, 233, 0.15);
+            --faded-ultra: rgba(242, 240, 233, 0.08);
+            --card-bg: #252525;
+            --active: #44AA77;
+            --alert: #CC5544;
+            --warning: #DDAA33;
+            
+            /* Typography */
+            --font-serif: 'Cormorant Garamond', Georgia, serif;
+            --font-body: 'Lora', Georgia, serif;
+            --font-mono: 'Fira Code', Consolas, Monaco, monospace;
+            
+            /* Spacing */
+            --space-xs: 0.5rem;
+            --space-sm: 1rem;
+            --space-md: 1.5rem;
+            --space-lg: 2.5rem;
+            --space-xl: 4rem;
+            
+            /* Grid */
+            --grid-color: rgba(242, 240, 233, 0.015);
+            --grid-size: 40px;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html {
+            font-size: 16px;
+            scroll-behavior: smooth;
+        }
+        
+        body {
+            background: var(--bg-deep);
+            color: var(--text-light);
+            font-family: var(--font-body);
+            line-height: 1.6;
+            min-height: 100vh;
+            position: relative;
+        }
+        
+        /* Grid background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                linear-gradient(var(--grid-color) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+            background-size: var(--grid-size) var(--grid-size);
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        /* ============================================
+           NAVIGATION
+           ============================================ */
+        
+        .nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            background: var(--bg-deep);
+            border-bottom: 1px solid var(--faded-light);
+            padding: var(--space-sm) var(--space-lg);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .nav-brand {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--faded);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+        }
+        
+        .nav-brand:hover {
+            color: var(--gold);
+        }
+        
+        .nav-brand .logo-mark {
+            width: 24px;
+            height: 24px;
+            border: 1px solid var(--gold);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.6rem;
+            color: var(--gold);
+        }
+        
+        .nav-instrument {
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            color: var(--faded);
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+        }
+        
+        .nav-instrument .status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--active);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+        
+        /* ============================================
+           MAIN CONTAINER
+           ============================================ */
+        
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: calc(80px + var(--space-xl)) var(--space-lg) var(--space-xl);
+            min-height: 100vh;
+        }
+        
+        /* ============================================
+           SCREEN STATES (toggle via JS)
+           ============================================ */
+        
+        .screen {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .screen.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* ============================================
+           TYPOGRAPHY
+           ============================================ */
+        
+        .title {
+            font-family: var(--font-serif);
+            font-weight: 300;
+            font-size: 2.75rem;
+            letter-spacing: -0.02em;
+            margin-bottom: var(--space-sm);
+            color: var(--text-light);
+        }
+        
+        .subtitle {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--faded);
+            margin-bottom: var(--space-lg);
+        }
+        
+        .subtitle .id {
+            color: var(--gold);
+        }
+        
+        .description {
+            font-family: var(--font-body);
+            font-size: 1rem;
+            color: var(--faded);
+            max-width: 600px;
+            margin-bottom: var(--space-lg);
+        }
+        
+        .mono-label {
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--faded);
+            margin-bottom: var(--space-xs);
+        }
+        
+        /* ============================================
+           CARDS & PANELS
+           ============================================ */
+        
+        .panel {
+            background: var(--card-bg);
+            border: 1px solid var(--faded-light);
+            padding: var(--space-md);
+            margin-bottom: var(--space-md);
+            position: relative;
+        }
+        
+        .panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                linear-gradient(var(--faded-ultra) 1px, transparent 1px),
+                linear-gradient(90deg, var(--faded-ultra) 1px, transparent 1px);
+            background-size: 20px 20px;
+            pointer-events: none;
+            opacity: 0.5;
+        }
+        
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--faded-light);
+            padding-bottom: var(--space-sm);
+            margin-bottom: var(--space-md);
+            position: relative;
+            z-index: 1;
+        }
+        
+        .panel-title {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-light);
+        }
+        
+        .panel-meta {
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            color: var(--faded);
+        }
+        
+        .panel-content {
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* ============================================
+           INPUTS
+           ============================================ */
+        
+        .input-group {
+            margin-bottom: var(--space-md);
+        }
+        
+        .input-label {
+            display: block;
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--faded);
+            margin-bottom: var(--space-xs);
+        }
+        
+        .text-input {
+            width: 100%;
+            background: var(--bg-deep);
+            border: 1px solid var(--faded-light);
+            color: var(--text-light);
+            font-family: var(--font-serif);
+            font-size: 1.5rem;
+            padding: var(--space-sm) var(--space-md);
+            outline: none;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .text-input:focus {
+            border-color: var(--gold);
+            box-shadow: 4px 4px 0px var(--gold-dim);
+        }
+        
+        .text-input::placeholder {
+            color: var(--faded);
+            font-style: italic;
+        }
+        
+        .text-input.mono {
+            font-family: var(--font-mono);
+            font-size: 1rem;
+        }
+        
+        .input-hint {
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            color: var(--faded);
+            margin-top: var(--space-xs);
+        }
+        
+        /* Clue inputs */
+        .clue-inputs {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-sm);
+        }
+        
+        .clue-row {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+        }
+        
+        .clue-number {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: var(--faded);
+            width: 20px;
+            text-align: right;
+        }
+        
+        .clue-input {
+            flex: 1;
+            background: var(--bg-deep);
+            border: 1px solid var(--faded-light);
+            color: var(--text-light);
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            padding: var(--space-xs) var(--space-sm);
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+        
+        .clue-input:focus {
+            border-color: var(--gold);
+        }
+        
+        .clue-input.valid {
+            border-color: var(--active);
+        }
+        
+        .clue-input.invalid {
+            border-color: var(--alert);
+        }
+        
+        .clue-status {
+            font-family: var(--font-mono);
+            font-size: 0.6rem;
+            width: 60px;
+            text-align: right;
+        }
+        
+        .clue-status.valid {
+            color: var(--active);
+        }
+        
+        .clue-status.invalid {
+            color: var(--alert);
+        }
+        
+        /* ============================================
+           BUTTONS
+           ============================================ */
+        
+        .btn {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: var(--space-sm) var(--space-md);
+            border: 1px solid;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn-primary {
+            background: var(--gold);
+            border-color: var(--gold);
+            color: var(--bg-deep);
+        }
+        
+        .btn-primary:hover {
+            box-shadow: 4px 4px 0px var(--gold-glow);
+            transform: translate(-2px, -2px);
+        }
+        
+        .btn-secondary {
+            background: transparent;
+            border-color: var(--faded-light);
+            color: var(--text-light);
+        }
+        
+        .btn-secondary:hover {
+            border-color: var(--gold);
+            color: var(--gold);
+        }
+        
+        .btn-ghost {
+            background: transparent;
+            border-color: transparent;
+            color: var(--faded);
+        }
+        
+        .btn-ghost:hover {
+            color: var(--gold);
+        }
+        
+        .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            pointer-events: none;
+            box-shadow: none !important;
+            transform: none !important;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: var(--space-sm);
+            margin-top: var(--space-lg);
+        }
+        
+        /* ============================================
+           NOISE FLOOR VISUALIZATION
+           ============================================ */
+        
+        .noise-floor {
+            margin: var(--space-lg) 0;
+        }
+        
+        .noise-words {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-xs);
+            margin-top: var(--space-sm);
+        }
+        
+        .noise-word {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            padding: 4px 10px;
+            border: 1px solid var(--faded-light);
+            color: var(--faded);
+            position: relative;
+            transition: all 0.2s ease;
+        }
+        
+        .noise-word::after {
+            content: attr(data-similarity);
+            position: absolute;
+            top: -8px;
+            right: -4px;
+            font-size: 0.55rem;
+            color: var(--faded);
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        
+        .noise-word:hover {
+            border-color: var(--gold);
+            color: var(--text-light);
+        }
+        
+        .noise-word:hover::after {
+            opacity: 1;
+        }
+        
+        /* Similarity bar visualization */
+        .noise-bar {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            padding: var(--space-xs) 0;
+            border-bottom: 1px solid var(--faded-ultra);
+        }
+        
+        .noise-bar:last-child {
+            border-bottom: none;
+        }
+        
+        .noise-bar-word {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-light);
+            width: 100px;
+        }
+        
+        .noise-bar-track {
+            flex: 1;
+            height: 4px;
+            background: var(--faded-ultra);
+            position: relative;
+        }
+        
+        .noise-bar-fill {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            background: var(--gold);
+            opacity: 0.6;
+        }
+        
+        .noise-bar-value {
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            color: var(--faded);
+            width: 40px;
+            text-align: right;
+        }
+        
+        /* ============================================
+           RESULTS / SCORES
+           ============================================ */
+        
+        .score-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: var(--space-md);
+            margin: var(--space-lg) 0;
+        }
+        
+        .score-card {
+            background: var(--card-bg);
+            border: 1px solid var(--faded-light);
+            padding: var(--space-md);
+            position: relative;
+        }
+        
+        .score-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                linear-gradient(var(--faded-ultra) 1px, transparent 1px),
+                linear-gradient(90deg, var(--faded-ultra) 1px, transparent 1px);
+            background-size: 20px 20px;
+            pointer-events: none;
+            opacity: 0.3;
+        }
+        
+        .score-label {
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--faded);
+            margin-bottom: var(--space-xs);
+            position: relative;
+            z-index: 1;
+        }
+        
+        .score-value {
+            font-family: var(--font-serif);
+            font-size: 2.5rem;
+            font-weight: 300;
+            color: var(--gold);
+            position: relative;
+            z-index: 1;
+        }
+        
+        .score-interpretation {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: var(--text-light);
+            margin-top: var(--space-xs);
+            position: relative;
+            z-index: 1;
+        }
+        
+        .score-bar {
+            height: 4px;
+            background: var(--faded-ultra);
+            margin-top: var(--space-sm);
+            position: relative;
+            z-index: 1;
+        }
+        
+        .score-bar-fill {
+            height: 100%;
+            background: var(--gold);
+            transition: width 0.5s ease;
+        }
+        
+        /* ============================================
+           ARCHETYPE DISPLAY
+           ============================================ */
+        
+        .archetype-display {
+            text-align: center;
+            padding: var(--space-xl) 0;
+            border: 1px solid var(--gold);
+            background: var(--gold-dim);
+            margin: var(--space-lg) 0;
+            position: relative;
+        }
+        
+        .archetype-display::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                linear-gradient(var(--gold-dim) 1px, transparent 1px),
+                linear-gradient(90deg, var(--gold-dim) 1px, transparent 1px);
+            background-size: 20px 20px;
+            pointer-events: none;
+        }
+        
+        .archetype-label {
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--gold);
+            margin-bottom: var(--space-sm);
+            position: relative;
+            z-index: 1;
+        }
+        
+        .archetype-name {
+            font-family: var(--font-serif);
+            font-size: 2rem;
+            font-weight: 400;
+            color: var(--text-light);
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* ============================================
+           SHARE SECTION
+           ============================================ */
+        
+        .share-section {
+            margin-top: var(--space-xl);
+            padding-top: var(--space-lg);
+            border-top: 1px solid var(--faded-light);
+        }
+        
+        .share-options {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: var(--space-md);
+            margin-top: var(--space-md);
+        }
+        
+        .share-option {
+            background: var(--card-bg);
+            border: 1px solid var(--faded-light);
+            padding: var(--space-md);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .share-option:hover {
+            border-color: var(--gold);
+            box-shadow: 4px 4px 0px var(--gold-dim);
+        }
+        
+        .share-option-icon {
+            font-size: 1.5rem;
+            margin-bottom: var(--space-sm);
+        }
+        
+        .share-option-title {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-light);
+            margin-bottom: var(--space-xs);
+        }
+        
+        .share-option-desc {
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            color: var(--faded);
+        }
+        
+        /* Copy link */
+        .share-link-box {
+            display: flex;
+            margin-top: var(--space-md);
+            border: 1px solid var(--faded-light);
+        }
+        
+        .share-link-input {
+            flex: 1;
+            background: var(--bg-deep);
+            border: none;
+            color: var(--faded);
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            padding: var(--space-sm);
+            outline: none;
+        }
+        
+        .share-link-btn {
+            background: var(--gold);
+            border: none;
+            color: var(--bg-deep);
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: var(--space-sm) var(--space-md);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .share-link-btn:hover {
+            background: var(--text-light);
+        }
+        
+        /* ============================================
+           FOOTER
+           ============================================ */
+        
+        .footer {
+            margin-top: var(--space-xl);
+            padding-top: var(--space-lg);
+            border-top: 1px solid var(--faded-light);
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            color: var(--faded);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .footer a {
+            color: var(--faded);
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+        
+        .footer a:hover {
+            color: var(--gold);
+        }
+        
+        /* ============================================
+           PROGRESS INDICATOR
+           ============================================ */
+        
+        .progress {
+            display: flex;
+            gap: var(--space-xs);
+            margin-bottom: var(--space-lg);
+        }
+        
+        .progress-step {
+            flex: 1;
+            height: 2px;
+            background: var(--faded-light);
+            position: relative;
+        }
+        
+        .progress-step.active {
+            background: var(--gold);
+        }
+        
+        .progress-step.completed {
+            background: var(--gold);
+        }
+        
+        /* ============================================
+           DEMO NAVIGATION (for mockup only)
+           ============================================ */
+        
+        .demo-nav {
+            position: fixed;
+            bottom: var(--space-lg);
+            right: var(--space-lg);
+            background: var(--card-bg);
+            border: 1px solid var(--faded-light);
+            padding: var(--space-sm);
+            z-index: 200;
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+        }
+        
+        .demo-nav-title {
+            color: var(--faded);
+            margin-bottom: var(--space-xs);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .demo-nav-btn {
+            display: block;
+            padding: 4px 8px;
+            margin: 2px 0;
+            background: transparent;
+            border: none;
+            color: var(--text-light);
+            cursor: pointer;
+            text-align: left;
+            width: 100%;
+            transition: all 0.1s ease;
+        }
+        
+        .demo-nav-btn:hover {
+            color: var(--gold);
+            padding-left: 12px;
+        }
+        
+        .demo-nav-btn.active {
+            color: var(--gold);
+        }
+        
+        /* ============================================
+           RESPONSIVE
+           ============================================ */
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: calc(80px + var(--space-md)) var(--space-sm) var(--space-md);
+            }
+            
+            .title {
+                font-size: 2rem;
+            }
+            
+            .score-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .share-options {
+                grid-template-columns: 1fr;
+            }
+            
+            .demo-nav {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <a href="/" class="nav-brand">
+            <span class="logo-mark">φ</span>
+            <span>Phronos</span>
+        </a>
+        <div class="nav-instrument">
+            <span class="status">
+                <span class="status-dot"></span>
+                INS-001 ACTIVE
+            </span>
+        </div>
+    </nav>
+    
+    <main class="container">
+        
+        <section id="screen-intro" class="screen active">
+            <div class="progress">
+                <div class="progress-step active"></div>
+                <div class="progress-step"></div>
+                <div class="progress-step"></div>
+                <div class="progress-step"></div>
+            </div>
+            
+            <p class="subtitle"><span class="id">INS-001</span> · Semantic Associations</p>
+            <h1 class="title">Measure how you think.</h1>
+            
+            <p class="description">
+                This instrument measures two dimensions of cognition: how creatively you associate concepts, 
+                and how effectively you communicate those associations to others.
+            </p>
+            
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">How It Works</span>
+                    <span class="panel-meta">~5 minutes</span>
+                </div>
+                <div class="panel-content">
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-md); font-family: var(--font-mono); font-size: 0.75rem;">
+                        <div>
+                            <div style="color: var(--gold); font-size: 1.5rem; margin-bottom: var(--space-xs);">01</div>
+                            <div style="color: var(--text-light); margin-bottom: 4px;">Choose a word</div>
+                            <div style="color: var(--faded); font-size: 0.65rem;">Any word. Your target.</div>
+                        </div>
+                        <div>
+                            <div style="color: var(--gold); font-size: 1.5rem; margin-bottom: var(--space-xs);">02</div>
+                            <div style="color: var(--text-light); margin-bottom: 4px;">Give 5 clues</div>
+                            <div style="color: var(--faded); font-size: 0.65rem;">One-word associations.</div>
+                        </div>
+                        <div>
+                            <div style="color: var(--gold); font-size: 1.5rem; margin-bottom: var(--space-xs);">03</div>
+                            <div style="color: var(--text-light); margin-bottom: 4px;">See what emerges</div>
+                            <div style="color: var(--faded); font-size: 0.65rem;">Divergence. Convergence.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="panel" style="background: transparent; border-color: var(--gold-dim);">
+                <div class="panel-content" style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--faded);">
+                    <strong style="color: var(--text-light);">What this measures:</strong><br><br>
+                    <strong>Divergence</strong> — How far your associations venture from the predictable. High divergence indicates creative, unexpected semantic paths.<br><br>
+                    <strong>Convergence</strong> — How accurately others can decode your associations. High convergence indicates effective communication of meaning.
+                </div>
+            </div>
+            
+            <div style="margin-bottom: var(--space-md); text-align: left; max-width: 500px;">
+                <label style="display: flex; gap: var(--space-sm); align-items: flex-start; cursor: pointer;">
+                    <input type="checkbox" id="consent-check" style="margin-top: 4px; accent-color: var(--gold); width: 16px; height: 16px;">
+                    <span style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--faded); line-height: 1.4;">
+                        I consent to the anonymous processing of my semantic associations for the Phronos Index. 
+                        <a href="#" style="color: var(--gold); text-decoration: none; border-bottom: 1px dotted;">Read Data Constitution</a>.
+                    </span>
+                </label>
+            </div>
+
+            <div class="btn-group" style="margin-top: 0;">
+                <button class="btn btn-primary" id="btn-begin" disabled onclick="showScreen('screen-seed')">Begin Assessment</button>
+            </div>
+            
+            <p style="font-family: var(--font-mono); font-size: 0.65rem; color: var(--faded); margin-top: var(--space-lg);">
+                There are no correct answers—only your responses.
+            </p>
+        </section>
+        
+        
+        <section id="screen-seed" class="screen">
+            <div class="progress">
+                <div class="progress-step completed"></div>
+                <div class="progress-step active"></div>
+                <div class="progress-step"></div>
+                <div class="progress-step"></div>
+            </div>
+            
+            <p class="subtitle"><span class="id">INS-001</span> · Step 1 of 3</p>
+            <h1 class="title">Choose your word.</h1>
+            
+            <p class="description">
+                Pick any word as your target. This is the concept you will communicate through associations.
+            </p>
+            
+            <div class="input-group">
+                <label class="input-label">Target Word</label>
+                <input type="text" class="text-input" id="seed-input" placeholder="coffee" autocomplete="off" spellcheck="false">
+                <p class="input-hint">
+                    Any word works: common words, technical terms, proper nouns, slang.
+                </p>
+            </div>
+            
+            <div class="btn-group">
+                <button class="btn btn-ghost" onclick="showScreen('screen-intro')">← Back</button>
+                <button class="btn btn-primary" onclick="showScreen('screen-clues')">Continue →</button>
+            </div>
+        </section>
+        
+        
+        <section id="screen-clues" class="screen">
+            <div class="progress">
+                <div class="progress-step completed"></div>
+                <div class="progress-step completed"></div>
+                <div class="progress-step active"></div>
+                <div class="progress-step"></div>
+            </div>
+            
+            <p class="subtitle"><span class="id">INS-001</span> · Step 2 of 3</p>
+            <h1 class="title">Provide your clues.</h1>
+            
+            <p class="description">
+                Enter five single-word clues that will help someone guess your target word: <strong style="color: var(--gold);">coffee</strong>
+            </p>
+            
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">Semantic Neighborhood</span>
+                    <span class="panel-meta">Top 10 predictable associations</span>
+                </div>
+                <div class="panel-content">
+                    <div class="noise-words">
+                        <span class="noise-word" data-similarity=".87">tea</span>
+                        <span class="noise-word" data-similarity=".84">espresso</span>
+                        <span class="noise-word" data-similarity=".81">caffeine</span>
+                        <span class="noise-word" data-similarity=".79">brew</span>
+                        <span class="noise-word" data-similarity=".77">morning</span>
+                        <span class="noise-word" data-similarity=".75">cup</span>
+                        <span class="noise-word" data-similarity=".73">bean</span>
+                        <span class="noise-word" data-similarity=".71">latte</span>
+                        <span class="noise-word" data-similarity=".69">roast</span>
+                        <span class="noise-word" data-similarity=".67">café</span>
+                    </div>
+                    <p style="font-family: var(--font-mono); font-size: 0.6rem; color: var(--faded); margin-top: var(--space-sm);">
+                        These are the most predictable associations. Your divergence score measures how far your clues venture from this neighborhood.
+                    </p>
+                </div>
+            </div>
+            
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">Your Clues</span>
+                    <span class="panel-meta">5 required</span>
+                </div>
+                <div class="panel-content">
+                    <div class="clue-inputs">
+                        <div class="clue-row">
+                            <span class="clue-number">1</span>
+                            <input type="text" class="clue-input valid" value="ritual" autocomplete="off" spellcheck="false">
+                            <span class="clue-status valid">✓ valid</span>
+                        </div>
+                        <div class="clue-row">
+                            <span class="clue-number">2</span>
+                            <input type="text" class="clue-input valid" value="obsidian" autocomplete="off" spellcheck="false">
+                            <span class="clue-status valid">✓ valid</span>
+                        </div>
+                        <div class="clue-row">
+                            <span class="clue-number">3</span>
+                            <input type="text" class="clue-input valid" value="awakening" autocomplete="off" spellcheck="false">
+                            <span class="clue-status valid">✓ valid</span>
+                        </div>
+                        <div class="clue-row">
+                            <span class="clue-number">4</span>
+                            <input type="text" class="clue-input valid" value="bitter" autocomplete="off" spellcheck="false">
+                            <span class="clue-status valid">✓ valid</span>
+                        </div>
+                        <div class="clue-row">
+                            <span class="clue-number">5</span>
+                            <input type="text" class="clue-input" placeholder="Enter clue..." autocomplete="off" spellcheck="false">
+                            <span class="clue-status"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="btn-group">
+                <button class="btn btn-ghost" onclick="showScreen('screen-seed')">← Back</button>
+                <button class="btn btn-primary" onclick="showScreen('screen-share')">Submit Clues →</button>
+            </div>
+        </section>
+        
+        
+        <section id="screen-share" class="screen">
+            <div class="progress">
+                <div class="progress-step completed"></div>
+                <div class="progress-step completed"></div>
+                <div class="progress-step completed"></div>
+                <div class="progress-step active"></div>
+            </div>
+            
+            <p class="subtitle"><span class="id">INS-001</span> · Step 3 of 3</p>
+            <h1 class="title">Who will guess?</h1>
+            
+            <p class="description">
+                Your divergence score is ready. Now choose who will attempt to decode your associations.
+            </p>
+            
+            <div class="panel" style="border-color: var(--gold);">
+                <div class="panel-header">
+                    <span class="panel-title">Your Divergence Score</span>
+                    <span class="panel-meta">Calculated</span>
+                </div>
+                <div class="panel-content" style="display: flex; align-items: center; gap: var(--space-lg);">
+                    <div style="font-family: var(--font-serif); font-size: 3rem; font-weight: 300; color: var(--gold);">0.67</div>
+                    <div>
+                        <div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-light);">High Divergence</div>
+                        <div style="font-family: var(--font-mono); font-size: 0.65rem; color: var(--faded);">Your clues venture significantly from predictable associations.</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="share-options">
+                <div class="share-option" onclick="showScreen('screen-results')">
+                    <div class="share-option-icon">🤖</div>
+                    <div class="share-option-title">Claude (AI)</div>
+                    <div class="share-option-desc">
+                        Instant results. Measure how well an LLM decodes your associations.
+                    </div>
+                </div>
+                <div class="share-option" onclick="showShareLink()">
+                    <div class="share-option-icon">🔗</div>
+                    <div class="share-option-title">Send to a Friend</div>
+                    <div class="share-option-desc">
+                        Generate a link. Measure network convergence with someone you know.
+                    </div>
+                </div>
+            </div>
+            
+            <div id="share-link-section" style="display: none; margin-top: var(--space-lg); border-top: 1px solid var(--faded-light); padding-top: var(--space-md);">
+                
+                <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: var(--space-xs);">
+                    <p class="mono-label" style="margin:0;">Share Link</p>
+                    <span style="font-family: var(--font-mono); font-size: 0.6rem; color: var(--active);">● Link Active (expires 7d)</span>
+                </div>
+                
+                <div class="share-link-box">
+                    <input type="text" class="share-link-input" value="https://phronos.org/join/a7f3c2e9" readonly>
+                    <button class="share-link-btn" onclick="copyLink(this)">Copy</button>
+                </div>
+
+                <div style="margin-top: var(--space-md); background: var(--faded-ultra); padding: var(--space-sm); border: 1px solid var(--faded-light);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); flex-wrap: wrap;">
+                        <div style="font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-light); flex: 1; min-width: 180px;">
+                            <strong style="color: var(--gold);">Don't miss the results.</strong><br>
+                            <span style="color: var(--faded);">Create an account to be notified when your friend guesses.</span>
+                        </div>
+                        <button class="btn btn-secondary" style="font-size: 0.65rem; padding: 6px 12px; white-space: nowrap;" onclick="triggerAccountCreation()">
+                            Notify Me
+                        </button>
+                    </div>
+                </div>
+
+                <div style="margin-top: var(--space-md); text-align: right;">
+                     <button class="btn btn-ghost" onclick="goToFriendResults()">View Session Dashboard →</button>
+                </div>
+            </div>
+            
+            <div class="btn-group">
+                <button class="btn btn-ghost" onclick="showScreen('screen-clues')">← Back</button>
+            </div>
+        </section>
+        
+        
+        <section id="screen-results" class="screen">
+            <p class="subtitle"><span class="id">INS-001</span> · Complete</p>
+            <h1 class="title">Results.</h1>
+            
+            <p class="description">
+                Your semantic association profile for this session.
+            </p>
+            
+            <div class="score-grid">
+                <div class="score-card">
+                    <div class="score-label">Divergence</div>
+                    <div class="score-value">0.67</div>
+                    <div class="score-interpretation">High</div>
+                    <div class="score-bar">
+                        <div class="score-bar-fill" style="width: 67%;"></div>
+                    </div>
+                </div>
+                <div class="score-card">
+                    <div class="score-label">Convergence</div>
+                    <div class="score-value">0.82</div>
+                    <div class="score-interpretation">Strong</div>
+                    <div class="score-bar">
+                        <div class="score-bar-fill" style="width: 82%;"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="panel" id="results-guess-panel">
+                <div class="panel-header">
+                    <span class="panel-title">Claude's Guesses</span>
+                    <span class="panel-meta">3 attempts</span>
+                </div>
+                <div class="panel-content">
+                    <div style="font-family: var(--font-mono); font-size: 0.85rem;">
+                        <div style="display: flex; justify-content: space-between; padding: var(--space-xs) 0; border-bottom: 1px solid var(--faded-ultra);">
+                            <span style="color: var(--active);">coffee</span>
+                            <span style="color: var(--active);">✓ Exact match</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: var(--space-xs) 0; border-bottom: 1px solid var(--faded-ultra);">
+                            <span style="color: var(--faded);">tea</span>
+                            <span style="color: var(--faded);">0.71</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: var(--space-xs) 0;">
+                            <span style="color: var(--faded);">espresso</span>
+                            <span style="color: var(--faded);">0.84</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="archetype-display">
+                <div class="archetype-label">Preliminary Classification</div>
+                <div class="archetype-name">Creative Communicator</div>
+            </div>
+            
+            <div class="panel" style="background: transparent; border-color: var(--faded-light);">
+                <div class="panel-header">
+                    <span class="panel-title">Interpretation</span>
+                </div>
+                <div class="panel-content" style="font-family: var(--font-body); font-size: 0.9rem; color: var(--faded); line-height: 1.7;">
+                    Your associations show high divergence (0.67) from the predictable semantic neighborhood, 
+                    indicating creative, unexpected pathways. Despite this divergence, communication was successful.
+                </div>
+            </div>
+            
+            <div class="panel" style="border-color: var(--gold); background: linear-gradient(to bottom, var(--card-bg), rgba(176, 141, 85, 0.05));">
+                <div class="panel-header" style="border-bottom-color: var(--gold-dim);">
+                    <span class="panel-title" style="color: var(--gold);">Unregistered Record</span>
+                    <span class="panel-meta">Session ID: #A7F3</span>
+                </div>
+                <div class="panel-content">
+                    <div style="display: flex; gap: var(--space-md); align-items: center; justify-content: space-between; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 200px;">
+                            <p style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-light); margin-bottom: var(--space-xs);">
+                                Save this Divergence Score (0.67) to your permanent cognitive profile.
+                            </p>
+                            <div class="score-bar" style="height: 4px; margin: var(--space-sm) 0; opacity: 0.5;">
+                                <div class="score-bar-fill" style="width: 20%;"></div>
+                            </div>
+                            <p style="font-family: var(--font-mono); font-size: 0.65rem; color: var(--faded);">
+                                Progress: 3/15 instruments complete
+                            </p>
+                        </div>
+                        
+                        <button class="btn btn-primary" style="font-size: 0.65rem; padding: 10px 20px;" onclick="triggerAccountCreation()">
+                            Initialize ID
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="btn-group">
+                <button class="btn btn-secondary" onclick="showScreen('screen-seed')">Play Again</button>
+            </div>
+            
+            <footer class="footer">
+                <div>
+                    <a href="/methods">Methodology</a> · 
+                    <a href="/about">About Phronos</a> · 
+                    <a href="/constitution">Constitution</a>
+                </div>
+                <div>
+                    © 2026 Phronos Observatory
+                </div>
+            </footer>
+        </section>
+        
+    </main>
+    
+    <div class="demo-nav">
+        <div class="demo-nav-title">Mockup Screens</div>
+        <button class="demo-nav-btn active" onclick="showScreen('screen-intro')">1. Intro</button>
+        <button class="demo-nav-btn" onclick="showScreen('screen-seed')">2. Seed Word</button>
+        <button class="demo-nav-btn" onclick="showScreen('screen-clues')">3. Clues</button>
+        <button class="demo-nav-btn" onclick="showScreen('screen-share')">4. Share</button>
+        <button class="demo-nav-btn" onclick="showScreen('screen-results')">5. Results</button>
+    </div>
+    
+    <script>
+        // Screen navigation
+        function showScreen(screenId) {
+            // Hide all screens
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            // Show target screen
+            document.getElementById(screenId).classList.add('active');
+            // Update demo nav
+            document.querySelectorAll('.demo-nav-btn').forEach(b => b.classList.remove('active'));
+            const idx = ['screen-intro', 'screen-seed', 'screen-clues', 'screen-share', 'screen-results'].indexOf(screenId);
+            document.querySelectorAll('.demo-nav-btn')[idx]?.classList.add('active');
+            // Scroll to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        
+        // Show share link
+        function showShareLink() {
+            document.getElementById('share-link-section').style.display = 'block';
+        }
+        
+        // COPY LINK AND FEEDBACK
+        function copyLink(btn) {
+            const originalText = btn.textContent;
+            btn.textContent = "Copied!";
+            btn.style.background = "var(--active)";
+            
+            // In a real app: navigator.clipboard.writeText(...)
+            
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.style.background = "var(--gold)";
+            }, 2000);
+        }
+
+        // FRIEND FLOW LOGIC (Go to results but show Pending)
+        function goToFriendResults() {
+            // 1. Go to results screen
+            showScreen('screen-results');
+            
+            // 2. CHANGE the "Claude's Guesses" panel to "Friend's Guesses (Pending)"
+            const guessPanel = document.getElementById('results-guess-panel');
+            if(guessPanel) {
+                guessPanel.innerHTML = `
+                    <div class="panel-header">
+                        <span class="panel-title">Friend's Guesses</span>
+                        <span class="panel-meta">Status: Pending</span>
+                    </div>
+                    <div class="panel-content" style="text-align:center; padding: var(--space-lg) 0;">
+                        <div style="font-size: 1.5rem; margin-bottom: var(--space-sm);">⏳</div>
+                        <div style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--faded);">
+                            Waiting for response...<br>
+                            <span style="color: var(--gold);">Link shared</span>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        // CONSENT TOGGLE LOGIC
+        const consentCheck = document.getElementById('consent-check');
+        const beginBtn = document.getElementById('btn-begin');
+        
+        if(consentCheck && beginBtn) {
+            consentCheck.addEventListener('change', function(e) {
+                if(e.target.checked) {
+                    beginBtn.removeAttribute('disabled');
+                    beginBtn.style.opacity = '1';
+                } else {
+                    beginBtn.setAttribute('disabled', 'true');
+                    beginBtn.style.opacity = '0.4';
+                }
+            });
+        }
+        
+        // ACCOUNT CREATION MOCKUP
+        function triggerAccountCreation() {
+            alert("Flow: Open 'Initialize Identity' Modal asking for Email/Password.");
+        }
+        
+        // Simple clue validation simulation
+        document.querySelectorAll('.clue-input').forEach(input => {
+            input.addEventListener('input', function() {
+                const value = this.value.trim();
+                const status = this.parentElement.querySelector('.clue-status');
+                
+                if (value.length > 0) {
+                    // Simulate validation (in real app, would check against vocabulary)
+                    const isValid = value.length > 1 && /^[a-zA-Z]+$/.test(value);
+                    
+                    this.classList.remove('valid', 'invalid');
+                    status.classList.remove('valid', 'invalid');
+                    
+                    if (isValid) {
+                        this.classList.add('valid');
+                        status.classList.add('valid');
+                        status.textContent = '✓ valid';
+                    } else {
+                        this.classList.add('invalid');
+                        status.classList.add('invalid');
+                        status.textContent = '✗ invalid';
+                    }
+                } else {
+                    this.classList.remove('valid', 'invalid');
+                    status.classList.remove('valid', 'invalid');
+                    status.textContent = '';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

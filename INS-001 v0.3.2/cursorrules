@@ -1,0 +1,282 @@
+# INS-001 Semantic Associations - Cursor Rules
+# These rules MUST be followed by all AI agents working on this codebase.
+
+## CRITICAL: READ BEFORE ANY CHANGE
+
+Before writing ANY code, you MUST:
+1. Read the relevant documentation files listed below
+2. Understand the existing implementation
+3. ASK THE USER for clarification if anything is ambiguous
+4. Explain your proposed changes and get approval BEFORE implementing
+
+## Required Reading (in order of priority)
+
+1. `CONVENTIONS.md` - Critical implementation rules (MUST READ FIRST)
+2. `INS-001-ARCHITECTURE-v3.md` - Technical architecture and decisions
+3. `INS-001-ROADMAP-v3.md` - Implementation status and remaining work
+4. `INS-001-DECISION-HISTORY.md` - Why decisions were made (consult before suggesting changes)
+5. `models.py` - API contract (DO NOT MODIFY FIELD NAMES)
+6. `scoring.py` - Scoring algorithms (DO NOT MODIFY FORMULAS)
+
+---
+
+## 🚨 ABSOLUTE RULES (Never Violate)
+
+### 1. NEVER Use Service Key in Route Handlers
+
+```python
+# ❌ FORBIDDEN - Bypasses all RLS, security breach
+from app.config import SUPABASE_SERVICE_KEY
+supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+
+# ✅ REQUIRED - Uses user JWT, RLS enforced
+supabase, user = await get_authenticated_client(credentials)
+```
+
+The service key is ONLY for background jobs in isolated files, never in routes.
+
+### 2. Word Validation Rules
+
+**Seed words: OPEN (any word allowed)**
+```python
+# ✅ CORRECT - Accept any seed word
+seed_word = request.seed_word.lower().strip()
+
+# ❌ WRONG - Never validate seeds against vocabulary
+if not await validate_word(supabase, request.seed_word):
+    raise HTTPException(400, "Invalid")  # DON'T DO THIS FOR SEEDS
+```
+
+**Clues and guesses: CLOSED (vocabulary only)**
+```python
+# ✅ REQUIRED - Always validate clues/guesses
+all_valid, invalid = await validate_words(supabase, request.clues)
+if not all_valid:
+    raise HTTPException(400, f"Invalid: {invalid}")
+```
+
+### 3. Database Types
+
+```sql
+-- ✅ CORRECT - Uses 16-bit floats, fits in free tier
+embedding halfvec(1536)
+
+-- ❌ WRONG - Uses 32-bit floats, exceeds storage limit
+embedding vector(1536)
+
+-- ✅ CORRECT index operator
+USING ivfflat (embedding halfvec_cosine_ops)
+
+-- ❌ WRONG index operator
+USING ivfflat (embedding vector_cosine_ops)
+```
+
+### 4. Scoring Formulas - DO NOT MODIFY
+
+The formulas in `scoring.py` define construct validity. Changing them invalidates all collected data.
+
+```python
+# These are LOCKED - do not change the math
+divergence = 1 - mean(cosine_similarity(clue, floor_centroid))
+convergence = max(cosine_similarity(guess, seed))
+FUZZY_EXACT_MATCH_THRESHOLD = 0.99
+```
+
+### 5. LLM Model - DO NOT CHANGE
+
+```python
+# ✅ REQUIRED - Claude Haiku 4.5 only
+MODEL = "claude-haiku-4-5-20251001"
+
+# ❌ FORBIDDEN - Changing model breaks construct validity
+MODEL = "gpt-4o-mini"  # NO
+MODEL = "claude-3-opus"  # NO
+```
+
+### 6. Race Condition Prevention
+
+```sql
+-- ✅ REQUIRED for shared resources
+SELECT ... FOR UPDATE;
+
+-- ❌ WRONG - Race condition possible
+SELECT ... ;  -- Missing FOR UPDATE on shared state
+```
+
+---
+
+## Consultation Requirements
+
+### ALWAYS ASK before:
+
+1. **Adding new dependencies** - Check if existing tools suffice
+2. **Changing API shapes** - `models.py` is the contract
+3. **Modifying database schema** - May break existing data
+4. **Adding new endpoints** - Must align with roadmap
+5. **Changing scoring logic** - Affects construct validity
+6. **Security-related changes** - Auth, RLS, service keys
+7. **Environment variables** - Document in config.py
+8. **Anything not in the roadmap** - Get explicit approval
+
+### Present Options When:
+
+1. Multiple implementation approaches exist
+2. Trade-offs between performance/complexity
+3. The specification is ambiguous
+4. You're unsure about intent
+
+Format: "I see two options here: [A] ... [B] ... Which would you prefer?"
+
+---
+
+## Integrity Checks
+
+### Before Submitting Changes:
+
+1. **Run scoring tests**: `python -m pytest scoring.py -v`
+2. **Check imports**: Ensure no circular dependencies
+3. **Verify RLS**: Route handlers use `get_authenticated_client()`
+4. **Validate models**: Response shapes match `models.py`
+5. **Check error handling**: Use `ErrorResponse` model
+6. **Review security**: No service key in routes
+
+### Cross-Reference Checklist:
+
+When modifying a file, check these related files:
+
+| If you change... | Also check... |
+|------------------|---------------|
+| `models.py` | All route handlers using those models |
+| `auth.py` | All files importing auth functions |
+| `scoring.py` | `games.py` (uses scoring), tests |
+| `embeddings.py` | `games.py` (uses embeddings) |
+| `config.py` | All files importing config values |
+| `001_initial.sql` | All queries in Python files |
+
+---
+
+## Code Style
+
+### Error Responses
+
+```python
+# ✅ CORRECT
+raise HTTPException(
+    status_code=400,
+    detail={"error": "Invalid clues", "detail": "Words not in vocabulary"}
+)
+
+# ❌ WRONG - String detail
+raise HTTPException(400, "Invalid clues")
+```
+
+### Async Consistency
+
+```python
+# ✅ CORRECT - async function, await calls
+async def create_game(...):
+    result = await get_embedding(word)
+
+# ❌ WRONG - mixing sync/async
+def create_game(...):  # Should be async
+    result = get_embedding(word)  # Missing await
+```
+
+### Contextual Embeddings
+
+```python
+# ✅ CORRECT - Include context for disambiguation
+seed_emb = await get_contextual_embedding(seed_word, clues)
+
+# ❌ WRONG for scoring - No context
+seed_emb = await get_embedding(seed_word)
+```
+
+---
+
+## File Organization
+
+```
+app/
+├── main.py              # FastAPI app entry point
+├── config.py            # ALL configuration here
+├── models.py            # Pydantic models (API contract)
+├── auth.py              # Authentication ONLY
+├── games.py             # Game routes
+├── scoring.py           # Scoring algorithms (LOCKED)
+├── embeddings.py        # OpenAI integration
+├── llm.py               # Claude guesser
+├── share.py             # Share token routes (TODO)
+├── users.py             # User routes (TODO)
+└── profiles.py          # Profile computation (TODO)
+```
+
+Do NOT create new files without asking. Follow existing patterns.
+
+---
+
+## Common Mistakes to Avoid
+
+| Mistake | Why It's Wrong | Correct Approach |
+|---------|----------------|------------------|
+| Using service key in routes | Bypasses RLS | Use `get_authenticated_client()` |
+| Validating seed against vocab | Blocks valid use cases | Accept any seed |
+| NOT validating clues/guesses | Prompt injection risk | Call `validate_words()` |
+| Using `vector` type | Exceeds storage limit | Use `halfvec` |
+| Changing scoring formulas | Breaks construct validity | Ask before changing |
+| Changing LLM model | Breaks LLM Alignment metric | Keep Haiku 4.5 |
+| Missing `FOR UPDATE` | Race conditions | Add to shared queries |
+| Inventing new API fields | Breaks frontend contract | Use `models.py` exactly |
+
+---
+
+## When You Don't Know
+
+1. **Stop and ask** - Don't guess at intent
+2. **Quote the relevant doc** - Show what you found
+3. **Explain uncertainty** - "I'm not sure if X or Y"
+4. **Propose options** - Let user decide
+
+Example:
+```
+I found this in CONVENTIONS.md: "[quote]"
+But I'm unsure if this applies to [situation].
+Should I:
+A) [Option A]
+B) [Option B]
+```
+
+---
+
+## Quick Reference
+
+### Status Codes
+- 200: Success
+- 400: Validation error (use ErrorResponse)
+- 401: Not authenticated
+- 403: Not authorized (RLS blocked)
+- 404: Not found
+- 500: Server error
+
+### Key Constants (from config.py)
+- NUM_CLUES = 5
+- NUM_GUESSES = 3
+- NOISE_FLOOR_K = 20
+- LLM_TEMPERATURE = 0.3
+- FUZZY_EXACT_MATCH_THRESHOLD = 0.99
+- PROFILE_THRESHOLD_GAMES = 15
+
+### Models (from models.py)
+- RecipientType: network, stranger, llm
+- GameStatus: pending_clues, pending_guess, completed, expired
+
+---
+
+## Summary
+
+1. **Read docs first** - Especially CONVENTIONS.md
+2. **Ask before deciding** - When in doubt, consult user
+3. **Check integrity** - Run tests, verify related files
+4. **Follow patterns** - Match existing code style
+5. **Never bypass security** - RLS is mandatory
+6. **Don't modify locked code** - Scoring formulas, LLM model

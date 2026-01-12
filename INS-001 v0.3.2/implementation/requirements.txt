@@ -1,0 +1,43 @@
+# INS-001 Semantic Associations - Backend Dependencies
+# Pin ALL versions to prevent agent hallucination
+
+# Web framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+
+# Supabase
+supabase==2.3.4
+postgrest==0.16.1
+
+# OpenAI
+openai==1.12.0
+
+# Anthropic
+anthropic==0.42.0
+
+# HTTP client (for backup job)
+httpx==0.26.0
+
+# Async support
+asyncio==3.4.3
+
+# Math/vectors
+numpy==1.26.3
+
+# Retry logic
+tenacity==8.2.3
+
+# Environment
+python-dotenv==1.0.1
+
+# Type hints
+pydantic==2.6.0
+
+# Analytics
+posthog==3.3.1
+sentry-sdk[fastapi]==1.40.0
+
+# Dev
+pytest==8.0.0
+pytest-asyncio==0.23.4
