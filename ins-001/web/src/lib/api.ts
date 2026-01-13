@@ -190,24 +190,49 @@ async function apiCall<T>(
     });
     
     if (!response.ok) {
-      // Try to get error details
-      let errorMessage = `HTTP ${response.status}`;
+      // Log detailed error information for debugging
+      console.error('=== API ERROR RESPONSE ===');
+      console.error('Status:', response.status, response.statusText);
+      console.error('URL:', fullUrl);
+      console.error('Method:', options.method || 'GET');
+      console.error('Headers sent:', headers);
+      
+      // Try to get error details from response body
+      let errorMessage = `HTTP ${response.status} ${response.statusText}`;
+      let errorDetails: any = null;
+      
       try {
         const errorData = await response.json();
+        errorDetails = errorData;
         errorMessage = errorData.detail || errorData.message || errorData.error || errorMessage;
         // If detail is an object, try to extract message
         if (typeof errorMessage === 'object') {
           errorMessage = errorMessage.message || JSON.stringify(errorMessage);
         }
+        console.error('Error response body:', errorData);
       } catch {
         // If JSON parsing fails, try text
         try {
           const errorText = await response.text();
           errorMessage = errorText || errorMessage;
+          console.error('Error response text:', errorText);
         } catch {
           // Keep default error message
+          console.error('Could not read error response body');
         }
       }
+      
+      // For 403 errors, provide more specific guidance
+      if (response.status === 403) {
+        console.error('403 Forbidden - Possible causes:');
+        console.error('1. Authentication token invalid or expired');
+        console.error('2. User does not have permission for this resource');
+        console.error('3. CORS preflight succeeded but actual request was rejected');
+        console.error('4. Backend middleware rejecting the request');
+        errorMessage = `403 Forbidden: ${errorMessage}. Check authentication token and user permissions.`;
+      }
+      
+      console.error('================================');
       throw new Error(errorMessage);
     }
     

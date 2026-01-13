@@ -24,22 +24,12 @@ import LandingFooter from '../components/landing/LandingFooter.astro';
     <meta name="description" content="The Lab - Instruments for observing cognition" />
     <title>The Lab | Phronos Instruments</title>
     <meta name="page-version" content="landing-v2.0" />
-    <script>
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.astro:head',message:'Landing page loaded',data:{page:'landing',version:'v2.0',url:window.location.pathname,timestamp:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
-    </script>
   </head>
   <body>
     <!-- DELETE THIS AFTER TESTING - BUILD VERIFICATION -->
     <div style="position:fixed;top:0;left:0;right:0;background:red;color:white;padding:20px;z-index:99999;font-size:24px;text-align:center;font-weight:bold;">
       🔴 BUILD TIME: {new Date().toISOString()} | LANDING PAGE v2.0 DEPLOYED
     </div>
-    <script>
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.astro:body',message:'Body rendering',data:{hasLandingNav:true,pathname:window.location.pathname,timestamp:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
-    </script>
     <LandingNav />
     
     <main class="landing-container">
@@ -316,12 +306,3 @@ import LandingFooter from '../components/landing/LandingFooter.astro';
     pointer-events: none;
   }
 </style>
-<script>
-  // #region agent log
-  (function() {
-    const stylesheets = Array.from(document.styleSheets).map(s => s.href || 'inline');
-    const cssOrder = stylesheets.join(',');
-    fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.astro:css-load',message:'CSS loading order check',data:{stylesheets:cssOrder,count:stylesheets.length,pathname:window.location.pathname,timestamp:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-  })();
-  // #endregion
-</script>
