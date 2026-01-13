@@ -167,6 +167,93 @@ Your guess:"""
 
 
 # ============================================
+# INS-001.2 v2: BRIDGE BUILDING
+# ============================================
+
+async def haiku_build_bridge(
+    anchor: str,
+    target: str,
+    num_clues: int = 3
+) -> dict:
+    """
+    Have Claude Haiku build its own bridge between anchor and target.
+
+    Instead of guessing words from clues, Haiku generates its own clues
+    that connect the given anchor-target pair. This creates a baseline
+    bridge that can be compared to the human's bridge.
+
+    Args:
+        anchor: The anchor word
+        target: The target word
+        num_clues: Number of clues to generate (default 3)
+
+    Returns:
+        Dictionary with:
+        - clues: List of generated clue words
+        - raw_response: Original response text
+        - error: Error message if parsing failed
+    """
+    # Escape inputs for safety
+    anchor_safe = html.escape(anchor)
+    target_safe = html.escape(target)
+
+    prompt = f"""You are playing a word-bridging game. Connect these two concepts with clue words.
+
+Anchor: {anchor_safe}
+Target: {target_safe}
+
+Provide exactly {num_clues} single-word clues that form a conceptual bridge between these words. The clues should help someone understand HOW these two concepts connect.
+
+Rules:
+- One word per line
+- Single words only (no phrases)
+- Do NOT use the anchor word "{anchor_safe}" or target word "{target_safe}" as clues
+- Clues should create a path of association between anchor and target
+
+Your clues:"""
+
+    response = await anthropic_client.messages.create(
+        model=MODEL,
+        max_tokens=100,
+        messages=[{"role": "user", "content": prompt}]
+    )
+
+    # Parse response
+    text = response.content[0].text.strip()
+    lines = [line.strip() for line in text.split('\n') if line.strip()]
+
+    # Clean up clues (remove numbering, punctuation, etc.)
+    clues = []
+    anchor_lower = anchor.lower()
+    target_lower = target.lower()
+
+    for line in lines:
+        # Remove common prefixes like "1.", "1)", "-", etc.
+        cleaned = line.lstrip('0123456789.-) ')
+        # Take first word only
+        word = cleaned.split()[0] if cleaned.split() else ""
+        # Remove any remaining punctuation
+        word = ''.join(c for c in word if c.isalpha())
+        word_lower = word.lower()
+
+        # Skip if it's the anchor or target
+        if word_lower and word_lower != anchor_lower and word_lower != target_lower:
+            clues.append(word_lower)
+
+    if clues:
+        return {
+            "clues": clues[:num_clues],
+            "raw_response": text
+        }
+
+    return {
+        "clues": [],
+        "raw_response": text,
+        "error": "Could not parse clues from response"
+    }
+
+
+# ============================================
 # TESTING
 # ============================================
 

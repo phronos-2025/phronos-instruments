@@ -1,7 +1,7 @@
 /**
- * Bridging Results Screen - INS-001.2
+ * Bridging Results Screen - INS-001.2 V2
  *
- * Shows full results including divergence, reconstruction scores, and baselines.
+ * Shows full results including divergence and Haiku's bridge comparison.
  */
 
 import React from 'react';
@@ -14,28 +14,16 @@ interface BridgingResultsScreenProps {
   game: BridgingGameResponse;
 }
 
-function getScoreLabel(score: number, type: 'divergence' | 'reconstruction'): string {
-  if (type === 'divergence') {
-    if (score < 30) return 'Predictable';
-    if (score < 50) return 'Moderate';
-    if (score < 70) return 'Creative';
-    return 'Highly Creative';
-  } else {
-    if (score < 40) return 'Opaque';
-    if (score < 60) return 'Partial';
-    if (score < 80) return 'Good';
-    return 'Transparent';
-  }
-}
-
 function ScoreBar({
   score,
   leftLabel,
   rightLabel,
+  color = 'var(--gold)',
 }: {
   score: number;
   leftLabel: string;
   rightLabel: string;
+  color?: string;
 }) {
   return (
     <div>
@@ -50,7 +38,7 @@ function ScoreBar({
       >
         <div
           style={{
-            background: 'var(--gold)',
+            background: color,
             height: '100%',
             width: `${Math.min(100, score)}%`,
             transition: 'width 0.3s ease',
@@ -79,13 +67,31 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
   const { dispatch } = useBridgingSenderState();
 
   const divergence = game.divergence_score || 0;
-  const humanRecon = game.reconstruction_score;
-  const haikuRecon = game.haiku_reconstruction_score;
-  const statisticalRecon = game.statistical_baseline_score;
 
-  // Determine which reconstruction to show as primary
-  const primaryRecon = humanRecon ?? haikuRecon ?? 0;
-  const hasHumanRecon = humanRecon !== undefined && humanRecon !== null;
+  // V2 fields - check for Haiku's bridge (clues)
+  const haikuClues = game.haiku_clues;
+  const haikuDivergence = game.haiku_divergence;
+  const haikuBridgeSimilarity = game.haiku_bridge_similarity;
+  const hasHaikuBridge = haikuClues && haikuClues.length > 0;
+
+  // V1 legacy fields - Haiku's guesses
+  const haikuGuessedAnchor = game.haiku_guessed_anchor;
+  const haikuGuessedTarget = game.haiku_guessed_target;
+  const haikuReconstructionScore = game.haiku_reconstruction_score;
+  const hasLegacyHaikuGuess = haikuGuessedAnchor && haikuGuessedTarget;
+
+  // Determine which Haiku result to show
+  const showHaikuBridge = hasHaikuBridge;
+  const showLegacyGuess = !hasHaikuBridge && hasLegacyHaikuGuess;
+
+  // Human recipient bridge (V2)
+  const recipientClues = game.recipient_clues;
+  const recipientDivergence = game.recipient_divergence;
+  const bridgeSimilarity = game.bridge_similarity;
+  const hasHumanBridge = recipientClues && recipientClues.length > 0;
+
+  // Human recipient guesses (V1 legacy)
+  const hasLegacyHumanGuess = game.guessed_anchor && game.guessed_target;
 
   return (
     <div>
@@ -124,7 +130,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
 
       {/* Divergence Score */}
       <Panel
-        title="Divergence"
+        title="Your Divergence"
         meta={Math.round(divergence).toString()}
         style={{ marginBottom: 'var(--space-md)' }}
       >
@@ -145,159 +151,280 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
         </div>
       </Panel>
 
-      {/* Reconstruction Score (Human or Haiku) */}
-      <Panel
-        title={hasHumanRecon ? 'Reconstruction (Human)' : 'Reconstruction (Haiku)'}
-        meta={Math.round(primaryRecon).toString()}
-        style={{ marginBottom: 'var(--space-md)' }}
-      >
-        <ScoreBar
-          score={primaryRecon}
-          leftLabel="opaque"
-          rightLabel="transparent"
-        />
-        <div
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.75rem',
-            color: 'var(--faded)',
-            marginTop: 'var(--space-sm)',
-          }}
+      {/* Haiku's Bridge (V2) */}
+      {showHaikuBridge && (
+        <Panel
+          title="Haiku's Bridge"
+          meta={haikuBridgeSimilarity !== undefined ? `${Math.round(haikuBridgeSimilarity)}% similar` : undefined}
+          style={{ marginBottom: 'var(--space-md)' }}
         >
-          How accurately {hasHumanRecon ? 'your recipient' : 'Haiku'} recovered your anchor-target pair.
-        </div>
-
-        {/* Show guesses */}
-        {(hasHumanRecon ? game.guessed_anchor : game.haiku_guessed_anchor) && (
           <div
             style={{
-              marginTop: 'var(--space-md)',
-              padding: 'var(--space-sm)',
-              background: 'var(--bg-card)',
-              borderRadius: '4px',
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.85rem',
+              color: 'var(--text-light)',
+              lineHeight: '1.8',
+              marginBottom: 'var(--space-md)',
             }}
           >
-            <div
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.7rem',
-                color: 'var(--faded)',
-                marginBottom: 'var(--space-xs)',
-              }}
-            >
-              {hasHumanRecon ? 'Their guess:' : "Haiku's guess:"}
-            </div>
-            <div
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.85rem',
-                color: 'var(--text-light)',
-              }}
-            >
-              {hasHumanRecon
-                ? `${game.guessed_anchor} ←→ ${game.guessed_target}`
-                : `${game.haiku_guessed_anchor} ←→ ${game.haiku_guessed_target}`}
-            </div>
-            {(hasHumanRecon ? game.exact_anchor_match : false) &&
-              (hasHumanRecon ? game.exact_target_match : false) && (
-                <div
-                  style={{
-                    color: 'var(--gold)',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '0.75rem',
-                    marginTop: 'var(--space-xs)',
-                  }}
-                >
-                  ✓ Exact match!
-                </div>
-              )}
+            {haikuClues.map((clue, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
+                <span style={{ color: 'var(--faded)', fontSize: '0.7rem' }}>•</span>
+                <span>{clue}</span>
+              </div>
+            ))}
           </div>
-        )}
-      </Panel>
 
-      {/* Baselines (if available) */}
-      {(haikuRecon !== undefined || statisticalRecon !== undefined) && hasHumanRecon && (
-        <Panel title="Baselines" style={{ marginBottom: 'var(--space-lg)' }}>
-          {haikuRecon !== undefined && (
-            <div style={{ marginBottom: 'var(--space-md)' }}>
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '0.8rem',
-                  marginBottom: 'var(--space-xs)',
-                }}
-              >
-                <span style={{ color: 'var(--text-light)' }}>Haiku (LLM):</span>
-                <span style={{ color: 'var(--gold)' }}>{Math.round(haikuRecon)}</span>
-              </div>
+          {haikuBridgeSimilarity !== undefined && (
+            <>
+              <ScoreBar
+                score={haikuBridgeSimilarity}
+                leftLabel="divergent"
+                rightLabel="identical"
+                color="var(--text-light)"
+              />
               <div
                 style={{
                   fontFamily: 'var(--font-mono)',
-                  fontSize: '0.65rem',
+                  fontSize: '0.75rem',
                   color: 'var(--faded)',
+                  marginTop: 'var(--space-sm)',
                 }}
               >
-                What a reasoning AI inferred from your clues.
-                {game.haiku_guessed_anchor && (
-                  <span>
-                    {' '}
-                    ({game.haiku_guessed_anchor} ←→ {game.haiku_guessed_target})
-                  </span>
-                )}
+                {haikuBridgeSimilarity >= 70
+                  ? 'Haiku found a similar conceptual path.'
+                  : haikuBridgeSimilarity >= 40
+                  ? 'Haiku took a different route between the concepts.'
+                  : 'Haiku approached this connection very differently.'}
               </div>
-            </div>
+            </>
           )}
 
-          {statisticalRecon !== undefined && (
-            <div>
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '0.8rem',
-                  marginBottom: 'var(--space-xs)',
-                }}
-              >
-                <span style={{ color: 'var(--text-light)' }}>Statistical:</span>
-                <span style={{ color: 'var(--gold)' }}>
-                  {Math.round(statisticalRecon)}
-                </span>
-              </div>
-              <div
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '0.65rem',
-                  color: 'var(--faded)',
-                }}
-              >
-                What embedding geometry predicts.
-              </div>
-            </div>
-          )}
-
-          {/* Comparison message */}
-          {hasHumanRecon && haikuRecon !== undefined && (
+          {haikuDivergence !== undefined && (
             <div
               style={{
-                marginTop: 'var(--space-md)',
-                padding: 'var(--space-sm)',
-                background: 'var(--bg-card)',
-                borderRadius: '4px',
+                marginTop: 'var(--space-sm)',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.65rem',
+                color: 'var(--faded)',
+              }}
+            >
+              Haiku's divergence: {Math.round(haikuDivergence)}%
+              {haikuDivergence > divergence
+                ? ' (more creative than yours)'
+                : haikuDivergence < divergence
+                ? ' (more direct than yours)'
+                : ' (similar creativity)'}
+            </div>
+          )}
+        </Panel>
+      )}
+
+      {/* Legacy Haiku Guess (V1) */}
+      {showLegacyGuess && (
+        <Panel
+          title="Haiku's Reconstruction"
+          meta={haikuReconstructionScore !== undefined ? Math.round(haikuReconstructionScore).toString() : undefined}
+          style={{ marginBottom: 'var(--space-md)' }}
+        >
+          <div
+            style={{
+              marginBottom: 'var(--space-sm)',
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.8rem',
+              color: 'var(--text-light)',
+            }}
+          >
+            {haikuGuessedAnchor} ←→ {haikuGuessedTarget}
+          </div>
+          {haikuReconstructionScore !== undefined && (
+            <ScoreBar
+              score={haikuReconstructionScore}
+              leftLabel="opaque"
+              rightLabel="transparent"
+              color="var(--text-light)"
+            />
+          )}
+          <div
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.75rem',
+              color: 'var(--faded)',
+              marginTop: 'var(--space-sm)',
+            }}
+          >
+            What Haiku guessed from your clues.
+          </div>
+        </Panel>
+      )}
+
+      {/* Human Recipient Bridge (V2) */}
+      {hasHumanBridge && (
+        <Panel
+          title="Recipient's Bridge"
+          meta={bridgeSimilarity !== undefined ? `${Math.round(bridgeSimilarity)}% similar` : undefined}
+          style={{ marginBottom: 'var(--space-md)' }}
+        >
+          <div
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.85rem',
+              color: 'var(--text-light)',
+              lineHeight: '1.8',
+              marginBottom: 'var(--space-md)',
+            }}
+          >
+            {recipientClues.map((clue, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
+                <span style={{ color: 'var(--gold)', fontSize: '0.7rem' }}>•</span>
+                <span>{clue}</span>
+              </div>
+            ))}
+          </div>
+
+          {bridgeSimilarity !== undefined && (
+            <>
+              <ScoreBar
+                score={bridgeSimilarity}
+                leftLabel="divergent"
+                rightLabel="identical"
+              />
+              <div
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '0.75rem',
+                  color: 'var(--faded)',
+                  marginTop: 'var(--space-sm)',
+                }}
+              >
+                {bridgeSimilarity >= 70
+                  ? 'You and your recipient think alike!'
+                  : bridgeSimilarity >= 40
+                  ? 'You took different but related paths.'
+                  : 'You had very different mental routes.'}
+              </div>
+            </>
+          )}
+
+          {recipientDivergence !== undefined && (
+            <div
+              style={{
+                marginTop: 'var(--space-sm)',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.65rem',
+                color: 'var(--faded)',
+              }}
+            >
+              Their divergence: {Math.round(recipientDivergence)}%
+            </div>
+          )}
+        </Panel>
+      )}
+
+      {/* Legacy Human Guess (V1) */}
+      {hasLegacyHumanGuess && !hasHumanBridge && (
+        <Panel
+          title="Recipient's Reconstruction"
+          meta={game.reconstruction_score !== undefined ? Math.round(game.reconstruction_score).toString() : undefined}
+          style={{ marginBottom: 'var(--space-md)' }}
+        >
+          <div
+            style={{
+              marginBottom: 'var(--space-sm)',
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.8rem',
+              color: 'var(--text-light)',
+            }}
+          >
+            {game.guessed_anchor} ←→ {game.guessed_target}
+            {game.order_swapped && (
+              <span
+                style={{
+                  fontSize: '0.7rem',
+                  color: 'var(--faded)',
+                  marginLeft: 'var(--space-sm)',
+                }}
+              >
+                (order swapped)
+              </span>
+            )}
+          </div>
+          {game.reconstruction_score !== undefined && (
+            <ScoreBar
+              score={game.reconstruction_score}
+              leftLabel="opaque"
+              rightLabel="transparent"
+            />
+          )}
+          {game.exact_anchor_match && game.exact_target_match && (
+            <div
+              style={{
+                color: 'var(--gold)',
                 fontFamily: 'var(--font-mono)',
                 fontSize: '0.75rem',
-                color: 'var(--text-light)',
+                marginTop: 'var(--space-sm)',
               }}
             >
-              {humanRecon! > haikuRecon
-                ? 'Your human recipient outperformed the AI baseline.'
-                : humanRecon! < haikuRecon
-                ? 'The AI baseline outperformed your human recipient.'
-                : 'Your human recipient matched the AI baseline.'}
+              Perfect match!
             </div>
           )}
+        </Panel>
+      )}
+
+      {/* Comparison insight */}
+      {(showHaikuBridge || hasHumanBridge) && (
+        <Panel
+          style={{
+            background: 'transparent',
+            borderColor: 'var(--gold-dim)',
+            marginBottom: 'var(--space-lg)',
+          }}
+        >
+          <div
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.75rem',
+              color: 'var(--faded)',
+            }}
+          >
+            {hasHumanBridge && haikuBridgeSimilarity !== undefined && bridgeSimilarity !== undefined ? (
+              bridgeSimilarity > haikuBridgeSimilarity ? (
+                <>
+                  <strong style={{ color: 'var(--text-light)' }}>
+                    Your human recipient matched your thinking better than Haiku!
+                  </strong>
+                  <br />
+                  Human: {Math.round(bridgeSimilarity)}% similarity vs Haiku: {Math.round(haikuBridgeSimilarity)}%
+                </>
+              ) : bridgeSimilarity < haikuBridgeSimilarity ? (
+                <>
+                  <strong style={{ color: 'var(--text-light)' }}>
+                    Haiku matched your thinking better than your human recipient.
+                  </strong>
+                  <br />
+                  Haiku: {Math.round(haikuBridgeSimilarity)}% similarity vs Human: {Math.round(bridgeSimilarity)}%
+                </>
+              ) : (
+                <>
+                  <strong style={{ color: 'var(--text-light)' }}>
+                    Human and Haiku matched your bridge equally well.
+                  </strong>
+                  <br />
+                  Both: {Math.round(bridgeSimilarity)}% similarity
+                </>
+              )
+            ) : showHaikuBridge && haikuBridgeSimilarity !== undefined ? (
+              <>
+                Haiku approached this bridge with {Math.round(haikuBridgeSimilarity)}% similarity to your thinking.
+                <br />
+                Share with a friend to see how a human compares!
+              </>
+            ) : hasHumanBridge && bridgeSimilarity !== undefined ? (
+              <>
+                Your recipient's bridge was {Math.round(bridgeSimilarity)}% similar to yours.
+              </>
+            ) : null}
+          </div>
         </Panel>
       )}
 

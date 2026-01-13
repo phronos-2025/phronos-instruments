@@ -286,7 +286,11 @@ class SubmitBridgingCluesResponse(BaseModel):
     divergence_score: float
     status: BridgingGameStatus
     share_code: Optional[str] = None
-    # If Haiku recipient, includes immediate reconstruction
+    # V2: If Haiku recipient, includes Haiku's bridge (its own clues)
+    haiku_clues: Optional[list[str]] = None
+    haiku_divergence: Optional[float] = None
+    haiku_bridge_similarity: Optional[float] = None
+    # Legacy fields (for backwards compat with old games)
     haiku_guessed_anchor: Optional[str] = None
     haiku_guessed_target: Optional[str] = None
     haiku_reconstruction_score: Optional[float] = None
@@ -385,8 +389,97 @@ class BridgingGameResponse(BaseModel):
 
 
 class TriggerHaikuGuessResponse(BaseModel):
-    """Response after triggering Haiku reconstruction."""
+    """Response after triggering Haiku reconstruction (legacy)."""
     game_id: str
     haiku_guessed_anchor: str
     haiku_guessed_target: str
     haiku_reconstruction_score: float
+
+
+# ============================================
+# INS-001.2 v2: BRIDGE-VS-BRIDGE
+# ============================================
+
+class SemanticDistanceResponse(BaseModel):
+    """Response with semantic distance between two words."""
+    anchor: str
+    target: str
+    distance: float  # 0-100 scale
+    interpretation: str  # "close", "moderate", "distant", "very distant"
+
+
+class JoinBridgingGameResponseV2(BaseModel):
+    """Response after joining a bridging game (v2: shows anchor + target)."""
+    game_id: str
+    anchor_word: str  # Recipient sees this
+    target_word: str  # Recipient sees this
+    sender_clue_count: int  # How many clues sender used
+
+
+class SubmitBridgingBridgeRequest(BaseModel):
+    """Request to submit recipient's bridge (their clues)."""
+    clues: list[str] = Field(
+        min_length=1,
+        max_length=5,
+        description="1-5 clue words forming recipient's bridge"
+    )
+
+
+class SubmitBridgingBridgeResponse(BaseModel):
+    """Response after submitting recipient's bridge."""
+    game_id: str
+    # Recipient's bridge
+    recipient_clues: list[str]
+    recipient_divergence: float
+    # Sender's bridge (revealed after submission)
+    sender_clues: list[str]
+    sender_divergence: float
+    # Bridge comparison
+    bridge_similarity: float  # 0-100
+    path_alignment: Optional[float]  # -1 to 1
+    # Meta
+    anchor_word: str
+    target_word: str
+    status: BridgingGameStatus
+
+
+class TriggerHaikuBridgeResponse(BaseModel):
+    """Response after triggering Haiku to build its own bridge."""
+    game_id: str
+    haiku_clues: list[str]
+    haiku_divergence: float
+    haiku_bridge_similarity: float  # Compared to sender's bridge
+
+
+class BridgingGameResponseV2(BaseModel):
+    """Full bridging game state (v2: bridge-vs-bridge)."""
+    game_id: str
+    sender_id: str
+    recipient_id: Optional[str]
+    recipient_type: BridgingRecipientType
+    anchor_word: str
+    target_word: str
+    # Sender's bridge
+    clues: Optional[list[str]]
+    divergence_score: Optional[float]
+    # Recipient's bridge (v2)
+    recipient_clues: Optional[list[str]]
+    recipient_divergence: Optional[float]
+    bridge_similarity: Optional[float]
+    path_alignment: Optional[float]
+    # Haiku's bridge (v2)
+    haiku_clues: Optional[list[str]]
+    haiku_divergence: Optional[float]
+    haiku_bridge_similarity: Optional[float]
+    # Legacy fields (for old games)
+    guessed_anchor: Optional[str]
+    guessed_target: Optional[str]
+    reconstruction_score: Optional[float]
+    haiku_guessed_anchor: Optional[str]
+    haiku_guessed_target: Optional[str]
+    haiku_reconstruction_score: Optional[float]
+    # State
+    status: BridgingGameStatus
+    share_code: Optional[str]
+    created_at: datetime
+    completed_at: Optional[datetime]

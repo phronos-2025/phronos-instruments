@@ -2,11 +2,12 @@
  * Anchor-Target Screen - INS-001.2
  *
  * Step 1: Choose anchor and target words with suggestion feature.
+ * Shows semantic distance between the two words.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useBridgingSenderState } from '../../../lib/bridging-state';
-import { api } from '../../../lib/api';
+import { api, SemanticDistanceResponse } from '../../../lib/api';
 import { supabase } from '../../../lib/supabase';
 import { Button } from '../../ui/Button';
 import { ProgressBar } from '../../ui/ProgressBar';
@@ -28,6 +29,8 @@ export const AnchorTargetScreen: React.FC<AnchorTargetScreenProps> = ({
   const [isSuggestingTarget, setIsSuggestingTarget] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [authReady, setAuthReady] = useState(false);
+  const [distance, setDistance] = useState<SemanticDistanceResponse | null>(null);
+  const [isLoadingDistance, setIsLoadingDistance] = useState(false);
 
   // Ensure user is authenticated
   useEffect(() => {
@@ -65,6 +68,47 @@ export const AnchorTargetScreen: React.FC<AnchorTargetScreenProps> = ({
 
     ensureAuth();
   }, []);
+
+  // Fetch semantic distance when both words are entered
+  const fetchDistance = useCallback(async (a: string, t: string) => {
+    if (!a.trim() || !t.trim() || !authReady) {
+      setDistance(null);
+      return;
+    }
+
+    const anchorClean = a.trim().toLowerCase();
+    const targetClean = t.trim().toLowerCase();
+
+    if (anchorClean === targetClean) {
+      setDistance({
+        anchor: anchorClean,
+        target: targetClean,
+        distance: 0,
+        interpretation: 'identical',
+      });
+      return;
+    }
+
+    setIsLoadingDistance(true);
+    try {
+      const result = await api.bridging.getDistance(anchorClean, targetClean);
+      setDistance(result);
+    } catch (err) {
+      console.error('Failed to get distance:', err);
+      setDistance(null);
+    } finally {
+      setIsLoadingDistance(false);
+    }
+  }, [authReady]);
+
+  // Debounce distance fetching
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      fetchDistance(anchor, target);
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [anchor, target, fetchDistance]);
 
   const handleSuggestAnchor = async () => {
     setIsSuggestingAnchor(true);
@@ -125,6 +169,18 @@ export const AnchorTargetScreen: React.FC<AnchorTargetScreenProps> = ({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Format distance for display
+  const formatDistance = (d: SemanticDistanceResponse) => {
+    const labels: Record<string, string> = {
+      identical: 'identical',
+      close: 'semantically close',
+      moderate: 'moderate distance',
+      distant: 'distant',
+      'very distant': 'very distant',
+    };
+    return labels[d.interpretation] || d.interpretation;
   };
 
   return (
@@ -225,21 +281,53 @@ export const AnchorTargetScreen: React.FC<AnchorTargetScreenProps> = ({
             </div>
           </div>
 
-          {/* Bridge visualization */}
+          {/* Bridge visualization with distance */}
           {anchor && target && (
             <div
               style={{
                 textAlign: 'center',
                 fontFamily: 'var(--font-mono)',
-                fontSize: '0.9rem',
-                color: 'var(--gold)',
                 marginBottom: 'var(--space-lg)',
                 padding: 'var(--space-md)',
                 border: '1px solid var(--gold-dim)',
                 borderRadius: '4px',
               }}
             >
-              {anchor.toLowerCase()} ←――――――――――――――――→ {target.toLowerCase()}
+              {/* Distance label */}
+              {distance && !isLoadingDistance && (
+                <div
+                  style={{
+                    fontSize: '0.7rem',
+                    color: distance.interpretation === 'identical' ? 'var(--alert)' : 'var(--faded)',
+                    marginBottom: 'var(--space-xs)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                  }}
+                >
+                  {formatDistance(distance)}
+                </div>
+              )}
+              {isLoadingDistance && (
+                <div
+                  style={{
+                    fontSize: '0.7rem',
+                    color: 'var(--faded)',
+                    marginBottom: 'var(--space-xs)',
+                  }}
+                >
+                  ...
+                </div>
+              )}
+
+              {/* Arrow visualization */}
+              <div
+                style={{
+                  fontSize: '0.9rem',
+                  color: 'var(--gold)',
+                }}
+              >
+                {anchor.toLowerCase()} ←――――――――――――――――→ {target.toLowerCase()}
+              </div>
             </div>
           )}
 

@@ -1,7 +1,8 @@
 /**
- * Bridging Join Screen - INS-001.2
+ * Bridging Join Screen - INS-001.2 V2
  *
- * Recipient views clues and enters their guess for anchor-target pair.
+ * Recipient sees anchor + target and builds their own bridge (clues).
+ * Their bridge is then compared to the sender's bridge.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -14,31 +15,40 @@ import { Button } from '../../ui/Button';
 interface BridgingJoinScreenProps {
   shareCode: string;
   gameId?: string;
-  clues?: string[];
+  anchor?: string;
+  target?: string;
+  senderClueCount?: number;
 }
 
 export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
   shareCode,
   gameId: initialGameId,
-  clues: initialClues,
+  anchor: initialAnchor,
+  target: initialTarget,
+  senderClueCount: initialClueCount,
 }) => {
   const { dispatch } = useBridgingRecipientState();
   const [gameId, setGameId] = useState(initialGameId || '');
-  const [clues, setClues] = useState<string[]>(initialClues || []);
-  const [guessedAnchor, setGuessedAnchor] = useState('');
-  const [guessedTarget, setGuessedTarget] = useState('');
+  const [anchor, setAnchor] = useState(initialAnchor || '');
+  const [target, setTarget] = useState(initialTarget || '');
+  const [senderClueCount, setSenderClueCount] = useState(initialClueCount || 0);
+
+  // Clue inputs (1 required, up to 5)
+  const [clues, setClues] = useState<string[]>(['', '', '', '', '']);
+
   const [isLoading, setIsLoading] = useState(!initialGameId);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Join game on mount
+  // Join game on mount using V2 endpoint
   useEffect(() => {
-    if (initialGameId && initialClues) {
-      // Already loaded
+    if (initialGameId && initialAnchor && initialTarget) {
       dispatch({
-        type: 'GAME_LOADED',
+        type: 'GAME_LOADED_V2',
         gameId: initialGameId,
-        clues: initialClues,
+        anchor: initialAnchor,
+        target: initialTarget,
+        senderClueCount: initialClueCount || 0,
       });
       return;
     }
@@ -54,16 +64,20 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
           await supabase.auth.signInAnonymously();
         }
 
-        // Join via share code
-        const response = await api.bridging.join(shareCode);
+        // Join via share code (V2 endpoint)
+        const response = await api.bridging.joinV2(shareCode);
         setGameId(response.game_id);
-        setClues(response.clues);
+        setAnchor(response.anchor_word);
+        setTarget(response.target_word);
+        setSenderClueCount(response.sender_clue_count);
         setIsLoading(false);
 
         dispatch({
-          type: 'GAME_LOADED',
+          type: 'GAME_LOADED_V2',
           gameId: response.game_id,
-          clues: response.clues,
+          anchor: response.anchor_word,
+          target: response.target_word,
+          senderClueCount: response.sender_clue_count,
         });
       } catch (err) {
         setIsLoading(false);
@@ -78,48 +92,58 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
     };
 
     joinGame();
-  }, [shareCode, initialGameId, initialClues, dispatch]);
+  }, [shareCode, initialGameId, initialAnchor, initialTarget, initialClueCount, dispatch]);
+
+  const updateClue = (index: number, value: string) => {
+    const newClues = [...clues];
+    newClues[index] = value;
+    setClues(newClues);
+  };
+
+  // Get non-empty clues
+  const getFilledClues = () => clues.filter((c) => c.trim().length > 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!guessedAnchor.trim() || !guessedTarget.trim()) {
-      setError('Please enter both anchor and target guesses');
+    const filledClues = getFilledClues();
+
+    if (filledClues.length === 0) {
+      setError('Please enter at least one clue');
       return;
     }
 
-    const anchorClean = guessedAnchor.trim().toLowerCase();
-    const targetClean = guessedTarget.trim().toLowerCase();
-
-    if (anchorClean === targetClean) {
-      setError('Anchor and target must be different words');
-      return;
+    // Validate clues don't include anchor or target
+    const anchorLower = anchor.toLowerCase();
+    const targetLower = target.toLowerCase();
+    for (const clue of filledClues) {
+      const clueLower = clue.trim().toLowerCase();
+      if (clueLower === anchorLower || clueLower === targetLower) {
+        setError('Clues cannot be the anchor or target words');
+        return;
+      }
     }
 
     setIsSubmitting(true);
     setError(null);
 
     try {
-      const response = await api.bridging.submitGuess(gameId, {
-        guessed_anchor: anchorClean,
-        guessed_target: targetClean,
+      const response = await api.bridging.submitBridge(gameId, {
+        clues: filledClues.map((c) => c.trim().toLowerCase()),
       });
 
       dispatch({
-        type: 'GUESS_SUBMITTED',
-        guessedAnchor: response.guessed_anchor,
-        guessedTarget: response.guessed_target,
-        trueAnchor: response.true_anchor,
-        trueTarget: response.true_target,
-        reconstructionScore: response.reconstruction_score,
-        anchorSimilarity: response.anchor_similarity,
-        targetSimilarity: response.target_similarity,
-        orderSwapped: response.order_swapped,
-        exactAnchorMatch: response.exact_anchor_match,
-        exactTargetMatch: response.exact_target_match,
+        type: 'BRIDGE_SUBMITTED',
+        senderClues: response.sender_clues,
+        recipientClues: response.recipient_clues,
+        bridgeSimilarity: response.bridge_similarity,
+        centroidSimilarity: response.centroid_similarity,
+        pathAlignment: response.path_alignment,
+        senderDivergence: response.sender_divergence,
+        recipientDivergence: response.recipient_divergence,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to submit guess');
+      setError(err instanceof Error ? err.message : 'Failed to submit bridge');
     } finally {
       setIsSubmitting(false);
     }
@@ -175,79 +199,115 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
     );
   }
 
+  const filledCount = getFilledClues().length;
+
   return (
     <div>
       <p className="subtitle">
-        <span className="id">INS-001.2</span> · Reconstruction
+        <span className="id">INS-001.2</span> · Build Your Bridge
       </p>
-      <h1 className="title">Reconstruct the bridge.</h1>
+      <h1 className="title">Connect these concepts.</h1>
 
       <p className="description">
-        Someone built a bridge between two concepts. These clues connect them:
+        Someone built a bridge between these two words. Now build your own.
       </p>
 
-      {/* Clues display */}
+      {/* Anchor ←→ Target display */}
       <Panel style={{ marginBottom: 'var(--space-lg)', textAlign: 'center' }}>
         <div
           style={{
             fontFamily: 'var(--font-mono)',
-            fontSize: '1rem',
+            fontSize: '1.25rem',
             color: 'var(--gold)',
-            lineHeight: '2',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 'var(--space-md)',
           }}
         >
-          {clues.map((clue, i) => (
-            <span key={i}>
-              {clue}
-              {i < clues.length - 1 && (
-                <span style={{ color: 'var(--faded)' }}> · </span>
-              )}
-            </span>
-          ))}
+          <span style={{ fontWeight: 600 }}>{anchor}</span>
+          <span
+            style={{
+              color: 'var(--faded)',
+              fontSize: '0.9rem',
+              letterSpacing: '0.1em',
+            }}
+          >
+            ←――――――――――→
+          </span>
+          <span style={{ fontWeight: 600 }}>{target}</span>
         </div>
+        {senderClueCount > 0 && (
+          <div
+            style={{
+              marginTop: 'var(--space-sm)',
+              color: 'var(--faded)',
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.75rem',
+            }}
+          >
+            Their bridge used {senderClueCount} clue{senderClueCount !== 1 ? 's' : ''}
+          </div>
+        )}
       </Panel>
 
-      <p className="description">What two words were being connected?</p>
+      <p className="description">
+        Enter 1-5 clues that connect <strong>{anchor}</strong> to{' '}
+        <strong>{target}</strong>:
+      </p>
 
       <form onSubmit={handleSubmit}>
         <div
           style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: 'var(--space-lg)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 'var(--space-sm)',
             marginBottom: 'var(--space-lg)',
           }}
         >
-          {/* Anchor guess */}
-          <div className="input-group" style={{ marginBottom: 0 }}>
-            <label className="input-label">Anchor</label>
-            <input
-              type="text"
-              className="text-input"
-              value={guessedAnchor}
-              onChange={(e) => setGuessedAnchor(e.target.value)}
-              placeholder="your guess"
-              autoComplete="off"
-              spellCheck="false"
-              autoFocus
-              disabled={isSubmitting}
-            />
-          </div>
+          {clues.map((clue, index) => (
+            <div key={index} className="input-group" style={{ marginBottom: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
+                <span
+                  style={{
+                    color: index === 0 ? 'var(--gold)' : 'var(--faded)',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '0.75rem',
+                    width: '1.5rem',
+                    textAlign: 'right',
+                  }}
+                >
+                  {index + 1}.
+                </span>
+                <input
+                  type="text"
+                  className="text-input"
+                  value={clue}
+                  onChange={(e) => updateClue(index, e.target.value)}
+                  placeholder={index === 0 ? 'first clue (required)' : 'optional clue'}
+                  autoComplete="off"
+                  spellCheck="false"
+                  autoFocus={index === 0}
+                  disabled={isSubmitting}
+                  style={{ flex: 1 }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
 
-          {/* Target guess */}
-          <div className="input-group" style={{ marginBottom: 0 }}>
-            <label className="input-label">Target</label>
-            <input
-              type="text"
-              className="text-input"
-              value={guessedTarget}
-              onChange={(e) => setGuessedTarget(e.target.value)}
-              placeholder="your guess"
-              autoComplete="off"
-              spellCheck="false"
-              disabled={isSubmitting}
-            />
-          </div>
+        <div
+          style={{
+            textAlign: 'center',
+            marginBottom: 'var(--space-md)',
+            color: 'var(--faded)',
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.75rem',
+          }}
+        >
+          {filledCount === 0
+            ? 'Enter at least one clue'
+            : `${filledCount} clue${filledCount !== 1 ? 's' : ''} entered`}
         </div>
 
         {error && (
@@ -256,6 +316,7 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
               color: 'var(--alert)',
               marginBottom: 'var(--space-md)',
               fontSize: 'var(--text-sm)',
+              textAlign: 'center',
             }}
           >
             ◈ {error}
@@ -266,11 +327,9 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
           <Button
             type="submit"
             variant="primary"
-            disabled={
-              !guessedAnchor.trim() || !guessedTarget.trim() || isSubmitting
-            }
+            disabled={filledCount === 0 || isSubmitting}
           >
-            {isSubmitting ? 'Submitting...' : 'Submit Guess →'}
+            {isSubmitting ? 'Comparing bridges...' : 'Compare Bridges →'}
           </Button>
         </div>
       </form>

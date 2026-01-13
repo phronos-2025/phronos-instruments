@@ -148,6 +148,11 @@ export interface SubmitBridgingCluesResponse {
   divergence_score: number;
   status: BridgingGameStatus;
   share_code?: string;
+  // V2: Haiku builds its own bridge
+  haiku_clues?: string[];
+  haiku_divergence?: number;
+  haiku_bridge_similarity?: number;
+  // Legacy (deprecated - for old games)
   haiku_guessed_anchor?: string;
   haiku_guessed_target?: string;
   haiku_reconstruction_score?: number;
@@ -197,6 +202,7 @@ export interface BridgingGameResponse {
   target_word: string;
   clues?: string[];
   divergence_score?: number;
+  // Human recipient guesses (legacy V1)
   guessed_anchor?: string;
   guessed_target?: string;
   reconstruction_score?: number;
@@ -205,9 +211,19 @@ export interface BridgingGameResponse {
   order_swapped?: boolean;
   exact_anchor_match?: boolean;
   exact_target_match?: boolean;
+  // Recipient bridge (V2)
+  recipient_clues?: string[];
+  recipient_divergence?: number;
+  bridge_similarity?: number;
+  // Haiku guesses (legacy V1)
   haiku_guessed_anchor?: string;
   haiku_guessed_target?: string;
   haiku_reconstruction_score?: number;
+  // Haiku bridge (V2)
+  haiku_clues?: string[];
+  haiku_divergence?: number;
+  haiku_bridge_similarity?: number;
+  // Statistical baseline
   statistical_guessed_anchor?: string;
   statistical_guessed_target?: string;
   statistical_baseline_score?: number;
@@ -222,6 +238,74 @@ export interface TriggerHaikuGuessResponse {
   haiku_guessed_anchor: string;
   haiku_guessed_target: string;
   haiku_reconstruction_score: number;
+}
+
+// ============================================
+// INS-001.2 V2: Bridge-vs-Bridge Types
+// ============================================
+
+export interface SemanticDistanceResponse {
+  anchor: string;
+  target: string;
+  distance: number;
+  interpretation: 'identical' | 'close' | 'moderate' | 'distant' | 'very distant';
+}
+
+export interface JoinBridgingGameResponseV2 {
+  game_id: string;
+  anchor_word: string;
+  target_word: string;
+  sender_clue_count: number;
+}
+
+export interface SubmitBridgingBridgeRequest {
+  clues: string[];
+}
+
+export interface SubmitBridgingBridgeResponse {
+  game_id: string;
+  recipient_clues: string[];
+  recipient_divergence: number;
+  sender_clues: string[];
+  sender_divergence: number;
+  bridge_similarity: number;
+  path_alignment?: number;
+  anchor_word: string;
+  target_word: string;
+  status: BridgingGameStatus;
+}
+
+export interface BridgingGameResponseV2 {
+  game_id: string;
+  sender_id: string;
+  recipient_id?: string;
+  recipient_type: BridgingRecipientType;
+  anchor_word: string;
+  target_word: string;
+  // Sender's bridge
+  clues?: string[];
+  divergence_score?: number;
+  // Recipient's bridge (V2)
+  recipient_clues?: string[];
+  recipient_divergence?: number;
+  bridge_similarity?: number;
+  path_alignment?: number;
+  // Haiku's bridge (V2)
+  haiku_clues?: string[];
+  haiku_divergence?: number;
+  haiku_bridge_similarity?: number;
+  // Legacy fields
+  guessed_anchor?: string;
+  guessed_target?: string;
+  reconstruction_score?: number;
+  haiku_guessed_anchor?: string;
+  haiku_guessed_target?: string;
+  haiku_reconstruction_score?: number;
+  // State
+  status: BridgingGameStatus;
+  share_code?: string;
+  created_at: string;
+  completed_at?: string;
 }
 
 // Helper to get auth headers
@@ -470,6 +554,21 @@ export const api = {
     triggerHaikuGuess: (gameId: string): Promise<TriggerHaikuGuessResponse> =>
       apiCall(`/api/v1/bridging/${gameId}/haiku-guess`, {
         method: 'POST',
+      }),
+
+    // V2: Bridge-vs-Bridge methods
+    getDistance: (anchor: string, target: string): Promise<SemanticDistanceResponse> =>
+      apiCall(`/api/v1/bridging/distance?anchor=${encodeURIComponent(anchor)}&target=${encodeURIComponent(target)}`),
+
+    joinV2: (shareCode: string): Promise<JoinBridgingGameResponseV2> =>
+      apiCall(`/api/v1/bridging/join-v2/${shareCode}`, {
+        method: 'POST',
+      }),
+
+    submitBridge: (id: string, data: SubmitBridgingBridgeRequest): Promise<SubmitBridgingBridgeResponse> =>
+      apiCall(`/api/v1/bridging/${id}/bridge`, {
+        method: 'POST',
+        body: JSON.stringify(data),
       }),
   },
 };

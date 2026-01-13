@@ -112,44 +112,51 @@ function bridgingSenderReducer(
 }
 
 // ============================================
-// RECIPIENT STATE
+// RECIPIENT STATE (V2: Build Bridge)
 // ============================================
 
 export type BridgingRecipientState =
   | { screen: 'loading' }
   | { screen: 'error'; message: string }
-  | { screen: 'join'; gameId: string; clues: string[] }
   | {
-      screen: 'results';
+      screen: 'build-bridge';
       gameId: string;
-      clues: string[];
-      guessedAnchor: string;
-      guessedTarget: string;
-      trueAnchor: string;
-      trueTarget: string;
-      reconstructionScore: number;
-      anchorSimilarity: number;
-      targetSimilarity: number;
-      orderSwapped: boolean;
-      exactAnchorMatch: boolean;
-      exactTargetMatch: boolean;
+      anchor: string;
+      target: string;
+      senderClueCount: number;
+    }
+  | {
+      screen: 'comparison';
+      gameId: string;
+      anchor: string;
+      target: string;
+      senderClues: string[];
+      recipientClues: string[];
+      bridgeSimilarity: number;
+      centroidSimilarity: number;
+      pathAlignment: number;
+      senderDivergence: number;
+      recipientDivergence: number;
     };
 
 type BridgingRecipientAction =
-  | { type: 'GAME_LOADED'; gameId: string; clues: string[] }
+  | {
+      type: 'GAME_LOADED_V2';
+      gameId: string;
+      anchor: string;
+      target: string;
+      senderClueCount: number;
+    }
   | { type: 'ERROR'; message: string }
   | {
-      type: 'GUESS_SUBMITTED';
-      guessedAnchor: string;
-      guessedTarget: string;
-      trueAnchor: string;
-      trueTarget: string;
-      reconstructionScore: number;
-      anchorSimilarity: number;
-      targetSimilarity: number;
-      orderSwapped: boolean;
-      exactAnchorMatch: boolean;
-      exactTargetMatch: boolean;
+      type: 'BRIDGE_SUBMITTED';
+      senderClues: string[];
+      recipientClues: string[];
+      bridgeSimilarity: number;
+      centroidSimilarity: number;
+      pathAlignment: number;
+      senderDivergence: number;
+      recipientDivergence: number;
     }
   | { type: 'RESET' };
 
@@ -158,11 +165,13 @@ function bridgingRecipientReducer(
   action: BridgingRecipientAction
 ): BridgingRecipientState {
   switch (action.type) {
-    case 'GAME_LOADED':
+    case 'GAME_LOADED_V2':
       return {
-        screen: 'join',
+        screen: 'build-bridge',
         gameId: action.gameId,
-        clues: action.clues,
+        anchor: action.anchor,
+        target: action.target,
+        senderClueCount: action.senderClueCount,
       };
 
     case 'ERROR':
@@ -171,22 +180,20 @@ function bridgingRecipientReducer(
         message: action.message,
       };
 
-    case 'GUESS_SUBMITTED':
-      if (state.screen === 'join') {
+    case 'BRIDGE_SUBMITTED':
+      if (state.screen === 'build-bridge') {
         return {
-          screen: 'results',
+          screen: 'comparison',
           gameId: state.gameId,
-          clues: state.clues,
-          guessedAnchor: action.guessedAnchor,
-          guessedTarget: action.guessedTarget,
-          trueAnchor: action.trueAnchor,
-          trueTarget: action.trueTarget,
-          reconstructionScore: action.reconstructionScore,
-          anchorSimilarity: action.anchorSimilarity,
-          targetSimilarity: action.targetSimilarity,
-          orderSwapped: action.orderSwapped,
-          exactAnchorMatch: action.exactAnchorMatch,
-          exactTargetMatch: action.exactTargetMatch,
+          anchor: state.anchor,
+          target: state.target,
+          senderClues: action.senderClues,
+          recipientClues: action.recipientClues,
+          bridgeSimilarity: action.bridgeSimilarity,
+          centroidSimilarity: action.centroidSimilarity,
+          pathAlignment: action.pathAlignment,
+          senderDivergence: action.senderDivergence,
+          recipientDivergence: action.recipientDivergence,
         };
       }
       return state;

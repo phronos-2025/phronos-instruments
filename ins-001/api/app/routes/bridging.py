@@ -17,18 +17,26 @@ from app.models import (
     SuggestWordResponse,
     CreateBridgingShareResponse, JoinBridgingGameResponse,
     TriggerHaikuGuessResponse,
-    ErrorResponse
+    ErrorResponse,
+    # V2 models for bridge-vs-bridge
+    SemanticDistanceResponse,
+    JoinBridgingGameResponseV2,
+    SubmitBridgingBridgeRequest, SubmitBridgingBridgeResponse,
+    TriggerHaikuBridgeResponse,
+    BridgingGameResponseV2
 )
 from app.middleware.auth import get_authenticated_client
 from app.services.embeddings import get_embedding, get_embeddings_batch
 from app.services.scoring_bridging import (
     calculate_divergence,
     calculate_reconstruction,
+    calculate_bridge_similarity,
+    calculate_semantic_distance,
     calculate_statistical_baseline,
     get_divergence_interpretation,
     get_reconstruction_interpretation
 )
-from app.services.llm import haiku_reconstruct_bridge
+from app.services.llm import haiku_reconstruct_bridge, haiku_build_bridge
 from app.config import SUPABASE_URL, SUPABASE_SERVICE_KEY, FRONTEND_URL
 from supabase import create_client
 
@@ -189,38 +197,40 @@ async def submit_bridging_clues(
         "status": "pending_guess" if game["recipient_type"] == "human" else "pending_clues"
     }
 
-    # If Haiku recipient, get Haiku reconstruction immediately
+    # If Haiku recipient, have Haiku build its own bridge (V2 approach)
+    haiku_clues = None
+    haiku_divergence = None
+    haiku_bridge_similarity = None
+    # Legacy fields for backwards compat
     haiku_guessed_anchor = None
     haiku_guessed_target = None
     haiku_reconstruction_score = None
 
     if game["recipient_type"] == "haiku":
-        haiku_result = await haiku_reconstruct_bridge(clues_clean)
+        # V2: Haiku builds its own bridge
+        haiku_result = await haiku_build_bridge(anchor, target, num_clues=3)
 
-        if haiku_result.get("guessed_anchor") and haiku_result.get("guessed_target"):
-            haiku_guessed_anchor = haiku_result["guessed_anchor"]
-            haiku_guessed_target = haiku_result["guessed_target"]
+        if haiku_result.get("clues") and len(haiku_result["clues"]) > 0:
+            haiku_clues = haiku_result["clues"]
 
-            # Embed Haiku's guesses and calculate reconstruction score
-            haiku_texts = [haiku_guessed_anchor, haiku_guessed_target]
-            haiku_embs = await get_embeddings_batch(haiku_texts)
+            # Embed Haiku's clues
+            haiku_clue_embs = await get_embeddings_batch(haiku_clues)
 
-            recon = calculate_reconstruction(
-                true_anchor_embedding=anchor_emb,
-                true_target_embedding=target_emb,
-                guessed_anchor_embedding=haiku_embs[0],
-                guessed_target_embedding=haiku_embs[1],
-                true_anchor=anchor,
-                true_target=target,
-                guessed_anchor=haiku_guessed_anchor,
-                guessed_target=haiku_guessed_target
+            # Calculate Haiku's divergence
+            haiku_divergence = calculate_divergence(anchor_emb, target_emb, haiku_clue_embs)
+
+            # Calculate bridge similarity between sender and Haiku
+            similarity_result = calculate_bridge_similarity(
+                sender_clue_embeddings=clue_embs,
+                recipient_clue_embeddings=haiku_clue_embs,
+                anchor_embedding=anchor_emb,
+                target_embedding=target_emb
             )
+            haiku_bridge_similarity = similarity_result["overall"]
 
-            haiku_reconstruction_score = recon["overall"]
-
-            update_data["haiku_guessed_anchor"] = haiku_guessed_anchor
-            update_data["haiku_guessed_target"] = haiku_guessed_target
-            update_data["haiku_reconstruction_score"] = haiku_reconstruction_score
+            update_data["haiku_clues"] = haiku_clues
+            update_data["haiku_divergence"] = haiku_divergence
+            update_data["haiku_bridge_similarity"] = haiku_bridge_similarity
             update_data["status"] = "completed"
 
     supabase.table("games_bridging").update(update_data).eq("id", game_id).execute()
@@ -231,6 +241,11 @@ async def submit_bridging_clues(
         divergence_score=divergence_score,
         status=BridgingGameStatus(update_data["status"]),
         share_code=share_code,
+        # V2 fields
+        haiku_clues=haiku_clues,
+        haiku_divergence=haiku_divergence,
+        haiku_bridge_similarity=haiku_bridge_similarity,
+        # Legacy fields (return None for V2 games)
         haiku_guessed_anchor=haiku_guessed_anchor,
         haiku_guessed_target=haiku_guessed_target,
         haiku_reconstruction_score=haiku_reconstruction_score
@@ -325,6 +340,70 @@ async def suggest_distant_word(
         return SuggestWordResponse(
             suggestion=random.choice(fallback_words),
             from_word=from_word_clean if from_word else None
+        )
+
+
+# ============================================
+# SEMANTIC DISTANCE (V2)
+# ============================================
+
+@router.get("/distance", response_model=SemanticDistanceResponse)
+async def get_semantic_distance(
+    anchor: str = Query(min_length=1, max_length=50),
+    target: str = Query(min_length=1, max_length=50),
+    auth = Depends(get_authenticated_client)
+):
+    """
+    Get semantic distance between two words.
+
+    Used to show how "far apart" anchor and target are on the word selection screen.
+    Distance is 0-100 scale: 0 = identical, 100 = maximally distant.
+    """
+    anchor_clean = anchor.lower().strip()
+    target_clean = target.lower().strip()
+
+    if anchor_clean == target_clean:
+        return SemanticDistanceResponse(
+            anchor=anchor_clean,
+            target=target_clean,
+            distance=0.0,
+            interpretation="identical"
+        )
+
+    try:
+        # Batch embed both words
+        embeddings = await get_embeddings_batch([anchor_clean, target_clean])
+        anchor_emb = embeddings[0]
+        target_emb = embeddings[1]
+
+        # Calculate distance
+        distance = calculate_semantic_distance(anchor_emb, target_emb)
+
+        # Interpretation
+        if distance < 15:
+            interpretation = "close"
+        elif distance < 30:
+            interpretation = "moderate"
+        elif distance < 45:
+            interpretation = "distant"
+        else:
+            interpretation = "very distant"
+
+        return SemanticDistanceResponse(
+            anchor=anchor_clean,
+            target=target_clean,
+            distance=distance,
+            interpretation=interpretation
+        )
+
+    except Exception as e:
+        print(f"get_semantic_distance error: {e}")
+        # Return a default moderate distance on error
+        return SemanticDistanceResponse(
+            anchor=anchor_clean,
+            target=target_clean,
+            distance=30.0,
+            interpretation="moderate"
         )
 
 
@@ -439,7 +518,169 @@ async def join_bridging_game(
 
 
 # ============================================
-# SUBMIT GUESS
+# JOIN GAME V2 (Bridge-vs-Bridge)
+# ============================================
+
+@router.post("/join-v2/{share_code}", response_model=JoinBridgingGameResponseV2)
+async def join_bridging_game_v2(
+    share_code: str,
+    auth = Depends(get_authenticated_client)
+):
+    """
+    Join a bridging game via share code (V2: bridge-vs-bridge).
+
+    In V2, recipient sees anchor + target and builds their own bridge,
+    rather than guessing the words from clues.
+    """
+    supabase, user = auth
+
+    # Use database function for atomic join
+    try:
+        result = supabase.rpc(
+            "join_bridging_game_via_code",
+            {"p_share_code": share_code, "p_recipient_id": user["id"]}
+        ).execute()
+
+        game_id = result.data
+    except Exception as e:
+        error_msg = str(e)
+        if "Invalid share code" in error_msg:
+            raise HTTPException(status_code=404, detail={"error": "Invalid or expired share code"})
+        elif "Cannot join your own game" in error_msg:
+            raise HTTPException(status_code=400, detail={"error": "Cannot join your own game"})
+        elif "already has a recipient" in error_msg:
+            raise HTTPException(status_code=400, detail={"error": "Game already has a recipient"})
+        elif "not accepting guesses" in error_msg:
+            raise HTTPException(status_code=400, detail={"error": "Game is not accepting guesses"})
+        else:
+            raise HTTPException(status_code=400, detail={"error": str(e)})
+
+    # Get game details: anchor, target, and clue count (NOT the actual clues)
+    game_result = supabase.table("games_bridging") \
+        .select("id, anchor_word, target_word, clues") \
+        .eq("id", game_id) \
+        .single() \
+        .execute()
+
+    game = game_result.data
+
+    return JoinBridgingGameResponseV2(
+        game_id=game["id"],
+        anchor_word=game["anchor_word"],
+        target_word=game["target_word"],
+        sender_clue_count=len(game["clues"]) if game["clues"] else 0
+    )
+
+
+# ============================================
+# SUBMIT BRIDGE V2 (Recipient's Bridge)
+# ============================================
+
+@router.post("/{game_id}/bridge", response_model=SubmitBridgingBridgeResponse)
+async def submit_bridging_bridge(
+    game_id: str,
+    request: SubmitBridgingBridgeRequest,
+    auth = Depends(get_authenticated_client)
+):
+    """
+    Submit recipient's bridge (their clues) for comparison.
+
+    In V2, recipient builds their own bridge connecting anchor-target,
+    and we compare the two bridges for similarity.
+    """
+    supabase, user = auth
+
+    # Clean clues
+    clues_clean = [c.lower().strip() for c in request.clues if c.strip()]
+
+    if len(clues_clean) < 1 or len(clues_clean) > 5:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "Must provide 1-5 clues"}
+        )
+
+    # Get game (user must be recipient)
+    try:
+        result = supabase.table("games_bridging") \
+            .select("*") \
+            .eq("id", game_id) \
+            .eq("recipient_id", user["id"]) \
+            .eq("status", "pending_guess") \
+            .single() \
+            .execute()
+    except APIError:
+        raise HTTPException(status_code=404, detail={"error": "Game not found or not in correct state"})
+
+    if not result.data:
+        raise HTTPException(status_code=404, detail={"error": "Game not found or not in correct state"})
+
+    game = result.data
+    anchor = game["anchor_word"]
+    target = game["target_word"]
+    sender_clues = game["clues"]
+
+    # Validate clues don't include anchor or target
+    for clue in clues_clean:
+        if clue == anchor or clue == target:
+            raise HTTPException(
+                status_code=400,
+                detail={"error": f"Clue '{clue}' cannot be the anchor or target word"}
+            )
+
+    # Check for duplicate clues
+    if len(clues_clean) != len(set(clues_clean)):
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "Clues must be unique"}
+        )
+
+    # Batch embed everything: anchor, target, sender clues, recipient clues
+    all_texts = [anchor, target] + sender_clues + clues_clean
+    all_embeddings = await get_embeddings_batch(all_texts)
+
+    anchor_emb = all_embeddings[0]
+    target_emb = all_embeddings[1]
+    sender_clue_embs = all_embeddings[2:2 + len(sender_clues)]
+    recipient_clue_embs = all_embeddings[2 + len(sender_clues):]
+
+    # Calculate recipient's divergence
+    recipient_divergence = calculate_divergence(anchor_emb, target_emb, recipient_clue_embs)
+
+    # Calculate bridge similarity
+    similarity_result = calculate_bridge_similarity(
+        sender_clue_embeddings=sender_clue_embs,
+        recipient_clue_embeddings=recipient_clue_embs,
+        anchor_embedding=anchor_emb,
+        target_embedding=target_emb
+    )
+
+    # Update game
+    update_data = {
+        "recipient_clues": clues_clean,
+        "recipient_divergence": recipient_divergence,
+        "bridge_similarity": similarity_result["overall"],
+        "status": "completed",
+        "completed_at": "now()"
+    }
+
+    supabase.table("games_bridging").update(update_data).eq("id", game_id).execute()
+
+    return SubmitBridgingBridgeResponse(
+        game_id=game_id,
+        recipient_clues=clues_clean,
+        recipient_divergence=recipient_divergence,
+        sender_clues=sender_clues,
+        sender_divergence=game["divergence_score"],
+        bridge_similarity=similarity_result["overall"],
+        path_alignment=similarity_result["path_alignment"],
+        anchor_word=anchor,
+        target_word=target,
+        status=BridgingGameStatus.COMPLETED
+    )
+
+
+# ============================================
+# SUBMIT GUESS (Legacy)
 # ============================================
 
 @router.post("/{game_id}/guess", response_model=SubmitBridgingGuessResponse)

@@ -87,6 +87,115 @@ def calculate_divergence(
     return float(normalized_score)
 
 
+def calculate_bridge_similarity(
+    sender_clue_embeddings: list[list[float]],
+    recipient_clue_embeddings: list[list[float]],
+    anchor_embedding: list[float] | None = None,
+    target_embedding: list[float] | None = None
+) -> dict:
+    """
+    Calculate how similarly two bridges traverse the anchor-target space.
+
+    Compares two sets of clues (sender's bridge vs recipient's bridge) to measure
+    whether they took similar conceptual paths between the same endpoints.
+
+    Metrics:
+    1. Centroid similarity: Cosine similarity of clue centroids (primary metric)
+    2. Path alignment: Whether bridges arc on the same "side" of the A-T line
+       (if anchor/target embeddings provided)
+
+    Args:
+        sender_clue_embeddings: Embeddings for sender's clues
+        recipient_clue_embeddings: Embeddings for recipient's clues
+        anchor_embedding: Optional anchor embedding (for path alignment)
+        target_embedding: Optional target embedding (for path alignment)
+
+    Returns:
+        Dictionary with:
+        - overall: Combined bridge similarity score (0-100)
+        - centroid_similarity: How close the clue centroids are (0-100)
+        - path_alignment: Whether bridges curve same direction (-1 to 1, None if no anchor/target)
+    """
+    if not sender_clue_embeddings or not recipient_clue_embeddings:
+        return {
+            "overall": 0.0,
+            "centroid_similarity": 0.0,
+            "path_alignment": None
+        }
+
+    # Compute centroids
+    sender_vecs = [np.array(e) for e in sender_clue_embeddings]
+    recipient_vecs = [np.array(e) for e in recipient_clue_embeddings]
+
+    sender_centroid = np.mean(sender_vecs, axis=0)
+    recipient_centroid = np.mean(recipient_vecs, axis=0)
+
+    # Centroid similarity (cosine)
+    centroid_sim = cosine_similarity(sender_centroid.tolist(), recipient_centroid.tolist())
+    centroid_sim_pct = max(0.0, centroid_sim) * 100
+
+    # Path alignment (if anchor/target provided)
+    path_alignment = None
+    if anchor_embedding is not None and target_embedding is not None:
+        anchor_vec = np.array(anchor_embedding)
+        target_vec = np.array(target_embedding)
+
+        # Line direction
+        line_dir = target_vec - anchor_vec
+        line_len_sq = np.dot(line_dir, line_dir)
+
+        if line_len_sq > 1e-10:
+            # Get perpendicular components for each centroid
+            def get_perpendicular(centroid):
+                proj_scalar = np.dot(centroid - anchor_vec, line_dir) / line_len_sq
+                proj_point = anchor_vec + proj_scalar * line_dir
+                return centroid - proj_point
+
+            sender_perp = get_perpendicular(sender_centroid)
+            recipient_perp = get_perpendicular(recipient_centroid)
+
+            # Path alignment: cosine of perpendicular vectors
+            # +1 = same side, -1 = opposite sides, 0 = one on line
+            sender_perp_norm = np.linalg.norm(sender_perp)
+            recipient_perp_norm = np.linalg.norm(recipient_perp)
+
+            if sender_perp_norm > 1e-10 and recipient_perp_norm > 1e-10:
+                path_alignment = float(
+                    np.dot(sender_perp, recipient_perp) /
+                    (sender_perp_norm * recipient_perp_norm)
+                )
+
+    # Overall score: primarily centroid similarity
+    # Could incorporate path_alignment as a modifier, but keep it simple for now
+    overall = centroid_sim_pct
+
+    return {
+        "overall": float(overall),
+        "centroid_similarity": float(centroid_sim_pct),
+        "path_alignment": path_alignment
+    }
+
+
+def calculate_semantic_distance(
+    embedding1: list[float],
+    embedding2: list[float]
+) -> float:
+    """
+    Calculate semantic distance between two embeddings.
+
+    Returns a 0-100 scale where:
+    - 0 = identical (cosine similarity = 1)
+    - 100 = maximally distant (cosine similarity = -1)
+
+    Useful for showing how "far apart" anchor and target are.
+    """
+    sim = cosine_similarity(embedding1, embedding2)
+    # Convert similarity (-1 to 1) to distance (0 to 100)
+    # sim=1 -> distance=0, sim=0 -> distance=50, sim=-1 -> distance=100
+    distance = (1 - sim) * 50
+    return float(max(0.0, min(100.0, distance)))
+
+
 def calculate_reconstruction(
     true_anchor_embedding: list[float],
     true_target_embedding: list[float],

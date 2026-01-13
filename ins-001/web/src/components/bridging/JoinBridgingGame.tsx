@@ -1,7 +1,8 @@
 /**
- * Join Bridging Game Component - INS-001.2 Recipient Flow
+ * Join Bridging Game Component - INS-001.2 Recipient Flow (V2)
  *
  * State machine router for recipient screens.
+ * V2: Recipients build their own bridge instead of guessing words.
  */
 
 import React from 'react';
@@ -11,7 +12,7 @@ import {
 } from '../../lib/bridging-state';
 import { Navigation } from '../ui/Navigation';
 import { BridgingJoinScreen } from './screens/BridgingJoinScreen';
-import { BridgingGuessResultsScreen } from './screens/BridgingGuessResultsScreen';
+import { BridgingComparisonScreen } from './screens/BridgingComparisonScreen';
 
 interface JoinBridgingGameProps {
   shareCode: string;
@@ -23,6 +24,7 @@ function BridgingRecipientRouter({ shareCode }: { shareCode: string }) {
   switch (state.screen) {
     case 'loading':
       return <BridgingJoinScreen shareCode={shareCode} />;
+
     case 'error':
       return (
         <div style={{ textAlign: 'center', padding: '2rem' }}>
@@ -52,30 +54,33 @@ function BridgingRecipientRouter({ shareCode }: { shareCode: string }) {
           </a>
         </div>
       );
-    case 'join':
+
+    case 'build-bridge':
       return (
         <BridgingJoinScreen
           shareCode={shareCode}
           gameId={state.gameId}
-          clues={state.clues}
+          anchor={state.anchor}
+          target={state.target}
+          senderClueCount={state.senderClueCount}
         />
       );
-    case 'results':
+
+    case 'comparison':
       return (
-        <BridgingGuessResultsScreen
-          clues={state.clues}
-          guessedAnchor={state.guessedAnchor}
-          guessedTarget={state.guessedTarget}
-          trueAnchor={state.trueAnchor}
-          trueTarget={state.trueTarget}
-          reconstructionScore={state.reconstructionScore}
-          anchorSimilarity={state.anchorSimilarity}
-          targetSimilarity={state.targetSimilarity}
-          orderSwapped={state.orderSwapped}
-          exactAnchorMatch={state.exactAnchorMatch}
-          exactTargetMatch={state.exactTargetMatch}
+        <BridgingComparisonScreen
+          anchor={state.anchor}
+          target={state.target}
+          senderClues={state.senderClues}
+          recipientClues={state.recipientClues}
+          bridgeSimilarity={state.bridgeSimilarity}
+          centroidSimilarity={state.centroidSimilarity}
+          pathAlignment={state.pathAlignment}
+          senderDivergence={state.senderDivergence}
+          recipientDivergence={state.recipientDivergence}
         />
       );
+
     default:
       return <BridgingJoinScreen shareCode={shareCode} />;
   }
