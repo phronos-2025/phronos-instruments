@@ -1,7 +1,7 @@
 /**
  * Clues Screen
  * 
- * Noise floor visualization, 5 clue inputs with validation
+ * Noise floor visualization, 5 clue inputs (no validation - accepts any word)
  */
 
 import React, { useState } from 'react';
@@ -27,7 +27,6 @@ export const CluesScreen: React.FC<CluesScreenProps> = ({
 }) => {
   const { dispatch } = useGameState();
   const [clues, setClues] = useState<string[]>(['', '', '', '', '']);
-  const [validClues, setValidClues] = useState<boolean[]>([false, false, false, false, false]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -37,13 +36,8 @@ export const CluesScreen: React.FC<CluesScreenProps> = ({
     setClues(newClues);
   };
   
-  const handleValidationChange = (index: number, isValid: boolean) => {
-    const newValid = [...validClues];
-    newValid[index] = isValid;
-    setValidClues(newValid);
-  };
-  
-  const allValid = validClues.every(v => v) && clues.every(c => c.trim());
+  // All clues must be filled (no validation requirement)
+  const allValid = clues.every(c => c.trim() !== '');
   
   const handleSubmit = async () => {
     if (!allValid) return;
@@ -99,7 +93,6 @@ export const CluesScreen: React.FC<CluesScreenProps> = ({
               number={idx + 1}
               value={clue}
               onChange={(value) => handleClueChange(idx, value)}
-              onValidationChange={(isValid) => handleValidationChange(idx, isValid)}
             />
           ))}
         </div>

@@ -29,9 +29,27 @@ These cannot be changed without explicit user approval:
 ## Security Invariants
 
 1. **Never use service key in routes** - Use `get_authenticated_client()`
-2. **Seed words are open** - No vocabulary validation for seeds
-3. **Clues/guesses are closed** - Must validate against vocabulary
-4. **XML-escape LLM inputs** - Defense in depth
+2. **ALL words are open** - Seeds, clues, AND guesses can be any word
+3. **XML-escape LLM inputs** - This is the security layer, not vocabulary validation
+4. **Use contextual embeddings** - Include clues as context for scoring
+
+## Word Validation: OPEN FOR ALL
+
+```python
+# ✅ CORRECT - No vocabulary validation
+seed_word = request.seed_word.lower().strip()
+clues_clean = [c.lower().strip() for c in request.clues]
+guesses_clean = [g.lower().strip() for g in request.guesses]
+
+# ❌ WRONG - Don't validate against vocabulary
+if not await validate_word(supabase, word):
+    raise HTTPException(400, "Invalid")
+```
+
+**Why this is safe:**
+- LLM prompt safety comes from XML escaping, not vocabulary filtering
+- OpenAI embeds ANY string via subword tokenization
+- Gibberish inputs hurt only that player's score (self-correcting)
 
 ## Consultation Required
 
@@ -60,8 +78,8 @@ Always ask the user before:
 
 - Use async/await consistently
 - Error responses use dict format: `{"error": "...", "detail": "..."}`
-- Validate clues/guesses against vocabulary
 - Use contextual embeddings for scoring (include clues as context)
+- XML-escape all user content going to LLM
 
 ## When In Doubt
 

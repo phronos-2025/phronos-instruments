@@ -5,6 +5,7 @@
  */
 
 import React from 'react';
+import { PhronosLogo } from './PhronosLogo';
 
 interface NavigationProps {
   instrumentId?: string;
@@ -19,7 +20,9 @@ export const Navigation: React.FC<NavigationProps> = ({
     <nav className="nav-fixed">
       <div className="nav-left">
         <a href="/" className="nav-brand">
-          <span className="nav-logo-mark">φ</span>
+          <span className="nav-logo-mark">
+            <PhronosLogo size={24} />
+          </span>
           <span className="nav-wordmark">Phronos</span>
         </a>
       </div>

@@ -1,5 +1,5 @@
 ---
-description: "Security rules for API route handlers - service key prohibition, validation rules"
+description: "Security rules for API route handlers - service key prohibition, LLM prompt safety"
 globs: ["**/*.py"]
 alwaysApply: false
 ---
@@ -20,31 +20,41 @@ supabase, user = await get_authenticated_client(credentials)
 The service key is ONLY for background jobs (profile computation, cleanup).
 NEVER import or use it in route handlers.
 
-## Word Validation Rules
+## Word Validation: ALL WORDS ARE OPEN
 
-**Seed words: OPEN (any word allowed)**
+Seeds, clues, AND guesses can be ANY word. No vocabulary validation.
+
 ```python
-# ✅ CORRECT - Accept any seed word
+# ✅ CORRECT - Accept any word
 seed_word = request.seed_word.lower().strip()
-# Just use it - no vocabulary validation
+clues_clean = [c.lower().strip() for c in request.clues]
+guesses_clean = [g.lower().strip() for g in request.guesses]
 
-# ❌ WRONG - Never validate seeds against vocabulary
-if not await validate_word(supabase, request.seed_word):
-    raise HTTPException(400, "Invalid")  # DON'T DO THIS FOR SEEDS
+# ❌ WRONG - Don't validate against vocabulary
+if not await validate_word(supabase, word):
+    raise HTTPException(400, "Invalid")  # DON'T DO THIS
 ```
 
-**Clues and guesses: CLOSED (vocabulary only)**
+Why this is safe:
+- LLM prompt safety comes from XML structure, not vocabulary filtering
+- OpenAI embeds ANY string via subword tokenization
+- Gibberish inputs hurt only that player's score (self-correcting)
+
+## LLM Prompt Safety: XML Escaping
+
+This is the security layer for LLM inputs:
+
 ```python
-# ✅ REQUIRED - Always validate clues/guesses
-all_valid, invalid = await validate_words(supabase, request.clues)
-if not all_valid:
-    raise HTTPException(400, f"Invalid: {invalid}")
-```
+# ✅ REQUIRED - Always XML-escape user content
+escaped_clues = [html.escape(c) for c in clues]
+clue_xml = "\n".join(f"  <clue>{c}</clue>" for c in escaped_clues)
 
-Why the difference?
-- Seed: Never enters LLM prompt, no injection risk
-- Clues: Go to LLM prompt, MUST validate
-- Guesses: Need reliable embeddings for scoring
+prompt = f"""
+<clues>
+{clue_xml}
+</clues>
+"""
+```
 
 ## Error Response Format
 
@@ -52,11 +62,11 @@ Why the difference?
 # ✅ CORRECT - Dict detail with ErrorResponse shape
 raise HTTPException(
     status_code=400,
-    detail={"error": "Invalid clues", "detail": "Words not in vocabulary"}
+    detail={"error": "Invalid request", "detail": "Details here"}
 )
 
 # ❌ WRONG - String detail
-raise HTTPException(400, "Invalid clues")
+raise HTTPException(400, "Invalid")
 ```
 
 ## Contextual Embeddings for Scoring
@@ -80,4 +90,13 @@ async def create_game(...):
 # ❌ WRONG
 def create_game(...):  # Should be async
     result = get_embedding(word)  # Missing await
+```
+
+## Analytics Tracking (Optional)
+
+Track vocabulary membership for research, but don't block:
+
+```python
+# Track for analytics, don't block submission
+seed_in_vocabulary = await check_word_in_vocabulary(supabase, seed_word)
 ```

@@ -22,65 +22,65 @@ The service key is ONLY for background jobs (profile computation, cleanup).
 
 ### 2. Word Validation Rules (IMPORTANT)
 
-Seed words and clues/guesses have DIFFERENT validation rules:
+#### ALL Words Are OPEN (no vocabulary restrictions)
 
-#### Seed Words: OPEN (no restrictions)
+Seeds, clues, and guesses all follow the same rule: **accept any word**.
 
 ```python
-# ✅ CORRECT - No validation needed for seed words
+# ✅ CORRECT - No validation needed
 seed_word = request.seed_word.lower().strip()
-# Just use it directly
+clues_clean = [c.lower().strip() for c in request.clues]
+guesses_clean = [g.lower().strip() for g in request.guesses]
 
-# ❌ WRONG - Don't validate seed against vocabulary
-if not await validate_word(supabase, request.seed_word):
+# ❌ WRONG - Don't validate against vocabulary
+if not await validate_word(supabase, word):
     raise HTTPException(400, "Word not in vocabulary")
 ```
 
-Users can enter ANY seed word:
+Users can enter ANY word for seeds, clues, or guesses:
 - Standard English words
 - Domain-specific terms (tachycardia, estoppel)
 - Proper nouns (Shakespeare, Obi-Wan)
 - Slang and neologisms (rizz, skibidi)
 - Foreign words
 - Made-up words
-- Yes, even offensive words (it's a private game between consenting players)
 
-MVP rationale: Seed never enters LLM prompt, only visible to two players who opted in, no legal requirement to filter.
+#### Why This Is Safe
 
-#### Clues and Guesses: CLOSED (vocabulary only)
+1. **LLM prompt safety:** XML structure isolates user content, not vocabulary filtering
+   ```python
+   # XML escaping handles prompt safety
+   escaped_clues = [html.escape(c) for c in clues]
+   clue_xml = "\n".join(f"  <clue>{c}</clue>" for c in escaped_clues)
+   ```
 
-```python
-# ✅ CORRECT - Validate clues/guesses against vocabulary
-all_valid, invalid = await validate_words(supabase, request.clues)
-if not all_valid:
-    raise HTTPException(400, f"Invalid clues: {', '.join(invalid)}")
-```
+2. **Embeddings:** OpenAI embeds ANY string via subword tokenization
 
-Why the difference?
-1. **Seed word:** Never enters LLM prompt (it's the hidden answer), no injection risk
-2. **Clues:** Go to LLM prompt, must be validated for prompt safety
-3. **Guesses:** Need reliable embeddings for scoring
+3. **Self-correcting:** Gibberish inputs hurt only that player's score
+
+4. **Consistent UX:** Same rules for all inputs, no confusing "word not found" errors
 
 #### Tracking for Analytics
 
+Track vocabulary membership for research filtering, but don't block:
+
 ```python
-# Track for research filtering, don't block
+# Track for research, don't block
 seed_in_vocabulary = await check_word_in_vocabulary(supabase, seed_word)
+clues_in_vocabulary = [await check_word_in_vocabulary(supabase, c) for c in clues]
 ```
 
-### 3. NEVER Use Service Key in Route Handlers
+```sql
+-- Filter to vocabulary-only data for strict research validity
+SELECT * FROM games WHERE seed_in_vocabulary = TRUE;
+```
+
+### 3. Use halfvec for Embeddings if available, or else use vector
 
 Storage uses 16-bit floats to fit in Supabase Free tier:
 
-```sql
--- ❌ WRONG - Uses 300MB
-embedding vector(1536)
 
--- ✅ CORRECT - Uses 150MB  
-embedding halfvec(1536)
-```
-
-Index must use `halfvec_cosine_ops`:
+Index must use `halfvec_cosine_ops` if available:
 
 ```sql
 -- ❌ WRONG
@@ -117,7 +117,7 @@ Always return `ErrorResponse`:
 ```python
 raise HTTPException(
     status_code=400,
-    detail=ErrorResponse(error="Word not in vocabulary", detail="'asdf' is not a valid word").dict()
+    detail=ErrorResponse(error="Invalid request", detail="Details here").dict()
 )
 ```
 
@@ -188,16 +188,23 @@ embedding = await get_embedding(word)
 embedding = await get_contextual_embedding(word, context=[seed_word])
 ```
 
-### Noise Floor
+### On-Demand Embeddings
 
-Noise floor uses precomputed embeddings (fast), not contextual:
+All words (seeds, clues, guesses) are embedded on-demand via OpenAI:
 
 ```python
-# Noise floor: precomputed, <100ms
-floor = await get_noise_floor(supabase, seed_word)
-
-# Scoring: contextual, ~300ms
+# Works for any word, not just vocabulary
 clue_emb = await get_contextual_embedding(clue, [seed_word])
+guess_emb = await get_contextual_embedding(guess, clues)
+```
+
+### Noise Floor
+
+Noise floor queries vocabulary embeddings for nearest neighbors:
+
+```python
+# Embed seed on-demand, query vocabulary table
+floor = await get_noise_floor(supabase, seed_word)
 ```
 
 ---
@@ -224,31 +231,43 @@ Range: [0, 1]. Higher = better communication.
 
 ### DO NOT modify these formulas. They define the construct validity.
 
+### Fuzzy Exact Match
+
+For convergence scoring, we treat >99% embedding similarity as exact match.
+This handles misspellings and alternate spellings (Ghandi/Gandhi).
+
+```python
+FUZZY_EXACT_MATCH_THRESHOLD = 0.99
+
+if max_similarity > FUZZY_EXACT_MATCH_THRESHOLD:
+    return 1.0, True  # Treat as exact match
+```
+
 ---
 
 ## LLM Conventions
 
 ### Model
 
-Always use `claude-3-5-haiku-20241022`. Do not use other models.
+Always use `claude-haiku-4-5-20251001`. Do not use other models.
 
 Changing models affects construct validity (LLM Alignment metric).
 
 ### Prompt Structure
 
-Always isolate user content in XML tags:
+Always isolate user content in XML tags with escaping:
 
 ```python
-# ❌ WRONG - Prompt injection risk
-prompt = f"Clues: {', '.join(clues)}"
-
-# ✅ CORRECT - User content isolated
+# ✅ CORRECT - User content isolated and escaped
+escaped_clues = [html.escape(c) for c in clues]
 prompt = f"""
 <clues>
-{chr(10).join(f'  <clue>{html.escape(c)}</clue>' for c in clues)}
+{chr(10).join(f'  <clue>{c}</clue>' for c in escaped_clues)}
 </clues>
 """
 ```
+
+This is the security layer for LLM inputs, not vocabulary validation.
 
 ### Temperature
 
@@ -298,66 +317,6 @@ curl -X GET http://localhost:8000/api/v1/users/me \
   -H "Authorization: Bearer <token>"
 ```
 
----
-
-## Environment Variables
-
-Required in `.env`:
-
-```
-SUPABASE_URL=https://xxx.supabase.co
-SUPABASE_ANON_KEY=eyJ...        # Safe to expose
-SUPABASE_SERVICE_KEY=eyJ...     # NEVER expose, only for background jobs
-OPENAI_API_KEY=sk-...
-ANTHROPIC_API_KEY=sk-ant-...
-POSTHOG_API_KEY=phc_...
-SENTRY_DSN=https://...
-```
-
----
-
----
-
-## Open Seed Words: Design Rationale
-
-### Why Seeds Are Completely Open
-
-1. **UX:** Users can use domain-specific terms, proper nouns, slang, anything
-2. **Safety:** Seed never enters LLM prompt (it's the hidden answer)
-3. **Scoring:** OpenAI embeds any string via subword tokenization
-4. **Self-correcting:** Gibberish seeds produce weak games, not crashes
-5. **Private:** Only visible to two consenting players, not public content
-6. **Legal:** No requirement to filter (Section 230 protects platforms)
-
-### Why Clues/Guesses Are Closed
-
-1. **Prompt safety:** Clues go directly to LLM prompt
-2. **Scoring validity:** Guesses need reliable embeddings
-3. **Data quality:** Vocabulary-constrained data is cleaner for research
-
-### Fuzzy Exact Match
-
-For convergence scoring, we treat >99% embedding similarity as exact match.
-This handles misspellings and alternate spellings (Ghandi/Gandhi).
-
-```python
-FUZZY_EXACT_MATCH_THRESHOLD = 0.99
-
-if max_similarity > FUZZY_EXACT_MATCH_THRESHOLD:
-    return 1.0, True  # Treat as exact match
-```
-
-### Analytics Tracking
-
-Games track `seed_in_vocabulary` for research filtering:
-
-```sql
--- Filter to vocabulary-only seeds for strict validity
-SELECT * FROM games WHERE seed_in_vocabulary = TRUE;
-
--- Analyze open seeds separately
-SELECT * FROM games WHERE seed_in_vocabulary = FALSE;
-```
 
 ---
 
@@ -367,10 +326,9 @@ SELECT * FROM games WHERE seed_in_vocabulary = FALSE;
 |---------|-------------|-----|
 | Using service key in routes | RLS bypassed, data breach | Use `get_authenticated_client()` |
 | Using `vector` instead of `halfvec` | Exceeds 500MB limit | Use `halfvec(1536)` |
-| Validating seed against vocabulary | Blocks valid use cases | Accept any seed word |
-| NOT validating clues/guesses | Prompt injection, bad scores | Call `validate_words()` |
+| Validating words against vocabulary | Blocks valid use cases, clunky UX | Accept any word |
 | Modifying scoring formulas | Breaks construct validity | Use exact formulas |
 | Changing LLM model | Breaks LLM Alignment metric | Use Haiku only |
 | Missing `FOR UPDATE` | Race conditions | Add to shared resource queries |
-| Trusting user input in prompts | Prompt injection | XML-escape and isolate |
+| Raw user input in LLM prompts | Prompt injection | XML-escape and isolate |
 | Forgetting fuzzy exact match | Misspellings score wrong | Use `FUZZY_EXACT_MATCH_THRESHOLD` |

@@ -246,7 +246,7 @@
 
 .clue-status {
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-size: 0.6rem;
   width: 60px;
   text-align: right;
 }
@@ -276,9 +276,9 @@
 
 .noise-word {
   font-family: var(--font-mono);
-  font-size: var(--text-sm);
+  font-size: 0.75rem;
   padding: 4px 10px;
-  border: var(--border-primary);
+  border: 1px solid var(--faded-light);
   color: var(--faded);
   position: relative;
   transition: all var(--transition-default);
@@ -567,9 +567,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.6rem;
-  color: var(--gold);
-  font-family: var(--font-serif);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.nav-logo-mark canvas {
+  display: block;
 }
 
 .nav-wordmark {

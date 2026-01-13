@@ -71,9 +71,10 @@ async def validate_word_endpoint(
     auth = Depends(get_authenticated_client)
 ):
     """
-    Validate if a word exists in vocabulary.
+    Check if word exists in vocabulary.
     
-    USE FOR: Clues and guesses (NOT seed words)
+    FOR ANALYTICS ONLY - not used for blocking.
+    All words (seeds, clues, guesses) are accepted regardless of vocabulary membership.
     """
     supabase, user = auth
     

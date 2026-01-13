@@ -17,7 +17,6 @@ interface JoinScreenProps {
 
 export const JoinScreen: React.FC<JoinScreenProps> = ({ game, onGuessesSubmitted }) => {
   const [guesses, setGuesses] = useState<string[]>(['', '', '']);
-  const [validGuesses, setValidGuesses] = useState<boolean[]>([false, false, false]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -27,13 +26,8 @@ export const JoinScreen: React.FC<JoinScreenProps> = ({ game, onGuessesSubmitted
     setGuesses(newGuesses);
   };
   
-  const handleValidationChange = (index: number, isValid: boolean) => {
-    const newValid = [...validGuesses];
-    newValid[index] = isValid;
-    setValidGuesses(newValid);
-  };
-  
-  const allValid = validGuesses.every(v => v) && guesses.every(g => g.trim());
+  // All guesses must be filled (no validation requirement)
+  const allValid = guesses.every(g => g.trim() !== '');
   
   const handleSubmit = async () => {
     if (!allValid) return;
@@ -77,7 +71,7 @@ export const JoinScreen: React.FC<JoinScreenProps> = ({ game, onGuessesSubmitted
         </div>
         
         <p style={{ marginBottom: '1rem', color: 'var(--faded)' }}>
-          Enter 3 guesses. Each guess must be a valid English word from the vocabulary.
+          Enter 3 guesses. Any word is accepted.
         </p>
         
         <div className="clue-inputs">
@@ -87,7 +81,6 @@ export const JoinScreen: React.FC<JoinScreenProps> = ({ game, onGuessesSubmitted
               number={idx + 1}
               value={guess}
               onChange={(value) => handleGuessChange(idx, value)}
-              onValidationChange={(isValid) => handleValidationChange(idx, isValid)}
             />
           ))}
         </div>

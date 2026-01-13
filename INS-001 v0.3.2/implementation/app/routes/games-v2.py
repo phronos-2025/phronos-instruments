@@ -11,21 +11,16 @@ from app.models import (
     SubmitGuessesRequest, SubmitGuessesResponse,
     GameResponse, NoiseFloorWord, GameStatus, ErrorResponse
 )
-from app.middleware.auth import get_authenticated_client
-from app.services.embeddings import (
+from app.auth import get_authenticated_client
+from app.embeddings import (
     get_noise_floor,
     check_word_in_vocabulary,
-    is_polysemous,
     get_sense_options,
     get_embedding,
-    get_embeddings_batch,
     get_contextual_embedding,
 )
-from app.services.scoring import compute_divergence, compute_convergence
-from app.services.llm import llm_guess
-from app.services.profiles import update_user_profile
-from app.config import is_blocked_word, SUPABASE_URL, SUPABASE_SERVICE_KEY
-from supabase import create_client
+from app.scoring import compute_divergence, compute_convergence
+from app.llm import llm_guess
 
 router = APIRouter()
 
@@ -43,28 +38,13 @@ async def create_game(
     Create a new game.
     
     Seed word can be ANY word (not restricted to vocabulary).
-    - Domain-specific terms: allowed
-    - Proper nouns: allowed
-    - Slang/neologisms: allowed
-    - Made-up words: allowed (will have weak noise floor)
-    
-    MVP: No restrictions on seed words.
     """
     supabase, user = auth
     seed_word = request.seed_word.lower().strip()
     
-    # MVP: Blocklist disabled (no clear benefit for private games)
-    # Uncomment to enable content filtering:
-    # if is_blocked_word(seed_word):
-    #     raise HTTPException(
-    #         status_code=400,
-    #         detail={"error": "Word not allowed", "detail": "This word cannot be used as a seed."}
-    #     )
-    
-    # 2. Check polysemy (only for known polysemous words in vocabulary)
+    # Check polysemy (only for known polysemous words)
     sense_options = get_sense_options(seed_word)
     if sense_options and not request.seed_word_sense:
-        # Return options for disambiguation - game not created yet
         return CreateGameResponse(
             game_id="",
             seed_word=seed_word,
@@ -74,10 +54,10 @@ async def create_game(
             sense_options=sense_options
         )
     
-    # 3. Track whether seed is in vocabulary (for analytics, NOT blocking)
+    # Track whether seed is in vocabulary (for analytics, NOT blocking)
     seed_in_vocabulary = await check_word_in_vocabulary(supabase, seed_word)
     
-    # 4. Generate noise floor (works for ANY word now)
+    # Generate noise floor (works for ANY word)
     sense_context = None
     if request.seed_word_sense:
         sense_context = request.seed_word_sense.split()
@@ -89,7 +69,7 @@ async def create_game(
         k=20
     )
     
-    # 5. Create game record
+    # Create game record
     noise_floor = [
         {"word": w["word"], "similarity": w["similarity"]}
         for w in noise_floor_data
@@ -199,10 +179,9 @@ async def submit_clues(
         emb = await get_contextual_embedding(clue, [game["seed_word"]])
         clue_embeddings.append(emb)
     
-    # Get floor embeddings
+    # Get floor embeddings from vocabulary table
     floor_embeddings = []
     for floor_word in game["noise_floor"]:
-        # Use stored vocabulary embedding (don't re-embed)
         word_result = supabase.table("vocabulary_embeddings") \
             .select("embedding") \
             .eq("word", floor_word["word"]) \
@@ -219,7 +198,7 @@ async def submit_clues(
         "status": "pending_guess"
     }
     
-    # 5. If LLM recipient, get LLM guesses immediately
+    # If LLM recipient, get LLM guesses immediately
     llm_guesses = None
     convergence_score = None
     
@@ -227,8 +206,7 @@ async def submit_clues(
         llm_guesses = await llm_guess(clues_clean, num_guesses=3)
         
         # Compute convergence for LLM guesses
-        # CRITICAL: Use contextual embeddings with clues as context
-        # This ensures polysemous seeds are disambiguated correctly
+        # Use contextual embeddings with clues as context
         seed_emb = await get_contextual_embedding(game["seed_word"], clues_clean)
         guess_embs = [await get_contextual_embedding(g, clues_clean) for g in llm_guesses]
         
@@ -241,12 +219,6 @@ async def submit_clues(
         update_data["status"] = "completed"
     
     supabase.table("games").update(update_data).eq("id", game_id).execute()
-    
-    # Update profile for sender if game completed (LLM games complete immediately)
-    if game["recipient_type"] == "llm":
-        if SUPABASE_SERVICE_KEY:
-            service_supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-            await update_user_profile(service_supabase, user["id"])
     
     return SubmitCluesResponse(
         game_id=game_id,
@@ -293,8 +265,7 @@ async def submit_guesses(
     game = result.data
     
     # Compute convergence score
-    # CRITICAL: Use contextual embeddings with clues as context
-    # This ensures polysemous seeds are disambiguated correctly
+    # Use contextual embeddings with clues as context
     clues = game["clues"]
     seed_emb = await get_contextual_embedding(game["seed_word"], clues)
     guess_embs = [await get_contextual_embedding(g, clues) for g in guesses_clean]
@@ -303,24 +274,17 @@ async def submit_guesses(
         seed_emb, guess_embs, game["seed_word"], guesses_clean
     )
     
-    # 4. Update game
+    # Update game
     supabase.table("games").update({
         "guesses": guesses_clean,
         "convergence_score": convergence_score,
         "status": "completed"
     }).eq("id", game_id).execute()
     
-    # Update profiles for BOTH sender and recipient
-    if SUPABASE_SERVICE_KEY:
-        service_supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-        await update_user_profile(service_supabase, game["sender_id"])
-        await update_user_profile(service_supabase, user["id"])  # recipient
-    
     return SubmitGuessesResponse(
         game_id=game_id,
         guesses=guesses_clean,
         convergence_score=convergence_score,
         exact_match=exact_match,
-        seed_word=game["seed_word"],  # Reveal seed word after guessing (security fix)
         status=GameStatus.COMPLETED
     )
