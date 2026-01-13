@@ -126,7 +126,12 @@ export const PhronosLogo: React.FC<PhronosLogoProps> = ({ size = 24 }) => {
       ref={canvasRef}
       width={size}
       height={size}
-      style={{ display: 'block' }}
+      style={{ 
+        display: 'block',
+        width: `${size}px`,
+        height: `${size}px`,
+        flexShrink: 0
+      }}
       aria-label="Phronos Logo"
     />
   );

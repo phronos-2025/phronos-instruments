@@ -2,6 +2,7 @@
  * Component Styles - INS-001
  * 
  * Based on mockup and COMPONENTS.md
+ * Version: 2.0 - Updated logo, noise floor spacing, removed validation
  */
 
 /* ============================================
@@ -268,13 +269,15 @@
 }
 
 .noise-words {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: var(--space-xs) !important;
   margin-top: var(--space-sm);
+  align-items: flex-start;
 }
 
 .noise-word {
+  display: inline-block;
   font-family: var(--font-mono);
   font-size: 0.75rem;
   padding: 4px 10px;
@@ -282,6 +285,7 @@
   color: var(--faded);
   position: relative;
   transition: all var(--transition-default);
+  white-space: nowrap;
 }
 
 .noise-word::after {
