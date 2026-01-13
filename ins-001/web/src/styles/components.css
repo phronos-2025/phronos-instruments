@@ -252,6 +252,8 @@
   width: 60px;
   text-align: right;
   flex-shrink: 0;
+  display: inline-block;
+  min-height: 1em;
 }
 
 .clue-status.valid {

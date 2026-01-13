@@ -23,20 +23,37 @@ export const ClueInput: React.FC<ClueInputProps> = ({
   
   // #region agent log
   useEffect(() => {
-    const inputEl = document.querySelector(`.clue-row:nth-child(${number}) .clue-input`);
-    const statusEl = document.querySelector(`.clue-row:nth-child(${number}) .clue-status`);
-    const computedStyle = inputEl ? window.getComputedStyle(inputEl) : null;
-    const logData = {
-      number,
-      hasValue: !!value,
-      isValid,
-      hasInputEl: !!inputEl,
-      hasStatusEl: !!statusEl,
-      backgroundColor: computedStyle?.backgroundColor || 'N/A',
-      fontSize: computedStyle?.fontSize || 'N/A',
-      statusText: statusEl?.textContent || 'N/A'
-    };
-    if (number === 1) console.log('[DEBUG] ClueInput CSS:', logData);
+    // Use setTimeout to ensure DOM is ready
+    setTimeout(() => {
+      const statusEl = document.querySelector(`[data-testid="clue-status-${number}"]`);
+      const inputEl = document.querySelector(`.clue-row:nth-child(${number}) .clue-input`) || 
+                      document.querySelector(`.clue-input[value="${value.substring(0, 5)}"]`);
+      const computedStyle = inputEl ? window.getComputedStyle(inputEl) : null;
+      const statusStyle = statusEl ? window.getComputedStyle(statusEl) : null;
+      const logData = {
+        number,
+        value: value.substring(0, 10),
+        trimmedValue: trimmedValue.substring(0, 10),
+        isValid,
+        hasInputEl: !!inputEl,
+        hasStatusEl: !!statusEl,
+        statusText: statusEl?.textContent?.trim() || 'EMPTY',
+        statusInnerHTML: statusEl?.innerHTML || 'EMPTY',
+        statusDisplay: statusStyle?.display || 'N/A',
+        statusVisibility: statusStyle?.visibility || 'N/A',
+        statusOpacity: statusStyle?.opacity || 'N/A',
+        statusWidth: statusStyle?.width || 'N/A',
+        statusColor: statusStyle?.color || 'N/A',
+        statusFontSize: statusStyle?.fontSize || 'N/A',
+        backgroundColor: computedStyle?.backgroundColor || 'N/A',
+        fontSize: computedStyle?.fontSize || 'N/A'
+      };
+      console.log(`[DEBUG] ClueInput #${number}:`, logData);
+      // Also log to help debug
+      if (isValid && !statusEl?.textContent?.trim()) {
+        console.warn(`[WARN] ClueInput #${number}: isValid=true but status text is empty!`);
+      }
+    }, 100);
   }, [number, value, isValid]);
   // #endregion
   
@@ -52,7 +69,7 @@ export const ClueInput: React.FC<ClueInputProps> = ({
         autoComplete="off"
         spellCheck="false"
       />
-      <span className={`clue-status ${isValid ? 'valid' : ''}`}>
+      <span className={`clue-status ${isValid ? 'valid' : ''}`} data-testid={`clue-status-${number}`}>
         {isValid ? '✓ valid' : ''}
       </span>
     </div>

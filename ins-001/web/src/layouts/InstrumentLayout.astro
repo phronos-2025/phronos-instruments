@@ -5,6 +5,9 @@
  * Matches mockup: fixed navigation, full-width content
  */
 
+import '../styles/global.css';
+import '../styles/components.css';
+
 interface Props {
   id: string;
   title: string;
@@ -34,10 +37,6 @@ const { id, title, version = '0.1', status = 'live' } = Astro.props;
 </html>
 
 <style is:global>
-  /* CSS Version: 2025-01-12-fix-ui-alignment */
-  @import '../styles/global.css';
-  @import '../styles/components.css';
-  
   /* Instrument Page Styles - Full Width Container */
   .instrument-page {
     min-height: 100vh;
