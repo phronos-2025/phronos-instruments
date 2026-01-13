@@ -6,11 +6,21 @@
 
 import { supabase } from './supabase';
 
+// #region agent log
+const rawEnvValue = import.meta.env.PUBLIC_API_URL;
+if (typeof window !== 'undefined') {
+  fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:9',message:'Raw PUBLIC_API_URL env value',data:{rawEnvValue:rawEnvValue,hasProtocol:rawEnvValue?.startsWith('http://')||rawEnvValue?.startsWith('https://'),isUndefined:rawEnvValue===undefined,isEmpty:rawEnvValue===''},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+}
+// #endregion
+
 const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8000';
 
 // Debug: Log API URL (remove in production)
 if (typeof window !== 'undefined') {
   console.log('API_URL configured as:', API_URL);
+  // #region agent log
+  fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:15',message:'Final API_URL constant value',data:{apiUrl:API_URL,hasProtocol:API_URL.startsWith('http://')||API_URL.startsWith('https://'),length:API_URL.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
 }
 
 // Types (matching backend models)
@@ -147,9 +157,20 @@ async function apiCall<T>(
   const endpointPath = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   const fullUrl = `${baseUrl}${endpointPath}`;
   
+  // #region agent log
+  if (typeof window !== 'undefined') {
+    fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:148',message:'URL construction before fetch',data:{baseUrl:baseUrl,endpointPath:endpointPath,fullUrl:fullUrl,baseUrlHasProtocol:baseUrl.startsWith('http://')||baseUrl.startsWith('https://'),fullUrlHasProtocol:fullUrl.startsWith('http://')||fullUrl.startsWith('https://'),isRelativeUrl:!fullUrl.startsWith('http://')&&!fullUrl.startsWith('https://')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+  }
+  // #endregion
+  
   console.log('API Call:', fullUrl); // Debug log
   
   try {
+    // #region agent log
+    if (typeof window !== 'undefined') {
+      fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:153',message:'About to call fetch',data:{fullUrl:fullUrl,urlType:fullUrl.startsWith('http://')||fullUrl.startsWith('https://')?'absolute':'relative',windowLocation:typeof window!=='undefined'?window.location.href:'N/A'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    }
+    // #endregion
     const response = await fetch(fullUrl, {
       ...options,
       headers: {
@@ -157,6 +178,12 @@ async function apiCall<T>(
         ...options.headers,
       },
     });
+    
+    // #region agent log
+    if (typeof window !== 'undefined') {
+      fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:161',message:'Fetch response received',data:{status:response.status,statusText:response.statusText,ok:response.ok,url:response.url},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    }
+    // #endregion
     
     if (!response.ok) {
       // Try to get error details
