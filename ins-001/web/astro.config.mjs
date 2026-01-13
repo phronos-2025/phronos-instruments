@@ -7,5 +7,20 @@ import vercel from '@astrojs/vercel/serverless';
 export default defineConfig({
   output: 'server',
   adapter: vercel(),
-  integrations: [react()]
+  integrations: [react()],
+  vite: {
+    build: {
+      rollupOptions: {
+        output: {
+          // Diagnostic: Log what's being built
+          banner: (chunk) => {
+            if (chunk.isEntry) {
+              console.log(`[BUILD DIAGNOSTIC] Building entry: ${chunk.name}`);
+            }
+            return '';
+          }
+        }
+      }
+    }
+  }
 });
