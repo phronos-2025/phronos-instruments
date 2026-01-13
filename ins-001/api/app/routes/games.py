@@ -143,36 +143,17 @@ async def get_game(
     # Calculate guess similarities if guesses exist but similarities aren't stored
     guess_similarities = game.get("guess_similarities")
     
-    # #region agent log
-    with open('/Users/vishal/Documents/GitHub/phronos-instruments/.cursor/debug.log', 'a') as f:
-        f.write(json.dumps({"location":"games.py:144","message":"get_game: checking guess_similarities","data":{"has_guess_similarities":bool(guess_similarities),"guess_similarities":guess_similarities,"has_guesses":bool(game.get("guesses")),"has_clues":bool(game.get("clues")),"has_convergence":game.get("convergence_score") is not None},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"F"}) + '\n')
-    # #endregion
-    
     if not guess_similarities and game.get("guesses") and game.get("clues") and game.get("convergence_score") is not None:
         # Recalculate similarities for display (requires re-embedding)
         # This is expensive, so we only do it if needed
         try:
-            # #region agent log
-            with open('/Users/vishal/Documents/GitHub/phronos-instruments/.cursor/debug.log', 'a') as f:
-                f.write(json.dumps({"location":"games.py:150","message":"Recalculating guess_similarities","data":{"seed_word":game["seed_word"],"guesses":game["guesses"]},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"F"}) + '\n')
-            # #endregion
-            
             seed_emb = await get_contextual_embedding(game["seed_word"], game["clues"])
             guess_embs = [await get_contextual_embedding(g, game["clues"]) for g in game["guesses"]]
             _, _, guess_similarities = compute_convergence(
                 seed_emb, guess_embs, game["seed_word"], game["guesses"]
             )
-            
-            # #region agent log
-            with open('/Users/vishal/Documents/GitHub/phronos-instruments/.cursor/debug.log', 'a') as f:
-                f.write(json.dumps({"location":"games.py:157","message":"Recalculation successful","data":{"guess_similarities":guess_similarities},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"F"}) + '\n')
-            # #endregion
         except Exception as e:
             # If embedding fails, just return None
-            # #region agent log
-            with open('/Users/vishal/Documents/GitHub/phronos-instruments/.cursor/debug.log', 'a') as f:
-                f.write(json.dumps({"location":"games.py:161","message":"Recalculation failed","data":{"error":str(e),"error_type":type(e).__name__},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"F"}) + '\n')
-            # #endregion
             print(f"Warning: Could not calculate guess similarities: {e}")
             guess_similarities = None
     
@@ -302,29 +283,15 @@ async def submit_clues(
         convergence_score, exact_match, guess_similarities = compute_convergence(
             seed_emb, guess_embs, game["seed_word"], llm_guesses
         )
-        
-        # #region agent log
-        with open('/Users/vishal/Documents/GitHub/phronos-instruments/.cursor/debug.log', 'a') as f:
-            f.write(json.dumps({"location":"games.py:285","message":"Computed guess_similarities","data":{"convergence_score":convergence_score,"guess_similarities":guess_similarities,"llm_guesses":llm_guesses},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}) + '\n')
-        # #endregion
-        
+
         update_data["guesses"] = llm_guesses
         update_data["convergence_score"] = convergence_score
         update_data["status"] = "completed"
-        # #region agent log
-        with open('/Users/vishal/Documents/GitHub/phronos-instruments/.cursor/debug.log', 'a') as f:
-            f.write(json.dumps({"location":"games.py:292","message":"Before database update","data":{"update_data_keys":list(update_data.keys()),"has_guess_similarities_in_update":"guess_similarities" in update_data},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}) + '\n')
-        # #endregion
     else:
         guess_similarities = None
     
     supabase.table("games").update(update_data).eq("id", game_id).execute()
-    
-    # #region agent log
-    with open('/Users/vishal/Documents/GitHub/phronos-instruments/.cursor/debug.log', 'a') as f:
-        f.write(json.dumps({"location":"games.py:295","message":"After database update","data":{"guess_similarities":guess_similarities},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}) + '\n')
-    # #endregion
-    
+
     # Update profile for sender if game completed (LLM games complete immediately)
     if game["recipient_type"] == "llm":
         if SUPABASE_SERVICE_KEY:
