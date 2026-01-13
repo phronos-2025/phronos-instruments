@@ -3,13 +3,20 @@ Embedding Service - INS-001 Semantic Associations
 
 Handles all embedding operations:
 - Contextual embeddings via OpenAI
-- Noise floor generation via pgvector
+- Noise floor generation via pgvector (with LLM fallback for sparse domains)
 - Word validation
+
+Hybrid Strategy (Option C):
+- Primary: pgvector similarity search against curated vocabulary (~30K words)
+- Fallback: LLM-generated semantic neighbors for domain-specific seeds
+  when vocabulary coverage is insufficient
 """
 
 import os
 from typing import Optional
+import numpy as np
 from openai import AsyncOpenAI
+from anthropic import AsyncAnthropic
 from supabase import Client
 
 # ============================================
@@ -17,10 +24,18 @@ from supabase import Client
 # ============================================
 
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")  # Optional, for fallback
 EMBEDDING_MODEL = "text-embedding-3-small"  # 1536 dimensions, $0.02/1M tokens
 
-# Initialize OpenAI client
+# Noise floor quality thresholds
+# If best vocabulary match is below this, trigger LLM fallback
+MIN_SIMILARITY_THRESHOLD = 0.45
+# Minimum number of good matches needed from vocabulary
+MIN_GOOD_MATCHES = 10
+
+# Initialize clients
 openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+anthropic_client = AsyncAnthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
 
 # Known polysemous words with their senses
 # Expand this list based on user feedback
@@ -106,6 +121,68 @@ async def get_embeddings_batch(texts: list[str]) -> list[list[float]]:
 # ============================================
 # NOISE FLOOR
 # ============================================
+
+async def _get_llm_semantic_neighbors(seed_word: str, k: int = 20) -> list[str]:
+    """
+    Use LLM to generate semantic neighbors for domain-specific seeds.
+
+    This is a fallback for when the vocabulary doesn't have good coverage
+    for specialized terms (medical, legal, technical, etc.).
+
+    Args:
+        seed_word: The seed word to find neighbors for
+        k: Number of neighbors to generate
+
+    Returns:
+        List of semantically related words
+    """
+    if not anthropic_client:
+        return []
+
+    prompt = f"""Generate {k} words that are semantically related to "{seed_word}".
+
+Rules:
+- Return ONLY single words, one per line
+- Words should be semantically related (same category, associated concepts, etc.)
+- Do NOT include the seed word itself
+- Do NOT include morphological variants (plurals, verb forms) of the seed
+- Focus on words a typical English speaker would associate with this concept
+- Include a mix of: synonyms, category members, related concepts, typical associations
+
+Example for "cardiologist":
+doctor
+heart
+physician
+surgeon
+medicine
+hospital
+specialist
+healthcare
+cardiology
+patient
+
+Now generate {k} words for "{seed_word}":"""
+
+    try:
+        response = await anthropic_client.messages.create(
+            model="claude-haiku-4-20250514",
+            max_tokens=500,
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        # Parse response - one word per line
+        text = response.content[0].text
+        words = [w.strip().lower() for w in text.strip().split('\n') if w.strip()]
+
+        # Filter to valid single words
+        words = [w for w in words if w.isalpha() and len(w) >= 3 and w != seed_word.lower()]
+
+        return words[:k]
+
+    except Exception as e:
+        print(f"LLM fallback failed for '{seed_word}': {e}")
+        return []
+
 
 def _is_semantically_meaningful(seed_word: str, candidate: str, similarity: float) -> bool:
     """
@@ -199,15 +276,16 @@ async def get_noise_floor(
     """
     Get noise floor for ANY seed word (not just vocabulary).
 
-    This embeds the seed word on-demand via OpenAI, then finds
-    the k nearest neighbors in the vocabulary table.
+    Hybrid Strategy (Option C):
+    1. Primary: pgvector similarity search against curated vocabulary
+    2. Fallback: If vocabulary coverage is sparse, use LLM to generate
+       semantic neighbors, then embed and score them
 
     Works for:
-    - Standard vocabulary words
-    - Domain-specific terms (medical, legal, etc.)
-    - Proper nouns (Shakespeare, Obi-Wan)
-    - Slang and neologisms
-    - Misspellings (will return nearest "real" words)
+    - Standard vocabulary words (fast, vocabulary-only)
+    - Domain-specific terms (medical, legal, etc.) - triggers LLM fallback
+    - Proper nouns (Shakespeare, Obi-Wan) - triggers LLM fallback
+    - Slang and neologisms - triggers LLM fallback
 
     Args:
         supabase: Authenticated Supabase client
@@ -216,14 +294,18 @@ async def get_noise_floor(
         k: Number of nearest neighbors to return
 
     Returns:
-        List of {word, similarity} dicts from vocabulary
+        List of {word, similarity} dicts
 
-    Cost: ~$0.00002 per call (negligible)
-    Latency: ~300ms (OpenAI API call)
+    Cost:
+    - Vocabulary hit: ~$0.00002 (OpenAI embedding only)
+    - LLM fallback: ~$0.001 (Haiku + embeddings)
+    Latency:
+    - Vocabulary hit: ~300ms
+    - LLM fallback: ~800ms
     """
     seed_word_clean = seed_word.lower().strip()
 
-    # Always embed on-demand (handles any word)
+    # Always embed seed on-demand (handles any word)
     if sense_context:
         seed_emb = await get_contextual_embedding(seed_word_clean, sense_context)
     else:
@@ -231,8 +313,7 @@ async def get_noise_floor(
 
     # Find nearest neighbors in vocabulary
     # Fetch more than k to allow for filtering phonetic/orthographic matches
-    # The noise floor is always vocabulary words, even if seed isn't
-    fetch_k = k * 3  # Fetch 3x to have enough after filtering
+    fetch_k = k * 3
 
     result = supabase.rpc(
         "get_noise_floor_by_embedding",
@@ -246,13 +327,47 @@ async def get_noise_floor(
     raw_results = result.data or []
 
     # Filter for semantically meaningful associations
-    filtered = [
+    vocab_results = [
         item for item in raw_results
         if _is_semantically_meaningful(seed_word_clean, item["word"], item["similarity"])
     ]
 
-    # Return top k after filtering
-    return filtered[:k]
+    # Check if vocabulary coverage is sufficient
+    best_similarity = vocab_results[0]["similarity"] if vocab_results else 0
+    good_matches = sum(1 for r in vocab_results if r["similarity"] >= MIN_SIMILARITY_THRESHOLD)
+
+    needs_fallback = (
+        best_similarity < MIN_SIMILARITY_THRESHOLD or
+        good_matches < MIN_GOOD_MATCHES
+    )
+
+    # Use LLM fallback for sparse coverage (domain-specific seeds)
+    if needs_fallback and anthropic_client:
+        llm_neighbors = await _get_llm_semantic_neighbors(seed_word_clean, k=k)
+
+        if llm_neighbors:
+            # Embed LLM-generated neighbors and compute similarities
+            neighbor_embeddings = await get_embeddings_batch(llm_neighbors)
+
+            llm_results = []
+            for word, emb in zip(llm_neighbors, neighbor_embeddings):
+                # Compute cosine similarity
+                sim = float(np.dot(seed_emb, emb) / (np.linalg.norm(seed_emb) * np.linalg.norm(emb)))
+                llm_results.append({"word": word, "similarity": sim, "source": "llm"})
+
+            # Merge with vocabulary results, preferring higher similarity
+            # Create word -> result map
+            merged = {r["word"]: r for r in vocab_results}
+            for r in llm_results:
+                if r["word"] not in merged or r["similarity"] > merged[r["word"]]["similarity"]:
+                    merged[r["word"]] = r
+
+            # Sort by similarity and return top k
+            final_results = sorted(merged.values(), key=lambda x: x["similarity"], reverse=True)
+            return final_results[:k]
+
+    # Return vocabulary results (sufficient coverage)
+    return vocab_results[:k]
 
 
 async def check_word_in_vocabulary(supabase: Client, word: str) -> bool:
