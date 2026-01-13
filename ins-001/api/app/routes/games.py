@@ -6,6 +6,7 @@ Handles game CRUD operations.
 
 import json
 from fastapi import APIRouter, HTTPException, Depends
+from postgrest.exceptions import APIError
 from app.models import (
     CreateGameRequest, CreateGameResponse,
     SubmitCluesRequest, SubmitCluesResponse,
@@ -128,13 +129,16 @@ async def get_game(
 ):
     """Get game details. RLS ensures user can only see their own games."""
     supabase, user = auth
-    
-    result = supabase.table("games") \
-        .select("*") \
-        .eq("id", game_id) \
-        .single() \
-        .execute()
-    
+
+    try:
+        result = supabase.table("games") \
+            .select("*") \
+            .eq("id", game_id) \
+            .single() \
+            .execute()
+    except APIError:
+        raise HTTPException(status_code=404, detail={"error": "Game not found"})
+
     if not result.data:
         raise HTTPException(status_code=404, detail={"error": "Game not found"})
     
@@ -223,13 +227,16 @@ async def submit_clues(
     clues_clean = [c.lower().strip() for c in request.clues]
 
     # Get game
-    result = supabase.table("games") \
-        .select("*") \
-        .eq("id", game_id) \
-        .eq("sender_id", user["id"]) \
-        .eq("status", "pending_clues") \
-        .single() \
-        .execute()
+    try:
+        result = supabase.table("games") \
+            .select("*") \
+            .eq("id", game_id) \
+            .eq("sender_id", user["id"]) \
+            .eq("status", "pending_clues") \
+            .single() \
+            .execute()
+    except APIError:
+        raise HTTPException(status_code=404, detail={"error": "Game not found or not in correct state"})
 
     if not result.data:
         raise HTTPException(status_code=404, detail={"error": "Game not found or not in correct state"})
@@ -330,16 +337,19 @@ async def submit_guesses(
     
     # Clean guesses (no vocabulary validation - accept any word)
     guesses_clean = [g.lower().strip() for g in request.guesses]
-    
+
     # Get game (user must be recipient)
-    result = supabase.table("games") \
-        .select("*") \
-        .eq("id", game_id) \
-        .eq("recipient_id", user["id"]) \
-        .eq("status", "pending_guess") \
-        .single() \
-        .execute()
-    
+    try:
+        result = supabase.table("games") \
+            .select("*") \
+            .eq("id", game_id) \
+            .eq("recipient_id", user["id"]) \
+            .eq("status", "pending_guess") \
+            .single() \
+            .execute()
+    except APIError:
+        raise HTTPException(status_code=404, detail={"error": "Game not found or not in correct state"})
+
     if not result.data:
         raise HTTPException(status_code=404, detail={"error": "Game not found or not in correct state"})
     

@@ -5,6 +5,7 @@ Handles user info and profile endpoints.
 """
 
 from fastapi import APIRouter, HTTPException, Depends
+from postgrest.exceptions import APIError
 from app.models import (
     UserResponse,
     ProfileResponse,
@@ -23,18 +24,18 @@ async def get_current_user(
 ):
     """Get current user info."""
     supabase, user = auth
-    
-    result = supabase.table("users") \
-        .select("*") \
-        .eq("id", user["id"]) \
-        .single() \
-        .execute()
-    
+
+    try:
+        result = supabase.table("users") \
+            .select("*") \
+            .eq("id", user["id"]) \
+            .single() \
+            .execute()
+    except APIError:
+        raise HTTPException(status_code=404, detail={"error": "User not found"})
+
     if not result.data:
-        raise HTTPException(
-            status_code=404,
-            detail={"error": "User not found"}
-        )
+        raise HTTPException(status_code=404, detail={"error": "User not found"})
     
     u = result.data
     return UserResponse(
@@ -53,15 +54,19 @@ async def get_profile(
 ):
     """Get user's cognitive profile."""
     supabase, user = auth
-    
-    result = supabase.table("user_profiles") \
-        .select("*") \
-        .eq("user_id", user["id"]) \
-        .single() \
-        .execute()
-    
+
+    try:
+        result = supabase.table("user_profiles") \
+            .select("*") \
+            .eq("user_id", user["id"]) \
+            .single() \
+            .execute()
+        profile = result.data or {}
+    except APIError:
+        # No profile yet - return empty profile
+        profile = {}
+
     # Calculate games until ready
-    profile = result.data or {}
     total_games = (
         (profile.get("divergence_n") or 0) +
         (profile.get("network_convergence_n") or 0) +
