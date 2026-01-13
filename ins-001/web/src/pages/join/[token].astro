@@ -5,6 +5,9 @@
  * Entry point for share link recipients
  */
 
+// This route must be server-rendered since tokens are dynamic
+export const prerender = false;
+
 import InstrumentLayout from '../../layouts/InstrumentLayout.astro';
 import JoinGame from '../../components/JoinGame';
 

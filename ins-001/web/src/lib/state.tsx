@@ -4,7 +4,8 @@
  * React Context + useReducer for game state machine
  */
 
-import { createContext, useContext, useReducer, ReactNode } from 'react';
+import { createContext, useContext, useReducer } from 'react';
+import type { ReactNode } from 'react';
 import type { NoiseFloorWord, GameResponse } from './api';
 
 // State types
