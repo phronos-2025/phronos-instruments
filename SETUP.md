@@ -100,9 +100,15 @@ Step-by-step instructions for deploying INS-001 to production.
 
 1. In Railway project, go to **Settings** → **Build**
 2. Set:
-   - **Root Directory**: `ins-001/api`
-   - **Build Command**: (leave empty, Railway auto-detects)
+   - **Root Directory**: `ins-001/api` ⚠️ **CRITICAL - Must set this!**
+   - **Build Command**: (leave empty, Railway auto-detects from requirements.txt)
    - **Start Command**: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+
+**Important:** 
+- Root Directory must be set to `ins-001/api` (not the repo root)
+- `requirements.txt` exists in `ins-001/api/`
+- `runtime.txt` specifies Python 3.11 (pydantic doesn't support Python 3.13 yet)
+- Railway will auto-detect Python from `runtime.txt` or `requirements.txt`
 
 ### 2.4 Set Environment Variables
 
