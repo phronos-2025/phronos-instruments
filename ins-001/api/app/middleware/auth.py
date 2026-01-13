@@ -61,12 +61,9 @@ async def get_authenticated_client(
     """
     import json
     import os
-    log_path = "/Users/vishal/Documents/GitHub/phronos-instruments/.cursor/debug.log"
+    import sys
     # #region agent log
-    try:
-        with open(log_path, "a") as f:
-            f.write(json.dumps({"location":"auth.py:43","message":"get_authenticated_client entry","data":{"hasCredentials":bool(credentials),"scheme":credentials.scheme if credentials else None},"timestamp":int(__import__("time").time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"G"})+"\n")
-    except: pass
+    print(f"[DEBUG] get_authenticated_client entry | hasCredentials={bool(credentials)} | scheme={credentials.scheme if credentials else None} | hypothesisId=G", file=sys.stderr, flush=True)
     # #endregion
     # Create fresh client with anon key
     supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
@@ -76,35 +73,23 @@ async def get_authenticated_client(
     token = credentials.credentials
     
     # #region agent log
-    try:
-        with open(log_path, "a") as f:
-            f.write(json.dumps({"location":"auth.py:67","message":"Token extracted","data":{"hasToken":bool(token),"tokenLength":len(token) if token else 0,"tokenPrefix":token[:20] if token else None},"timestamp":int(__import__("time").time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"G"})+"\n")
-    except: pass
+    print(f"[DEBUG] Token extracted | hasToken={bool(token)} | tokenLength={len(token) if token else 0} | tokenPrefix={token[:20] if token else None} | hypothesisId=G", file=sys.stderr, flush=True)
     # #endregion
     
     try:
         # #region agent log
-        try:
-            with open(log_path, "a") as f:
-                f.write(json.dumps({"location":"auth.py:70","message":"Before set_session","data":{},"timestamp":int(__import__("time").time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"H"})+"\n")
-        except: pass
+        print(f"[DEBUG] Before set_session | hypothesisId=H", file=sys.stderr, flush=True)
         # #endregion
         # This verifies the JWT signature and returns user info
         # If token is invalid/expired, this raises an exception
         supabase.auth.set_session(token, "")
         # #region agent log
-        try:
-            with open(log_path, "a") as f:
-                f.write(json.dumps({"location":"auth.py:73","message":"After set_session, before get_user","data":{},"timestamp":int(__import__("time").time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"H"})+"\n")
-        except: pass
+        print(f"[DEBUG] After set_session, before get_user | hypothesisId=H", file=sys.stderr, flush=True)
         # #endregion
         response = supabase.auth.get_user()
         
         # #region agent log
-        try:
-            with open(log_path, "a") as f:
-                f.write(json.dumps({"location":"auth.py:74","message":"After get_user","data":{"hasUser":bool(response.user),"userId":response.user.id if response.user else None},"timestamp":int(__import__("time").time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"H"})+"\n")
-        except: pass
+        print(f"[DEBUG] After get_user | hasUser={bool(response.user)} | userId={response.user.id if response.user else None} | hypothesisId=H", file=sys.stderr, flush=True)
         # #endregion
         
         if not response.user:
@@ -118,10 +103,7 @@ async def get_authenticated_client(
         
     except Exception as e:
         # #region agent log
-        try:
-            with open(log_path, "a") as f:
-                f.write(json.dumps({"location":"auth.py:84","message":"Auth exception caught","data":{"errorType":type(e).__name__,"errorMsg":str(e)},"timestamp":int(__import__("time").time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"H"})+"\n")
-        except: pass
+        print(f"[DEBUG] Auth exception caught | errorType={type(e).__name__} | errorMsg={str(e)} | hypothesisId=H", file=sys.stderr, flush=True)
         # #endregion
         raise HTTPException(
             status_code=401, 

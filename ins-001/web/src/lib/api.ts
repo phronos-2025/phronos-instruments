@@ -113,19 +113,19 @@ export interface GameResponse {
 // Helper to get auth headers
 async function getAuthHeaders(): Promise<HeadersInit> {
   // #region agent log
-  fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:114',message:'getAuthHeaders entry',data:{timestamp:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  console.log('[DEBUG] getAuthHeaders entry', {timestamp:Date.now(),hypothesisId:'A'});
   // #endregion
   // Check for existing session
   let { data: { session }, error: sessionError } = await supabase.auth.getSession();
   
   // #region agent log
-  fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:117',message:'Session check result',data:{hasSession:!!session,hasError:!!sessionError,errorMsg:sessionError?.message,hasAccessToken:!!session?.access_token,tokenLength:session?.access_token?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+  console.log('[DEBUG] Session check result', {hasSession:!!session,hasError:!!sessionError,errorMsg:sessionError?.message,hasAccessToken:!!session?.access_token,tokenLength:session?.access_token?.length,hypothesisId:'B'});
   // #endregion
   
   if (sessionError) {
     console.error('Session error in getAuthHeaders:', sessionError);
     // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:120',message:'Session error, attempting anonymous sign-in',data:{error:sessionError.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    console.log('[DEBUG] Session error, attempting anonymous sign-in', {error:sessionError.message,hypothesisId:'C'});
     // #endregion
     // Try to sign in anonymously as fallback
     const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
@@ -134,7 +134,7 @@ async function getAuthHeaders(): Promise<HeadersInit> {
     }
     session = authData.session;
     // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:126',message:'Anonymous sign-in result',data:{hasSession:!!session,hasAccessToken:!!session?.access_token,tokenLength:session?.access_token?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    console.log('[DEBUG] Anonymous sign-in result', {hasSession:!!session,hasAccessToken:!!session?.access_token,tokenLength:session?.access_token?.length,hypothesisId:'C'});
     // #endregion
   }
   
@@ -142,7 +142,7 @@ async function getAuthHeaders(): Promise<HeadersInit> {
     // Try to sign in anonymously
     console.log('No session, attempting anonymous sign-in...');
     // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:130',message:'No session, attempting anonymous sign-in',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    console.log('[DEBUG] No session, attempting anonymous sign-in', {hypothesisId:'D'});
     // #endregion
     const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
     if (authError) {
@@ -151,7 +151,7 @@ async function getAuthHeaders(): Promise<HeadersInit> {
     }
     session = authData.session;
     // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:136',message:'Anonymous sign-in completed',data:{hasSession:!!session,hasAccessToken:!!session?.access_token,tokenLength:session?.access_token?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    console.log('[DEBUG] Anonymous sign-in completed', {hasSession:!!session,hasAccessToken:!!session?.access_token,tokenLength:session?.access_token?.length,hypothesisId:'D'});
     // #endregion
   }
   
@@ -162,18 +162,18 @@ async function getAuthHeaders(): Promise<HeadersInit> {
   if (session?.access_token) {
     headers['Authorization'] = `Bearer ${session.access_token}`;
     // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:144',message:'Authorization header set',data:{hasAuthHeader:!!headers['Authorization'],headerPrefix:headers['Authorization']?.substring(0,20),tokenLength:session.access_token.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    console.log('[DEBUG] Authorization header set', {hasAuthHeader:!!headers['Authorization'],headerPrefix:headers['Authorization']?.substring(0,20),tokenLength:session.access_token.length,hypothesisId:'A'});
     // #endregion
   } else {
     console.error('No access token in session:', session);
     // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:146',message:'No access token in session',data:{hasSession:!!session,sessionKeys:session?Object.keys(session):[]},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    console.log('[DEBUG] No access token in session', {hasSession:!!session,sessionKeys:session?Object.keys(session):[],hypothesisId:'B'});
     // #endregion
     throw new Error('No access token available. Please refresh the page.');
   }
   
   // #region agent log
-  fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:150',message:'getAuthHeaders exit',data:{headerKeys:Object.keys(headers),hasAuth:!!headers['Authorization']},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  console.log('[DEBUG] getAuthHeaders exit', {headerKeys:Object.keys(headers),hasAuth:!!headers['Authorization'],hypothesisId:'A'});
   // #endregion
   return headers;
 }
@@ -186,7 +186,7 @@ async function apiCall<T>(
   const headers = await getAuthHeaders();
   
   // #region agent log
-  fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:158',message:'apiCall before fetch',data:{endpoint,hasAuthHeader:!!headers['Authorization'],allHeaderKeys:Object.keys(headers)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+  console.log('[DEBUG] apiCall before fetch', {endpoint,hasAuthHeader:!!headers['Authorization'],allHeaderKeys:Object.keys(headers),hypothesisId:'E'});
   // #endregion
   
   // Ensure API_URL doesn't have trailing slash and endpoint starts with /
@@ -204,7 +204,7 @@ async function apiCall<T>(
   
   // #region agent log
   const mergedHeaders = {...headers,...options.headers};
-  fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:171',message:'About to fetch',data:{url:fullUrl,hasAuthInMerged:!!mergedHeaders['Authorization'],mergedHeaderKeys:Object.keys(mergedHeaders)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+  console.log('[DEBUG] About to fetch', {url:fullUrl,hasAuthInMerged:!!mergedHeaders['Authorization'],mergedHeaderKeys:Object.keys(mergedHeaders),hypothesisId:'E'});
   // #endregion
   
   try {
@@ -217,7 +217,7 @@ async function apiCall<T>(
     });
     
     // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:180',message:'Fetch response received',data:{status:response.status,statusText:response.statusText,ok:response.ok},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+    console.log('[DEBUG] Fetch response received', {status:response.status,statusText:response.statusText,ok:response.ok,hypothesisId:'F'});
     // #endregion
     
     if (!response.ok) {
