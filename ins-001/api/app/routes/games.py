@@ -229,11 +229,15 @@ async def submit_clues(
     floor_embeddings = []
     for floor_word in game["noise_floor"]:
         # Use stored vocabulary embedding (don't re-embed)
-        word_result = supabase.table("vocabulary_embeddings") \
-            .select("embedding") \
-            .eq("word", floor_word["word"]) \
-            .single() \
-            .execute()
+        try:
+            word_result = supabase.table("vocabulary_embeddings") \
+                .select("embedding") \
+                .eq("word", floor_word["word"]) \
+                .single() \
+                .execute()
+        except APIError:
+            # Word not found in vocabulary - skip it
+            continue
         if word_result.data:
             embedding = word_result.data["embedding"]
             # Convert halfvec to list of floats
