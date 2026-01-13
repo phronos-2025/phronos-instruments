@@ -5,6 +5,7 @@ Handles share token generation and join game flow.
 """
 
 from fastapi import APIRouter, HTTPException, Depends
+from postgrest.exceptions import APIError
 from app.models import (
     CreateShareTokenResponse,
     JoinGameResponse,
@@ -31,14 +32,24 @@ async def create_share_token(
     supabase, user = auth
     
     # Verify user owns the game and it's ready to share
-    game_result = supabase.table("games") \
-        .select("*") \
-        .eq("id", game_id) \
-        .eq("sender_id", user["id"]) \
-        .eq("status", "pending_guess") \
-        .single() \
-        .execute()
-    
+    try:
+        game_result = supabase.table("games") \
+            .select("*") \
+            .eq("id", game_id) \
+            .eq("sender_id", user["id"]) \
+            .eq("status", "pending_guess") \
+            .single() \
+            .execute()
+    except APIError:
+        # .single() throws when 0 rows returned
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "Game not found or not ready to share",
+                "detail": "Game must be owned by you and have clues submitted"
+            }
+        )
+
     if not game_result.data:
         raise HTTPException(
             status_code=404,
