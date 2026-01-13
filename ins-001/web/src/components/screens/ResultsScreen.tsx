@@ -77,31 +77,31 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
         Your semantic association profile for this session.
       </p>
       
-      <div className="score-grid">
-        {game.divergence_score !== undefined && (
-          <ScoreCard
-            label="Divergence"
-            value={game.divergence_score}
-            interpretation={divergenceInterpretation}
-          />
-        )}
-        {game.convergence_score !== undefined && (
-          <ScoreCard
-            label="Convergence"
-            value={game.convergence_score}
-            interpretation={convergenceInterpretation}
-          />
-        )}
-      </div>
-      
+        <div className="score-grid">
+          {game.divergence_score !== undefined && (
+            <ScoreCard
+              label="Divergence"
+              value={game.divergence_score}
+              interpretation={divergenceInterpretation}
+            />
+          )}
+          {game.convergence_score !== undefined && (
+            <ScoreCard
+              label="Convergence"
+              value={game.convergence_score}
+              interpretation={convergenceInterpretation}
+            />
+          )}
+        </div>
+        
       {game.recipient_type === 'llm' && game.guesses && game.guesses.length > 0 && (
         <Panel title="Claude's Guesses" meta={`${game.guesses.length} attempts`}>
           <div className="noise-words">
             {game.guesses.map((guess, idx) => formatGuess(guess, idx))}
           </div>
         </Panel>
-      )}
-      
+        )}
+        
       <ArchetypeDisplay archetype={archetype} />
       
       <Panel className="" style={{ background: 'transparent', borderColor: 'var(--faded-light)' }}>
@@ -132,7 +132,7 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
               <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'var(--faded)' }}>
                 Progress: {progressGames}/{progressTotal} instruments complete
               </p>
-            </div>
+          </div>
             
             <Button
               variant="primary"
