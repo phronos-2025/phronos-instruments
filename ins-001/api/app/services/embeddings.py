@@ -55,13 +55,17 @@ POLYSEMOUS_WORDS = {
 async def get_embedding(text: str) -> list[float]:
     """
     Get embedding for a single text string.
-    
+
     Uses OpenAI text-embedding-3-small (1536 dimensions).
     """
+    import time
+    import logging
+    start = time.time()
     response = await openai_client.embeddings.create(
         model=EMBEDDING_MODEL,
         input=text
     )
+    logging.warning(f"[TIMING] OpenAI embedding (single): {time.time() - start:.2f}s")
     return response.data[0].embedding
 
 
@@ -96,10 +100,14 @@ async def get_embeddings_batch(texts: list[str]) -> list[list[float]]:
     Get embeddings for multiple texts in a single API call.
     More efficient than calling get_embedding() in a loop.
     """
+    import time
+    import logging
+    start = time.time()
     response = await openai_client.embeddings.create(
         model=EMBEDDING_MODEL,
         input=texts
     )
+    logging.warning(f"[TIMING] OpenAI embedding (batch of {len(texts)}): {time.time() - start:.2f}s")
     return [item.embedding for item in response.data]
 
 
@@ -234,6 +242,9 @@ async def get_noise_floor(
     # The noise floor is always vocabulary words, even if seed isn't
     fetch_k = k * 3  # Fetch 3x to have enough after filtering
 
+    import time
+    import logging
+    start = time.time()
     result = supabase.rpc(
         "get_noise_floor_by_embedding",
         {
@@ -242,6 +253,7 @@ async def get_noise_floor(
             "k": fetch_k
         }
     ).execute()
+    logging.warning(f"[TIMING] Supabase vector search (k={fetch_k}): {time.time() - start:.2f}s")
 
     raw_results = result.data or []
 

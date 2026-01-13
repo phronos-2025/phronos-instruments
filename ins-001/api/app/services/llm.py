@@ -59,12 +59,16 @@ Rules:
 
 Your guesses:"""
 
+    import time
+    import logging
+    start = time.time()
     response = await anthropic_client.messages.create(
         model=MODEL,
         max_tokens=100,
         messages=[{"role": "user", "content": prompt}]
     )
-    
+    logging.warning(f"[TIMING] Claude Haiku LLM guess: {time.time() - start:.2f}s")
+
     # Parse response
     text = response.content[0].text.strip()
     lines = [line.strip() for line in text.split('\n') if line.strip()]

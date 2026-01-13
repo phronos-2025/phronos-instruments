@@ -5,6 +5,8 @@ Handles game CRUD operations.
 """
 
 import json
+import logging
+import time
 from fastapi import APIRouter, HTTPException, Depends
 from app.models import (
     CreateGameRequest, CreateGameResponse,
@@ -95,7 +97,8 @@ async def create_game(
         {"word": w["word"], "similarity": w["similarity"]}
         for w in noise_floor_data
     ]
-    
+
+    start = time.time()
     result = supabase.table("games").insert({
         "sender_id": user["id"],
         "recipient_type": request.recipient_type.value,
@@ -105,7 +108,8 @@ async def create_game(
         "noise_floor": noise_floor,
         "status": "pending_clues"
     }).execute()
-    
+    logging.warning(f"[TIMING] Supabase insert game: {time.time() - start:.2f}s")
+
     game = result.data[0]
     
     return CreateGameResponse(
@@ -217,12 +221,14 @@ async def submit_clues(
 
     Clues can be ANY word - XML escaping handles LLM prompt safety.
     """
+    total_start = time.time()
     supabase, user = auth
 
     # Clean clues (no vocabulary validation - accept any word)
     clues_clean = [c.lower().strip() for c in request.clues]
 
     # Get game
+    db_start = time.time()
     result = supabase.table("games") \
         .select("*") \
         .eq("id", game_id) \
@@ -230,6 +236,7 @@ async def submit_clues(
         .eq("status", "pending_clues") \
         .single() \
         .execute()
+    logging.warning(f"[TIMING] Supabase get game: {time.time() - db_start:.2f}s")
 
     if not result.data:
         raise HTTPException(status_code=404, detail={"error": "Game not found or not in correct state"})
@@ -243,10 +250,12 @@ async def submit_clues(
 
     # OPTIMIZATION: Batch fetch all floor embeddings in a single query
     floor_words = [fw["word"] for fw in game["noise_floor"]]
+    db_start = time.time()
     floor_result = supabase.table("vocabulary_embeddings") \
         .select("word, embedding") \
         .in_("word", floor_words) \
         .execute()
+    logging.warning(f"[TIMING] Supabase fetch floor embeddings ({len(floor_words)} words): {time.time() - db_start:.2f}s")
 
     floor_embeddings = []
     if floor_result.data:
@@ -292,7 +301,10 @@ async def submit_clues(
     else:
         guess_similarities = None
 
+    db_start = time.time()
     supabase.table("games").update(update_data).eq("id", game_id).execute()
+    logging.warning(f"[TIMING] Supabase update game: {time.time() - db_start:.2f}s")
+    logging.warning(f"[TIMING] TOTAL submit_clues: {time.time() - total_start:.2f}s")
 
     # Update profile for sender if game completed (LLM games complete immediately)
     if game["recipient_type"] == "llm":
