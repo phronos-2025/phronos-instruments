@@ -1,7 +1,8 @@
 /**
  * Results Screen
  * 
- * Score cards, archetype display, profile progress CTA
+ * Matches mockup: score grid, archetype display, interpretation panel, 
+ * "Unregistered Record" panel with progress, footer links
  */
 
 import React from 'react';
@@ -9,7 +10,6 @@ import { useGameState } from '../../lib/state';
 import type { GameResponse } from '../../lib/api';
 import { Panel } from '../ui/Panel';
 import { Button } from '../ui/Button';
-import { ProgressBar } from '../ui/ProgressBar';
 import { ScoreCard } from '../ui/ScoreCard';
 import { ArchetypeDisplay } from '../ui/ArchetypeDisplay';
 
@@ -18,7 +18,7 @@ interface ResultsScreenProps {
 }
 
 export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
-  const { state } = useGameState();
+  const { state, dispatch } = useGameState();
   const game = state.screen === 'results' ? state.game : null;
   
   if (!game) return null;
@@ -26,66 +26,138 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
   const divergenceInterpretation = 
     game.divergence_score && game.divergence_score < 0.3 ? 'Conventional' :
     game.divergence_score && game.divergence_score < 0.6 ? 'Moderate' :
-    'Creative';
+    'High';
   
   const convergenceInterpretation = 
     game.convergence_score && game.convergence_score < 0.4 ? 'Low' :
     game.convergence_score && game.convergence_score < 0.7 ? 'Partial' :
-    'High';
+    'Strong';
+  
+  // Format guesses for display
+  const formatGuess = (guess: string, index: number) => {
+    const isExact = guess.toLowerCase() === game.seed_word.toLowerCase();
+    return (
+      <div key={index} style={{ display: 'flex', justifyContent: 'space-between', padding: 'var(--space-xs) 0', borderBottom: index < (game.guesses?.length || 0) - 1 ? '1px solid var(--faded-ultra)' : 'none' }}>
+        <span style={{ color: isExact ? 'var(--active)' : 'var(--faded)' }}>{guess}</span>
+        <span style={{ color: isExact ? 'var(--active)' : 'var(--faded)' }}>
+          {isExact ? '✓ Exact match' : '—'}
+        </span>
+      </div>
+    );
+  };
+  
+  // Mock archetype - would come from profile in real implementation
+  const archetype = 'Creative Communicator';
+  
+  // Mock progress - would come from profile in real implementation
+  const progressGames = 3;
+  const progressTotal = 15;
+  const progressPercent = Math.round((progressGames / progressTotal) * 100);
   
   return (
     <div>
-      <ProgressBar currentStep={4} />
+      <p className="subtitle">
+        <span className="id">INS-001</span> · Complete
+      </p>
+      <h1 className="title">Results.</h1>
       
-      <Panel title="Results">
-        <div className="score-grid">
-          {game.divergence_score !== undefined && (
-            <ScoreCard
-              label="Divergence"
-              value={game.divergence_score}
-              interpretation={divergenceInterpretation}
-            />
-          )}
-          {game.convergence_score !== undefined && (
-            <ScoreCard
-              label="Convergence"
-              value={game.convergence_score}
-              interpretation={convergenceInterpretation}
-            />
-          )}
-        </div>
-        
-        {game.recipient_type === 'llm' && game.guesses && (
-          <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'var(--card-bg)', border: '1px solid var(--faded-light)' }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--faded)', marginBottom: '0.5rem' }}>
-              AI GUESSES
-            </div>
-            <div style={{ color: 'var(--text-light)' }}>
-              {game.guesses.join(', ')}
-            </div>
-          </div>
+      <p className="description">
+        Your semantic association profile for this session.
+      </p>
+      
+      <div className="score-grid">
+        {game.divergence_score !== undefined && (
+          <ScoreCard
+            label="Divergence"
+            value={game.divergence_score}
+            interpretation={divergenceInterpretation}
+          />
         )}
-        
-        <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'var(--card-bg)', border: '1px solid var(--faded-light)' }}>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--faded)', marginBottom: '0.5rem' }}>
-            SEED WORD
+        {game.convergence_score !== undefined && (
+          <ScoreCard
+            label="Convergence"
+            value={game.convergence_score}
+            interpretation={convergenceInterpretation}
+          />
+        )}
+      </div>
+      
+      {game.recipient_type === 'llm' && game.guesses && game.guesses.length > 0 && (
+        <Panel title="Claude's Guesses" meta={`${game.guesses.length} attempts`}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem' }}>
+            {game.guesses.map((guess, idx) => formatGuess(guess, idx))}
           </div>
-          <div style={{ fontFamily: 'var(--font-serif)', fontSize: '1.5rem', color: 'var(--gold)' }}>
-            {game.seed_word}
+        </Panel>
+      )}
+      
+      <ArchetypeDisplay archetype={archetype} />
+      
+      <Panel className="" style={{ background: 'transparent', borderColor: 'var(--faded-light)' }}>
+        <div className="panel-header">
+          <span className="panel-title">Interpretation</span>
+        </div>
+        <div className="panel-content" style={{ fontFamily: 'var(--font-body)', fontSize: '0.9rem', color: 'var(--faded)', lineHeight: '1.7' }}>
+          Your associations show {divergenceInterpretation.toLowerCase()} divergence ({game.divergence_score?.toFixed(2) || 'N/A'}) from the predictable semantic neighborhood, 
+          {game.convergence_score !== undefined && ` indicating ${convergenceInterpretation.toLowerCase()} communication effectiveness.`}
+          {game.convergence_score === undefined && ' indicating creative, unexpected pathways.'}
+        </div>
+      </Panel>
+      
+      <Panel className="" style={{ borderColor: 'var(--gold)', background: 'linear-gradient(to bottom, var(--card-bg), rgba(176, 141, 85, 0.05))' }}>
+        <div className="panel-header" style={{ borderBottomColor: 'var(--gold-dim)' }}>
+          <span className="panel-title" style={{ color: 'var(--gold)' }}>Unregistered Record</span>
+          <span className="panel-meta">Session ID: #{game.game_id?.slice(0, 4).toUpperCase() || 'A7F3'}</span>
+        </div>
+        <div className="panel-content">
+          <div style={{ display: 'flex', gap: 'var(--space-md)', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: '200px' }}>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-light)', marginBottom: 'var(--space-xs)' }}>
+                Save this Divergence Score ({game.divergence_score?.toFixed(2) || 'N/A'}) to your permanent cognitive profile.
+              </p>
+              <div className="score-bar" style={{ height: '4px', margin: 'var(--space-sm) 0', opacity: 0.5 }}>
+                <div className="score-bar-fill" style={{ width: `${progressPercent}%` }} />
+              </div>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'var(--faded)' }}>
+                Progress: {progressGames}/{progressTotal} instruments complete
+              </p>
+            </div>
+            
+            <Button
+              variant="primary"
+              style={{ fontSize: '0.65rem', padding: '10px 20px' }}
+              onClick={() => {
+                // TODO: Trigger account creation modal
+                console.log('Initialize ID clicked');
+              }}
+            >
+              Initialize ID
+            </Button>
           </div>
         </div>
       </Panel>
       
-      {/* Archetype display would go here when profile is ready */}
-      
-      <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+      <div className="btn-group">
         <Button
-          variant="primary"
-          onClick={() => window.location.reload()}
+          variant="secondary"
+          onClick={() => {
+            dispatch({ type: 'RESET' });
+            window.location.reload();
+          }}
         >
           Play Again
         </Button>
       </div>
+      
+      <footer className="footer">
+        <div>
+          <a href="/methods" style={{ color: 'var(--faded)', textDecoration: 'none' }}>Methodology</a>{' '}·{' '}
+          <a href="/about" style={{ color: 'var(--faded)', textDecoration: 'none' }}>About Phronos</a>{' '}·{' '}
+          <a href="/constitution" style={{ color: 'var(--faded)', textDecoration: 'none' }}>Constitution</a>
+        </div>
+        <div>
+          © 2026 Phronos Observatory
+        </div>
+      </footer>
     </div>
   );
 };

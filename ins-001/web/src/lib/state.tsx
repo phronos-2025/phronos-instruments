@@ -14,15 +14,16 @@ export type SenderGameState =
   | { screen: 'seed' }
   | { screen: 'sense'; seedWord: string; senseOptions: string[] }
   | { screen: 'clues'; gameId: string; noiseFloor: NoiseFloorWord[]; seedWord: string }
-  | { screen: 'share'; gameId: string; divergence: number }
+  | { screen: 'share'; gameId: string; divergence: number; noiseFloor?: NoiseFloorWord[]; seedWord?: string }
   | { screen: 'results'; game: GameResponse };
 
 // Action types
 type GameAction =
   | { type: 'BEGIN' }
+  | { type: 'BACK' }
   | { type: 'SEED_SUBMITTED'; seedWord: string; isPolysemous: boolean; senseOptions?: string[]; gameId?: string; noiseFloor?: NoiseFloorWord[] }
   | { type: 'SENSE_SELECTED'; gameId: string; noiseFloor: NoiseFloorWord[]; seedWord: string }
-  | { type: 'CLUES_SUBMITTED'; gameId: string; divergence: number }
+  | { type: 'CLUES_SUBMITTED'; gameId: string; divergence: number; noiseFloor?: NoiseFloorWord[]; seedWord?: string }
   | { type: 'GAME_COMPLETED'; game: GameResponse }
   | { type: 'RESET' };
 
@@ -31,6 +32,16 @@ function gameReducer(state: SenderGameState, action: GameAction): SenderGameStat
   switch (action.type) {
     case 'BEGIN':
       return { screen: 'seed' };
+    
+    case 'BACK':
+      // Navigate back through the flow
+      if (state.screen === 'clues') return { screen: 'seed' };
+      if (state.screen === 'share' && state.noiseFloor && state.seedWord) {
+        return { screen: 'clues', gameId: state.gameId, noiseFloor: state.noiseFloor, seedWord: state.seedWord };
+      }
+      if (state.screen === 'share') return { screen: 'seed' }; // Fallback if data not available
+      if (state.screen === 'seed') return { screen: 'intro' };
+      return state;
     
     case 'SEED_SUBMITTED':
       if (action.isPolysemous && action.senseOptions) {
@@ -62,7 +73,9 @@ function gameReducer(state: SenderGameState, action: GameAction): SenderGameStat
       return {
         screen: 'share',
         gameId: action.gameId,
-        divergence: action.divergence
+        divergence: action.divergence,
+        noiseFloor: action.noiseFloor,
+        seedWord: action.seedWord
       };
     
     case 'GAME_COMPLETED':

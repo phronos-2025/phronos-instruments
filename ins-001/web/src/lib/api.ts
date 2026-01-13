@@ -112,47 +112,28 @@ export interface GameResponse {
 
 // Helper to get auth headers
 async function getAuthHeaders(): Promise<HeadersInit> {
-  // #region agent log
-  console.log('[DEBUG] getAuthHeaders entry', {timestamp:Date.now(),hypothesisId:'A'});
-  // #endregion
   // Check for existing session
   let { data: { session }, error: sessionError } = await supabase.auth.getSession();
   
-  // #region agent log
-  console.log('[DEBUG] Session check result', {hasSession:!!session,hasError:!!sessionError,errorMsg:sessionError?.message,hasAccessToken:!!session?.access_token,tokenLength:session?.access_token?.length,hypothesisId:'B'});
-  // #endregion
-  
   if (sessionError) {
     console.error('Session error in getAuthHeaders:', sessionError);
-    // #region agent log
-    console.log('[DEBUG] Session error, attempting anonymous sign-in', {error:sessionError.message,hypothesisId:'C'});
-    // #endregion
     // Try to sign in anonymously as fallback
     const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
     if (authError) {
       throw new Error(`Authentication failed: ${authError.message}`);
     }
     session = authData.session;
-    // #region agent log
-    console.log('[DEBUG] Anonymous sign-in result', {hasSession:!!session,hasAccessToken:!!session?.access_token,tokenLength:session?.access_token?.length,hypothesisId:'C'});
-    // #endregion
   }
   
   if (!session) {
     // Try to sign in anonymously
     console.log('No session, attempting anonymous sign-in...');
-    // #region agent log
-    console.log('[DEBUG] No session, attempting anonymous sign-in', {hypothesisId:'D'});
-    // #endregion
     const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
     if (authError) {
       console.error('Failed to sign in anonymously:', authError);
       throw new Error(`Authentication failed: ${authError.message}`);
     }
     session = authData.session;
-    // #region agent log
-    console.log('[DEBUG] Anonymous sign-in completed', {hasSession:!!session,hasAccessToken:!!session?.access_token,tokenLength:session?.access_token?.length,hypothesisId:'D'});
-    // #endregion
   }
   
   const headers: HeadersInit = {
@@ -161,20 +142,11 @@ async function getAuthHeaders(): Promise<HeadersInit> {
   
   if (session?.access_token) {
     headers['Authorization'] = `Bearer ${session.access_token}`;
-    // #region agent log
-    console.log('[DEBUG] Authorization header set', {hasAuthHeader:!!headers['Authorization'],headerPrefix:headers['Authorization']?.substring(0,20),tokenLength:session.access_token.length,hypothesisId:'A'});
-    // #endregion
   } else {
     console.error('No access token in session:', session);
-    // #region agent log
-    console.log('[DEBUG] No access token in session', {hasSession:!!session,sessionKeys:session?Object.keys(session):[],hypothesisId:'B'});
-    // #endregion
     throw new Error('No access token available. Please refresh the page.');
   }
   
-  // #region agent log
-  console.log('[DEBUG] getAuthHeaders exit', {headerKeys:Object.keys(headers),hasAuth:!!headers['Authorization'],hypothesisId:'A'});
-  // #endregion
   return headers;
 }
 
@@ -184,10 +156,6 @@ async function apiCall<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const headers = await getAuthHeaders();
-  
-  // #region agent log
-  console.log('[DEBUG] apiCall before fetch', {endpoint,hasAuthHeader:!!headers['Authorization'],allHeaderKeys:Object.keys(headers),hypothesisId:'E'});
-  // #endregion
   
   // Ensure API_URL doesn't have trailing slash and endpoint starts with /
   let baseUrl = API_URL.replace(/\/$/, '');
@@ -202,11 +170,6 @@ async function apiCall<T>(
   
   console.log('API Call:', fullUrl); // Debug log
   
-  // #region agent log
-  const mergedHeaders = {...headers,...options.headers};
-  console.log('[DEBUG] About to fetch', {url:fullUrl,hasAuthInMerged:!!mergedHeaders['Authorization'],mergedHeaderKeys:Object.keys(mergedHeaders),hypothesisId:'E'});
-  // #endregion
-  
   try {
     const response = await fetch(fullUrl, {
       ...options,
@@ -215,10 +178,6 @@ async function apiCall<T>(
         ...options.headers,
       },
     });
-    
-    // #region agent log
-    console.log('[DEBUG] Fetch response received', {status:response.status,statusText:response.statusText,ok:response.ok,hypothesisId:'F'});
-    // #endregion
     
     if (!response.ok) {
       // Try to get error details

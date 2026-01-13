@@ -119,11 +119,17 @@ export const SeedScreen: React.FC = () => {
     <div>
       <ProgressBar currentStep={1} />
       
-      <Panel title="Step 1: Choose Your Word">
-        <p style={{ marginBottom: '1rem', color: 'var(--faded)' }}>
-          Enter any word. It can be a standard word, proper noun, domain term, or even a made-up word.
-        </p>
-        
+      <p className="subtitle">
+        <span className="id">INS-001</span> · Step 1 of 3
+      </p>
+      <h1 className="title">Choose your word.</h1>
+      
+      <p className="description">
+        Pick any word as your target. This is the concept you will communicate through associations.
+      </p>
+      
+      <div className="input-group">
+        <label className="input-label">Target Word</label>
         {!authReady ? (
           <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--faded)' }}>
             Initializing...
@@ -132,33 +138,44 @@ export const SeedScreen: React.FC = () => {
           <form onSubmit={handleSubmit}>
             <input
               type="text"
+              className="text-input"
               value={seedWord}
               onChange={(e) => setSeedWord(e.target.value)}
-              placeholder="Enter seed word..."
-              className="clue-input"
-              style={{ width: '100%', marginBottom: '1rem' }}
+              placeholder="coffee"
+              autoComplete="off"
+              spellCheck="false"
               autoFocus
               disabled={isSubmitting}
             />
+            <p className="input-hint">
+              Any word works: common words, technical terms, proper nouns, slang.
+            </p>
             
             {error && (
-              <div style={{ color: 'var(--alert)', marginBottom: '1rem', fontSize: 'var(--text-sm)' }}>
+              <div style={{ color: 'var(--alert)', marginTop: '1rem', fontSize: 'var(--text-sm)' }}>
                 ◈ {error}
               </div>
             )}
             
             <div className="btn-group">
               <Button
+                variant="ghost"
+                onClick={() => dispatch({ type: 'RESET' })}
+                type="button"
+              >
+                ← Back
+              </Button>
+              <Button
                 type="submit"
                 variant="primary"
                 disabled={!seedWord.trim() || isSubmitting || !authReady}
               >
-                {isSubmitting ? 'Creating...' : 'Continue'}
+                {isSubmitting ? 'Creating...' : 'Continue →'}
               </Button>
             </div>
           </form>
         )}
-      </Panel>
+      </div>
     </div>
   );
 };

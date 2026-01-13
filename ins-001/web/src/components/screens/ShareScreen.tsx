@@ -1,7 +1,7 @@
 /**
  * Share Screen
  * 
- * Divergence score display, choose Claude or friend
+ * Matches mockup: divergence score in gold panel, two-option share grid, share link section
  */
 
 import React, { useState } from 'react';
@@ -10,7 +10,7 @@ import { api } from '../../lib/api';
 import { Panel } from '../ui/Panel';
 import { Button } from '../ui/Button';
 import { ProgressBar } from '../ui/ProgressBar';
-import { ScoreCard } from '../ui/ScoreCard';
+import { ShareOptions } from '../ui/ShareOptions';
 import { ShareLinkBox } from '../ui/ShareLinkBox';
 
 interface ShareScreenProps {
@@ -27,6 +27,7 @@ export const ShareScreen: React.FC<ShareScreenProps> = ({
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showShareLink, setShowShareLink] = useState(false);
   
   const handleCreateShareLink = async () => {
     setIsLoading(true);
@@ -36,6 +37,7 @@ export const ShareScreen: React.FC<ShareScreenProps> = ({
       const response = await api.share.createToken(gameId);
       setShareToken(response.token);
       setShareUrl(response.share_url);
+      setShowShareLink(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create share link');
     } finally {
@@ -43,7 +45,7 @@ export const ShareScreen: React.FC<ShareScreenProps> = ({
     }
   };
   
-  const handleViewResults = async () => {
+  const handleClaudeClick = async () => {
     try {
       const game = await api.games.get(gameId);
       dispatch({ type: 'GAME_COMPLETED', game });
@@ -52,67 +54,124 @@ export const ShareScreen: React.FC<ShareScreenProps> = ({
     }
   };
   
+  const handleFriendClick = () => {
+    if (!shareUrl) {
+      handleCreateShareLink();
+    } else {
+      setShowShareLink(true);
+    }
+  };
+  
   const divergenceInterpretation = 
     divergence < 0.3 ? 'Conventional' :
     divergence < 0.6 ? 'Moderate' :
-    'Creative';
+    'High Divergence';
+  
+  const divergenceDescription = 
+    divergence < 0.3 ? 'Your clues align closely with predictable associations.' :
+    divergence < 0.6 ? 'Your clues show moderate deviation from predictable associations.' :
+    'Your clues venture significantly from predictable associations.';
   
   return (
     <div>
       <ProgressBar currentStep={3} />
       
-      <Panel title="Your Divergence Score">
-        <ScoreCard
-          label="Divergence"
-          value={divergence}
-          interpretation={divergenceInterpretation}
-        />
-        
-        <p style={{ marginTop: '1.5rem', color: 'var(--faded)', fontSize: 'var(--text-sm)' }}>
-          This measures how far your clues ventured from predictable associations.
-          Higher scores indicate more creative, unexpected connections.
-        </p>
+      <p className="subtitle">
+        <span className="id">INS-001</span> · Step 3 of 3
+      </p>
+      <h1 className="title">Who will guess?</h1>
+      
+      <p className="description">
+        Your divergence score is ready. Now choose who will attempt to decode your associations.
+      </p>
+      
+      <Panel className="" style={{ borderColor: 'var(--gold)' }}>
+        <div className="panel-header">
+          <span className="panel-title">Your Divergence Score</span>
+          <span className="panel-meta">Calculated</span>
+        </div>
+        <div className="panel-content" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-lg)' }}>
+          <div style={{ fontFamily: 'var(--font-serif)', fontSize: '3rem', fontWeight: '300', color: 'var(--gold)' }}>
+            {divergence.toFixed(2)}
+          </div>
+          <div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-light)' }}>
+              {divergenceInterpretation}
+            </div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'var(--faded)' }}>
+              {divergenceDescription}
+            </div>
+          </div>
+        </div>
       </Panel>
       
-      <Panel title="Share Your Game">
-        <p style={{ marginBottom: '1rem', color: 'var(--faded)' }}>
-          Share with a friend to test how well your associations communicate, or view results from the AI guesser.
-        </p>
-        
-        {!shareUrl ? (
-          <div>
+      <ShareOptions
+        onClaudeClick={handleClaudeClick}
+        onFriendClick={handleFriendClick}
+      />
+      
+      {showShareLink && shareUrl && (
+        <div style={{ marginTop: 'var(--space-lg)', borderTop: '1px solid var(--faded-light)', paddingTop: 'var(--space-md)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 'var(--space-xs)' }}>
+            <p className="mono-label" style={{ margin: 0 }}>Share Link</p>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', color: 'var(--active)' }}>
+              ● Link Active (expires 7d)
+            </span>
+          </div>
+          
+          <ShareLinkBox url={shareUrl} />
+          
+          <div style={{ marginTop: 'var(--space-md)', background: 'var(--faded-ultra)', padding: 'var(--space-sm)', border: '1px solid var(--faded-light)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'var(--text-light)', flex: 1, minWidth: '180px' }}>
+                <strong style={{ color: 'var(--gold)' }}>Don't miss the results.</strong><br />
+                <span style={{ color: 'var(--faded)' }}>Create an account to be notified when your friend guesses.</span>
+              </div>
+              <Button
+                variant="secondary"
+                style={{ fontSize: '0.65rem', padding: '6px 12px', whiteSpace: 'nowrap' }}
+                onClick={() => {
+                  // TODO: Trigger account creation modal
+                  console.log('Notify Me clicked');
+                }}
+              >
+                Notify Me
+              </Button>
+            </div>
+          </div>
+          
+          <div style={{ marginTop: 'var(--space-md)', textAlign: 'right' }}>
             <Button
-              variant="primary"
-              onClick={handleCreateShareLink}
-              disabled={isLoading}
+              variant="ghost"
+              onClick={async () => {
+                try {
+                  const game = await api.games.get(gameId);
+                  dispatch({ type: 'GAME_COMPLETED', game });
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : 'Failed to load results');
+                }
+              }}
             >
-              {isLoading ? 'Creating...' : 'Create Share Link'}
+              View Session Dashboard →
             </Button>
           </div>
-        ) : (
-          <div>
-            <ShareLinkBox url={shareUrl} />
-            <p style={{ marginTop: '1rem', fontSize: 'var(--text-xs)', color: 'var(--faded)' }}>
-              Share this link with a friend. They'll see your clues and try to guess your word.
-            </p>
-          </div>
-        )}
-        
-        <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid var(--faded-ultra)' }}>
-          <Button
-            variant="secondary"
-            onClick={handleViewResults}
-          >
-            View Results
-          </Button>
         </div>
-        
-        {error && (
-          <div style={{ color: 'var(--alert)', marginTop: '1rem', fontSize: 'var(--text-sm)' }}>
-            ◈ {error}
-          </div>
-        )}
-      </Panel>
+      )}
+      
+      {error && (
+        <div style={{ color: 'var(--alert)', marginTop: '1rem', fontSize: 'var(--text-sm)' }}>
+          ◈ {error}
+        </div>
+      )}
+      
+      <div className="btn-group">
+        <Button
+          variant="ghost"
+          onClick={() => dispatch({ type: 'BACK' })}
+        >
+          ← Back
+        </Button>
+      </div>
     </div>
   );
 };

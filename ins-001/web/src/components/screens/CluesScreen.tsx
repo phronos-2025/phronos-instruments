@@ -59,7 +59,9 @@ export const CluesScreen: React.FC<CluesScreenProps> = ({
       dispatch({
         type: 'CLUES_SUBMITTED',
         gameId: response.game_id,
-        divergence: response.divergence_score
+        divergence: response.divergence_score,
+        noiseFloor: noiseFloor,
+        seedWord: seedWord
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit clues');
@@ -72,15 +74,25 @@ export const CluesScreen: React.FC<CluesScreenProps> = ({
     <div>
       <ProgressBar currentStep={2} />
       
-      <Panel title="Step 2: Write Your Clues">
-        <p style={{ marginBottom: '1rem', color: 'var(--faded)' }}>
-          Write 5 clues that hint at <strong style={{ color: 'var(--gold)' }}>"{seedWord}"</strong>.
-          Each clue must be a valid English word from the vocabulary.
-        </p>
-        
+      <p className="subtitle">
+        <span className="id">INS-001</span> · Step 2 of 3
+      </p>
+      <h1 className="title">Provide your clues.</h1>
+      
+      <p className="description">
+        Enter five single-word clues that will help someone guess your target word:{' '}
+        <strong style={{ color: 'var(--gold)' }}>{seedWord}</strong>
+      </p>
+      
+      <Panel title="Semantic Neighborhood" meta="Top 10 predictable associations">
         <NoiseFloor words={noiseFloor} />
-        
-        <div className="clue-inputs" style={{ marginTop: '1.5rem' }}>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', color: 'var(--faded)', marginTop: 'var(--space-sm)' }}>
+          These are the most predictable associations. Your divergence score measures how far your clues venture from this neighborhood.
+        </p>
+      </Panel>
+      
+      <Panel title="Your Clues" meta="5 required">
+        <div className="clue-inputs">
           {clues.map((clue, idx) => (
             <ClueInput
               key={idx}
@@ -91,23 +103,29 @@ export const CluesScreen: React.FC<CluesScreenProps> = ({
             />
           ))}
         </div>
-        
-        {error && (
-          <div style={{ color: 'var(--alert)', marginTop: '1rem', fontSize: 'var(--text-sm)' }}>
-            ◈ {error}
-          </div>
-        )}
-        
-        <div className="btn-group">
-          <Button
-            variant="primary"
-            onClick={handleSubmit}
-            disabled={!allValid || isSubmitting}
-          >
-            {isSubmitting ? 'Submitting...' : 'Submit Clues'}
-          </Button>
-        </div>
       </Panel>
+      
+      {error && (
+        <div style={{ color: 'var(--alert)', marginTop: '1rem', fontSize: 'var(--text-sm)' }}>
+          ◈ {error}
+        </div>
+      )}
+      
+      <div className="btn-group">
+        <Button
+          variant="ghost"
+          onClick={() => dispatch({ type: 'BACK' })}
+        >
+          ← Back
+        </Button>
+        <Button
+          variant="primary"
+          onClick={handleSubmit}
+          disabled={!allValid || isSubmitting}
+        >
+          {isSubmitting ? 'Submitting...' : 'Submit Clues →'}
+        </Button>
+      </div>
     </div>
   );
 };

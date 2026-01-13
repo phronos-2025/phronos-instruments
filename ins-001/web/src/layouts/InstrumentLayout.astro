@@ -1,8 +1,8 @@
 ---
 /**
- * Instrument Layout - Lab Container
+ * Instrument Layout - Full Width Container
  * 
- * Based on COMPONENTS.md Lab Container spec
+ * Matches mockup: fixed navigation, full-width content
  */
 
 interface Props {
@@ -26,26 +26,8 @@ const { id, title, version = '0.1', status = 'live' } = Astro.props;
   </head>
   <body>
     <div class="instrument-page">
-      <div class="lab-container">
-        <header class="lab-header">
-          <div class="lab-header-left">
-            <span class="lab-id">{id}</span>
-            <span class="lab-separator">·</span>
-            <span class="lab-title">{title}</span>
-          </div>
-          <div class="lab-header-right">
-            <span class="lab-version">v{version}</span>
-            <span class={`lab-status-dot ${status}`}></span>
-          </div>
-        </header>
-        
-        <div class="lab-body">
-          <slot />
-        </div>
-        
-        <footer class="lab-footer">
-          <span class="lab-meta">Estimated time: 5 min</span>
-        </footer>
+      <div class="instrument-container">
+        <slot />
       </div>
     </div>
   </body>
@@ -55,7 +37,7 @@ const { id, title, version = '0.1', status = 'live' } = Astro.props;
   @import '../styles/global.css';
   @import '../styles/components.css';
   
-  /* Lab Container Styles */
+  /* Instrument Page Styles - Full Width Container */
   .instrument-page {
     min-height: 100vh;
     background: var(--bg-deep);
@@ -74,98 +56,10 @@ const { id, title, version = '0.1', status = 'live' } = Astro.props;
     pointer-events: none;
   }
   
-  .lab-container {
+  .instrument-container {
     position: relative;
     z-index: 1;
-    max-width: 800px;
+    max-width: 900px;
     margin: 0 auto;
-    background: var(--card-bg);
-    border: var(--border-primary);
-  }
-  
-  .lab-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: var(--space-sm) var(--space-md);
-    border-bottom: var(--border-divider);
-    background: rgba(242, 240, 233, 0.02);
-  }
-  
-  .lab-header-left {
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-  }
-  
-  .lab-id {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--gold);
-    text-transform: uppercase;
-  }
-  
-  .lab-separator {
-    color: var(--faded);
-  }
-  
-  .lab-title {
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    color: var(--text-light);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-  
-  .lab-header-right {
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-  }
-  
-  .lab-version {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--faded);
-  }
-  
-  .lab-status-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-  }
-  
-  .lab-status-dot.live {
-    background: var(--active);
-    animation: pulse 2s infinite;
-  }
-  
-  .lab-status-dot.calibrating {
-    background: var(--gold);
-    animation: pulse 3s infinite;
-  }
-  
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
-  }
-  
-  .lab-body {
-    padding: var(--space-xl);
-    min-height: 400px;
-  }
-  
-  .lab-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: var(--space-sm) var(--space-md);
-    border-top: var(--border-divider);
-  }
-  
-  .lab-meta {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--faded);
   }
 </style>

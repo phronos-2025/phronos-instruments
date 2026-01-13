@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { GameProvider, useGameState } from '../lib/state';
+import { Navigation } from './ui/Navigation';
 import { IntroScreen } from './screens/IntroScreen';
 import { SeedScreen } from './screens/SeedScreen';
 import { SenseDisambiguationScreen } from './screens/SenseDisambiguationScreen';
@@ -37,6 +38,7 @@ function GameRouter() {
 export default function Game() {
   return (
     <GameProvider>
+      <Navigation instrumentId="INS-001" instrumentTitle="ACTIVE" />
       <GameRouter />
     </GameProvider>
   );
