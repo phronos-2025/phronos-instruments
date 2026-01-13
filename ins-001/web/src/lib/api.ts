@@ -8,6 +8,11 @@ import { supabase } from './supabase';
 
 const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8000';
 
+// Debug: Log API URL (remove in production)
+if (typeof window !== 'undefined') {
+  console.log('API_URL configured as:', API_URL);
+}
+
 // Types (matching backend models)
 export type RecipientType = 'network' | 'stranger' | 'llm';
 export type GameStatus = 'pending_clues' | 'pending_guess' | 'completed' | 'expired';
@@ -92,13 +97,39 @@ export interface GameResponse {
 
 // Helper to get auth headers
 async function getAuthHeaders(): Promise<HeadersInit> {
-  const { data: { session } } = await supabase.auth.getSession();
+  // Check for existing session
+  let { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  
+  if (sessionError) {
+    console.error('Session error in getAuthHeaders:', sessionError);
+    // Try to sign in anonymously as fallback
+    const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
+    if (authError) {
+      throw new Error(`Authentication failed: ${authError.message}`);
+    }
+    session = authData.session;
+  }
+  
+  if (!session) {
+    // Try to sign in anonymously
+    console.log('No session, attempting anonymous sign-in...');
+    const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
+    if (authError) {
+      console.error('Failed to sign in anonymously:', authError);
+      throw new Error(`Authentication failed: ${authError.message}`);
+    }
+    session = authData.session;
+  }
+  
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
   };
   
   if (session?.access_token) {
     headers['Authorization'] = `Bearer ${session.access_token}`;
+  } else {
+    console.error('No access token in session:', session);
+    throw new Error('No access token available. Please refresh the page.');
   }
   
   return headers;
@@ -111,8 +142,15 @@ async function apiCall<T>(
 ): Promise<T> {
   const headers = await getAuthHeaders();
   
+  // Ensure API_URL doesn't have trailing slash and endpoint starts with /
+  const baseUrl = API_URL.replace(/\/$/, '');
+  const endpointPath = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const fullUrl = `${baseUrl}${endpointPath}`;
+  
+  console.log('API Call:', fullUrl); // Debug log
+  
   try {
-    const response = await fetch(`${API_URL}${endpoint}`, {
+    const response = await fetch(fullUrl, {
       ...options,
       headers: {
         ...headers,
@@ -156,7 +194,7 @@ async function apiCall<T>(
 export const api = {
   games: {
     create: (data: CreateGameRequest): Promise<CreateGameResponse> =>
-      apiCall('/api/v1/games', {
+      apiCall('/api/v1/games/', {
         method: 'POST',
         body: JSON.stringify(data),
       }),
