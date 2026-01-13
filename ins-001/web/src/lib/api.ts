@@ -118,6 +118,112 @@ export interface GameResponse {
   expires_at: string;
 }
 
+// ============================================
+// INS-001.2: Bridging Types
+// ============================================
+
+export type BridgingRecipientType = 'human' | 'haiku';
+export type BridgingGameStatus = 'pending_clues' | 'pending_guess' | 'completed' | 'expired';
+
+export interface CreateBridgingGameRequest {
+  anchor_word: string;
+  target_word: string;
+  recipient_type?: BridgingRecipientType;
+}
+
+export interface CreateBridgingGameResponse {
+  game_id: string;
+  anchor_word: string;
+  target_word: string;
+  status: BridgingGameStatus;
+}
+
+export interface SubmitBridgingCluesRequest {
+  clues: string[];
+}
+
+export interface SubmitBridgingCluesResponse {
+  game_id: string;
+  clues: string[];
+  divergence_score: number;
+  status: BridgingGameStatus;
+  share_code?: string;
+  haiku_guessed_anchor?: string;
+  haiku_guessed_target?: string;
+  haiku_reconstruction_score?: number;
+}
+
+export interface SuggestWordResponse {
+  suggestion: string;
+  from_word?: string;
+}
+
+export interface CreateBridgingShareResponse {
+  share_code: string;
+  share_url: string;
+}
+
+export interface JoinBridgingGameResponse {
+  game_id: string;
+  clues: string[];
+}
+
+export interface SubmitBridgingGuessRequest {
+  guessed_anchor: string;
+  guessed_target: string;
+}
+
+export interface SubmitBridgingGuessResponse {
+  game_id: string;
+  guessed_anchor: string;
+  guessed_target: string;
+  reconstruction_score: number;
+  anchor_similarity: number;
+  target_similarity: number;
+  order_swapped: boolean;
+  exact_anchor_match: boolean;
+  exact_target_match: boolean;
+  true_anchor: string;
+  true_target: string;
+  status: BridgingGameStatus;
+}
+
+export interface BridgingGameResponse {
+  game_id: string;
+  sender_id: string;
+  recipient_id?: string;
+  recipient_type: BridgingRecipientType;
+  anchor_word: string;
+  target_word: string;
+  clues?: string[];
+  divergence_score?: number;
+  guessed_anchor?: string;
+  guessed_target?: string;
+  reconstruction_score?: number;
+  anchor_similarity?: number;
+  target_similarity?: number;
+  order_swapped?: boolean;
+  exact_anchor_match?: boolean;
+  exact_target_match?: boolean;
+  haiku_guessed_anchor?: string;
+  haiku_guessed_target?: string;
+  haiku_reconstruction_score?: number;
+  statistical_guessed_anchor?: string;
+  statistical_guessed_target?: string;
+  statistical_baseline_score?: number;
+  status: BridgingGameStatus;
+  share_code?: string;
+  created_at: string;
+  completed_at?: string;
+}
+
+export interface TriggerHaikuGuessResponse {
+  game_id: string;
+  haiku_guessed_anchor: string;
+  haiku_guessed_target: string;
+  haiku_reconstruction_score: number;
+}
+
 // Helper to get auth headers
 async function getAuthHeaders(): Promise<HeadersInit> {
   // Check for existing session
@@ -322,6 +428,48 @@ export const api = {
       apiCall('/api/v1/embeddings/validate', {
         method: 'POST',
         body: JSON.stringify({ word }),
+      }),
+  },
+
+  // INS-001.2: Bridging API
+  bridging: {
+    create: (data: CreateBridgingGameRequest): Promise<CreateBridgingGameResponse> =>
+      apiCall('/api/v1/bridging/', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    get: (id: string): Promise<BridgingGameResponse> =>
+      apiCall(`/api/v1/bridging/${id}`),
+
+    submitClues: (id: string, data: SubmitBridgingCluesRequest): Promise<SubmitBridgingCluesResponse> =>
+      apiCall(`/api/v1/bridging/${id}/clues`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    submitGuess: (id: string, data: SubmitBridgingGuessRequest): Promise<SubmitBridgingGuessResponse> =>
+      apiCall(`/api/v1/bridging/${id}/guess`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    suggest: (fromWord?: string): Promise<SuggestWordResponse> =>
+      apiCall(`/api/v1/bridging/suggest${fromWord ? `?from_word=${encodeURIComponent(fromWord)}` : ''}`),
+
+    createShare: (gameId: string): Promise<CreateBridgingShareResponse> =>
+      apiCall(`/api/v1/bridging/${gameId}/share`, {
+        method: 'POST',
+      }),
+
+    join: (shareCode: string): Promise<JoinBridgingGameResponse> =>
+      apiCall(`/api/v1/bridging/join/${shareCode}`, {
+        method: 'POST',
+      }),
+
+    triggerHaikuGuess: (gameId: string): Promise<TriggerHaikuGuessResponse> =>
+      apiCall(`/api/v1/bridging/${gameId}/haiku-guess`, {
+        method: 'POST',
       }),
   },
 };

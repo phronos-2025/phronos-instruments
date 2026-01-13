@@ -227,3 +227,166 @@ class ErrorResponse(BaseModel):
     """Standard error response."""
     error: str
     detail: Optional[str] = None
+
+
+# ============================================
+# INS-001.2: BRIDGING GAMES
+# ============================================
+
+class BridgingRecipientType(str, Enum):
+    """Recipient types for bridging games."""
+    HUMAN = "human"
+    HAIKU = "haiku"
+
+
+class BridgingGameStatus(str, Enum):
+    """Game status for bridging games."""
+    PENDING_CLUES = "pending_clues"
+    PENDING_GUESS = "pending_guess"
+    COMPLETED = "completed"
+    EXPIRED = "expired"
+
+
+class CreateBridgingGameRequest(BaseModel):
+    """Request to create a bridging game."""
+    anchor_word: str = Field(
+        min_length=1,
+        max_length=50,
+        description="The starting concept of the bridge"
+    )
+    target_word: str = Field(
+        min_length=1,
+        max_length=50,
+        description="The ending concept of the bridge"
+    )
+    recipient_type: BridgingRecipientType = BridgingRecipientType.HAIKU
+
+
+class CreateBridgingGameResponse(BaseModel):
+    """Response after creating a bridging game."""
+    game_id: str
+    anchor_word: str
+    target_word: str
+    status: BridgingGameStatus
+
+
+class SubmitBridgingCluesRequest(BaseModel):
+    """Request to submit clues for a bridging game."""
+    clues: list[str] = Field(
+        min_length=1,
+        max_length=5,
+        description="1-5 clue words connecting anchor and target"
+    )
+
+
+class SubmitBridgingCluesResponse(BaseModel):
+    """Response after submitting bridging clues."""
+    game_id: str
+    clues: list[str]
+    divergence_score: float
+    status: BridgingGameStatus
+    share_code: Optional[str] = None
+    # If Haiku recipient, includes immediate reconstruction
+    haiku_guessed_anchor: Optional[str] = None
+    haiku_guessed_target: Optional[str] = None
+    haiku_reconstruction_score: Optional[float] = None
+
+
+class SuggestWordRequest(BaseModel):
+    """Request to suggest a distant word."""
+    from_word: Optional[str] = Field(
+        default=None,
+        max_length=50,
+        description="Word to find distant suggestions from. If empty, returns random word."
+    )
+
+
+class SuggestWordResponse(BaseModel):
+    """Response with suggested distant word."""
+    suggestion: str
+    from_word: Optional[str] = None
+
+
+class CreateBridgingShareResponse(BaseModel):
+    """Response with share code for bridging game."""
+    share_code: str
+    share_url: str
+
+
+class JoinBridgingGameResponse(BaseModel):
+    """Response after joining a bridging game via share code."""
+    game_id: str
+    clues: list[str]
+    # anchor_word and target_word NOT included - that's what recipient guesses
+
+
+class SubmitBridgingGuessRequest(BaseModel):
+    """Request to submit reconstruction guesses."""
+    guessed_anchor: str = Field(
+        min_length=1,
+        max_length=50,
+        description="Guess for the anchor word"
+    )
+    guessed_target: str = Field(
+        min_length=1,
+        max_length=50,
+        description="Guess for the target word"
+    )
+
+
+class SubmitBridgingGuessResponse(BaseModel):
+    """Response after submitting reconstruction guesses."""
+    game_id: str
+    guessed_anchor: str
+    guessed_target: str
+    reconstruction_score: float
+    anchor_similarity: float
+    target_similarity: float
+    order_swapped: bool
+    exact_anchor_match: bool
+    exact_target_match: bool
+    # Revealed after guessing
+    true_anchor: str
+    true_target: str
+    status: BridgingGameStatus
+
+
+class BridgingGameResponse(BaseModel):
+    """Full bridging game state."""
+    game_id: str
+    sender_id: str
+    recipient_id: Optional[str]
+    recipient_type: BridgingRecipientType
+    anchor_word: str
+    target_word: str
+    clues: Optional[list[str]]
+    divergence_score: Optional[float]
+    # Recipient guesses
+    guessed_anchor: Optional[str]
+    guessed_target: Optional[str]
+    reconstruction_score: Optional[float]
+    anchor_similarity: Optional[float]
+    target_similarity: Optional[float]
+    order_swapped: Optional[bool]
+    exact_anchor_match: Optional[bool]
+    exact_target_match: Optional[bool]
+    # Baselines
+    haiku_guessed_anchor: Optional[str]
+    haiku_guessed_target: Optional[str]
+    haiku_reconstruction_score: Optional[float]
+    statistical_guessed_anchor: Optional[str]
+    statistical_guessed_target: Optional[str]
+    statistical_baseline_score: Optional[float]
+    # State
+    status: BridgingGameStatus
+    share_code: Optional[str]
+    created_at: datetime
+    completed_at: Optional[datetime]
+
+
+class TriggerHaikuGuessResponse(BaseModel):
+    """Response after triggering Haiku reconstruction."""
+    game_id: str
+    haiku_guessed_anchor: str
+    haiku_guessed_target: str
+    haiku_reconstruction_score: float

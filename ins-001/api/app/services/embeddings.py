@@ -188,13 +188,13 @@ def _is_semantically_meaningful(seed_word: str, candidate: str, similarity: floa
     """
     Filter out phonetically/orthographically similar words that aren't semantically meaningful.
 
-    Text embeddings capture both semantic AND lexical similarity. This causes issues like:
-    - "monkey" returning "donkey" (rhyme), "mani" (similar sounds), "wan" (short)
+    Text embeddings capture BOTH semantic AND lexical similarity. This causes problems:
+    - "riptide" → "ribbon", "rifle", "trident" (share letters, not meaning)
+    - "monkey" → "donkey" (rhyme)
+    - "orange" → "indo", "omega" (share letters)
 
-    We filter based on:
-    1. Edit distance relative to word length (catch near-anagrams)
-    2. Common suffix patterns (possessives, plurals of the seed)
-    3. Very short words that match by chance
+    Key insight: TRUE semantic neighbors have HIGH similarity + HIGH edit distance.
+    Phonetic/lexical matches have MODERATE similarity + LOW edit distance.
     """
     seed_lower = seed_word.lower()
     cand_lower = candidate.lower()
@@ -205,33 +205,27 @@ def _is_semantically_meaningful(seed_word: str, candidate: str, similarity: floa
     if seed_lower == cand_lower + "'s" or seed_lower == cand_lower + "s":
         return False
 
-    # Filter very short words (3 chars or less) - often noise unless reasonably similar
-    if len(cand_lower) <= 3 and similarity < 0.65:
+    # Filter plurals: if candidate is seed + "s" or seed is candidate + "s"
+    if cand_lower.rstrip('s') == seed_lower.rstrip('s') and cand_lower != seed_lower:
         return False
 
-    # Filter 4-letter words that share 3+ characters with the seed (likely phonetic noise)
-    if len(cand_lower) == 4 and similarity < 0.7:
-        shared_chars = sum(1 for c in cand_lower if c in seed_lower)
-        if shared_chars >= 3:
-            return False
+    # Filter very short words (4 chars or less) - often noise
+    if len(cand_lower) <= 4:
+        return False
 
-    # Filter words that are substrings of the seed or vice versa (likely partial matches)
+    # Filter words that are substrings of the seed or vice versa
     if len(cand_lower) >= 3 and len(seed_lower) >= 3:
         if cand_lower in seed_lower or seed_lower in cand_lower:
-            if similarity < 0.85:
-                return False
+            return False
 
-    # Calculate simple edit distance ratio
-    # Words that are very similar in spelling but not the same word are likely phonetic matches
+    # Calculate edit distance ratio (0 = identical, 1 = completely different)
     def levenshtein_ratio(s1: str, s2: str) -> float:
-        """Returns ratio of edit distance to max length (0 = identical, 1 = completely different)"""
         if s1 == s2:
             return 0.0
         len1, len2 = len(s1), len(s2)
         if len1 == 0 or len2 == 0:
             return 1.0
 
-        # Simple Levenshtein distance
         dp = [[0] * (len2 + 1) for _ in range(len1 + 1)]
         for i in range(len1 + 1):
             dp[i][0] = i
@@ -246,23 +240,61 @@ def _is_semantically_meaningful(seed_word: str, candidate: str, similarity: floa
 
     edit_ratio = levenshtein_ratio(seed_lower, cand_lower)
 
-    # If words are very similar in spelling (edit ratio < 0.4) but similarity is moderate,
-    # it's likely a phonetic match, not semantic
-    # Truly semantic matches (like "monkey" -> "animal") have high similarity AND high edit distance
-    if edit_ratio < 0.4 and similarity < 0.85:
+    # Calculate character overlap ratio (Jaccard on character sets)
+    seed_chars = set(seed_lower)
+    cand_chars = set(cand_lower)
+    overlap = len(seed_chars & cand_chars) / len(seed_chars | cand_chars)
+
+    # Check for shared prefix
+    shared_prefix_len = 0
+    for i in range(min(len(seed_lower), len(cand_lower))):
+        if seed_lower[i] == cand_lower[i]:
+            shared_prefix_len += 1
+        else:
+            break
+
+    # Check for shared suffix
+    shared_suffix_len = 0
+    for i in range(1, min(len(seed_lower), len(cand_lower)) + 1):
+        if seed_lower[-i] == cand_lower[-i]:
+            shared_suffix_len += 1
+        else:
+            break
+
+    # CORE FILTER: Higher similarity threshold + edit distance requirements
+    # Embeddings conflate lexical and semantic similarity
+    # We need to separate them by requiring different spellings
+
+    # Reject low similarity entirely
+    if similarity < 0.5:
         return False
 
-    # Filter words that share too many characters (likely phonetic)
-    # e.g., "monkey" and "donkey" share "onkey"
-    if len(seed_lower) >= 4 and len(cand_lower) >= 4:
-        # Check for shared suffix of 4+ chars
-        min_len = min(len(seed_lower), len(cand_lower))
-        for suffix_len in range(4, min_len):
-            if seed_lower[-suffix_len:] == cand_lower[-suffix_len:]:
-                # Shared suffix - likely rhyme, not semantic unless very high similarity
-                if similarity < 0.8:
-                    return False
-                break
+    # For high similarity (>0.65), allow if not too orthographically similar
+    if similarity >= 0.65:
+        if edit_ratio < 0.4 and overlap > 0.5:
+            return False
+        if shared_prefix_len >= 3 and edit_ratio < 0.5:
+            return False
+        return True
+
+    # Moderate similarity (0.5-0.65): Strict filtering
+    # This is where most lexical noise lives
+
+    # Require high edit distance
+    if edit_ratio < 0.7:
+        return False
+
+    # Reject high character overlap
+    if overlap > 0.4:
+        return False
+
+    # Reject shared prefix of 2+ chars
+    if shared_prefix_len >= 2:
+        return False
+
+    # Reject shared suffix of 2+ chars
+    if shared_suffix_len >= 2:
+        return False
 
     return True
 
