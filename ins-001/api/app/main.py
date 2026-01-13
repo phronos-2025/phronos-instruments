@@ -6,7 +6,7 @@ Entry point for the FastAPI application.
 
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, Request, status, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -103,6 +103,14 @@ app.include_router(share.router, prefix="/api/v1", tags=["share"])
 # ============================================
 # EXCEPTION HANDLERS (ensure CORS headers on errors)
 # ============================================
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Handle HTTP exceptions (401, 403, etc.) with CORS headers."""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+    )
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
