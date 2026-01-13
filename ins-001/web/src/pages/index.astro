@@ -20,8 +20,19 @@ import LandingFooter from '../components/landing/LandingFooter.astro';
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="description" content="The Lab - Instruments for observing cognition" />
     <title>The Lab | Phronos Instruments</title>
+    <meta name="page-version" content="landing-v2.0" />
+    <script>
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.astro:head',message:'Landing page loaded',data:{page:'landing',version:'v2.0',url:window.location.pathname,timestamp:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
+    </script>
   </head>
   <body>
+    <script>
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.astro:body',message:'Body rendering',data:{hasLandingNav:true,pathname:window.location.pathname,timestamp:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
+    </script>
     <LandingNav />
     
     <main class="landing-container">
@@ -282,4 +293,28 @@ import LandingFooter from '../components/landing/LandingFooter.astro';
     font-size: 0.875rem;
     padding: var(--space-lg) 0;
   }
+  
+  /* DEBUG: Version marker - Landing Page v2.0 */
+  .landing-container::after {
+    content: 'LANDING-PAGE-v2.0';
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    background: rgba(176, 141, 85, 0.8);
+    color: #1A1A1A;
+    padding: 4px 8px;
+    font-family: monospace;
+    font-size: 10px;
+    z-index: 9999;
+    pointer-events: none;
+  }
 </style>
+<script>
+  // #region agent log
+  (function() {
+    const stylesheets = Array.from(document.styleSheets).map(s => s.href || 'inline');
+    const cssOrder = stylesheets.join(',');
+    fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.astro:css-load',message:'CSS loading order check',data:{stylesheets:cssOrder,count:stylesheets.length,pathname:window.location.pathname,timestamp:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+  })();
+  // #endregion
+</script>

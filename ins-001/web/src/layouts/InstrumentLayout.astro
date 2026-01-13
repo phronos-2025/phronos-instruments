@@ -26,6 +26,12 @@ const { id, title, version = '0.1', status = 'live' } = Astro.props;
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="description" content="INS-001 Semantic Associations - Measure how you think" />
     <title>{title} | Phronos</title>
+    <meta name="page-version" content="instrument-layout-v2.0" />
+    <script>
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'InstrumentLayout.astro:head',message:'InstrumentLayout loaded',data:{id:id,title:title,pathname:typeof window !== 'undefined' ? window.location.pathname : 'SSR',timestamp:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+    </script>
   </head>
   <body>
     <div class="instrument-page">
@@ -62,4 +68,30 @@ const { id, title, version = '0.1', status = 'live' } = Astro.props;
     max-width: 900px;
     margin: 0 auto;
   }
+  
+  /* DEBUG: Version marker - Instrument Layout v2.0 */
+  .instrument-page::after {
+    content: 'INSTRUMENT-LAYOUT-v2.0';
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    background: rgba(68, 170, 119, 0.8);
+    color: #1A1A1A;
+    padding: 4px 8px;
+    font-family: monospace;
+    font-size: 10px;
+    z-index: 9999;
+    pointer-events: none;
+  }
 </style>
+<script>
+  // #region agent log
+  (function() {
+    if (typeof window !== 'undefined') {
+      const stylesheets = Array.from(document.styleSheets).map(s => s.href || 'inline');
+      const cssOrder = stylesheets.join(',');
+      fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'InstrumentLayout.astro:css-load',message:'CSS loading in InstrumentLayout',data:{stylesheets:cssOrder,count:stylesheets.length,pathname:window.location.pathname,timestamp:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    }
+  })();
+  // #endregion
+</script>
