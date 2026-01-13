@@ -183,6 +183,7 @@ async function apiCall<T>(
   try {
     const response = await fetch(fullUrl, {
       ...options,
+      credentials: 'include', // Include credentials for cross-origin requests
       headers: {
         ...headers,
         ...options.headers,
