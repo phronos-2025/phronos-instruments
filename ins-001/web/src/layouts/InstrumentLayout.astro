@@ -29,10 +29,6 @@ const { id, title, version = '0.1', status = 'live' } = Astro.props;
     <meta name="page-version" content="instrument-layout-v2.0" />
   </head>
   <body>
-    <!-- DELETE THIS AFTER TESTING - BUILD VERIFICATION -->
-    <div style="position:fixed;top:0;left:0;right:0;background:green;color:white;padding:15px;z-index:99999;font-size:20px;text-align:center;font-weight:bold;">
-      🟢 INSTRUMENT LAYOUT v2.0 | BUILD: {new Date().toISOString()}
-    </div>
     <div class="instrument-page">
       <div class="instrument-container">
           <slot />
@@ -66,20 +62,5 @@ const { id, title, version = '0.1', status = 'live' } = Astro.props;
     z-index: 1;
     max-width: 900px;
     margin: 0 auto;
-  }
-  
-  /* DEBUG: Version marker - Instrument Layout v2.0 */
-  .instrument-page::after {
-    content: 'INSTRUMENT-LAYOUT-v2.0';
-    position: fixed;
-    bottom: 0;
-    right: 0;
-    background: rgba(68, 170, 119, 0.8);
-    color: #1A1A1A;
-    padding: 4px 8px;
-    font-family: monospace;
-    font-size: 10px;
-    z-index: 9999;
-    pointer-events: none;
   }
 </style>
