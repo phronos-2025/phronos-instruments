@@ -105,6 +105,7 @@
 .btn-ghost {
   border-color: transparent;
   color: var(--faded);
+  padding-left: 0;
 }
 
 .btn-ghost:hover:not(:disabled) {
@@ -223,11 +224,11 @@
 
 .clue-input {
   flex: 1;
-  background: var(--bg-deep);
-  border: var(--border-primary);
+  background: #1A1A1A;
+  border: 1px solid rgba(242, 240, 233, 0.15);
   color: var(--text-light);
   font-family: var(--font-mono);
-  font-size: var(--text-base);
+  font-size: 0.9rem;
   padding: var(--space-xs) var(--space-sm);
   outline: none;
   transition: border-color var(--transition-default);
@@ -247,9 +248,10 @@
 
 .clue-status {
   font-family: var(--font-mono);
-  font-size: 0.6rem;
+  font-size: 0.65rem;
   width: 60px;
   text-align: right;
+  flex-shrink: 0;
 }
 
 .clue-status.valid {
@@ -269,46 +271,24 @@
 }
 
 .noise-words {
-  display: flex !important;
-  flex-wrap: wrap !important;
-  gap: var(--space-xs) !important;
-  margin-top: var(--space-sm);
-  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .noise-word {
-  display: inline-block;
   font-family: var(--font-mono);
   font-size: 0.75rem;
   padding: 4px 10px;
-  border: 1px solid var(--faded-light);
+  border: 1px solid rgba(242, 240, 233, 0.15);
   color: var(--faded);
-  position: relative;
+  background: transparent;
   transition: all var(--transition-default);
-  white-space: nowrap;
-}
-
-.noise-word::after {
-  content: attr(data-similarity);
-  position: absolute;
-  top: -8px;
-  right: -4px;
-  font-size: var(--text-xs);
-  color: var(--faded);
-  opacity: 0;
-  transition: opacity var(--transition-default);
-  background: var(--card-bg);
-  padding: 2px 4px;
-  border: var(--border-primary);
 }
 
 .noise-word:hover {
   border-color: var(--gold);
   color: var(--text-light);
-}
-
-.noise-word:hover::after {
-  opacity: 1;
 }
 
 /* ============================================
@@ -531,7 +511,7 @@
    NAVIGATION
    ============================================ */
 
-.nav-fixed {
+.nav {
   position: fixed;
   top: 0;
   left: 0;
@@ -545,25 +525,14 @@
   align-items: center;
 }
 
-.nav-left {
-  display: flex;
-  align-items: center;
-}
-
 .nav-brand {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
   text-decoration: none;
-  color: var(--faded);
-  transition: color var(--transition-default);
 }
 
-.nav-brand:hover {
-  color: var(--gold);
-}
-
-.nav-logo-mark {
+.logo-mark {
   width: 24px;
   height: 24px;
   border: 1px solid var(--gold);
@@ -575,40 +544,44 @@
   overflow: hidden;
 }
 
-.nav-logo-mark canvas {
+.logo-mark canvas {
   display: block;
 }
 
 .nav-wordmark {
   font-family: var(--font-mono);
   font-size: 0.7rem;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 2px;
+  color: var(--faded);
 }
 
-.nav-right {
+.nav-brand:hover .nav-wordmark {
+  color: var(--gold);
+}
+
+.nav-status {
   display: flex;
   align-items: center;
-}
-
-.nav-instrument-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.nav-instrument-text {
+  gap: 8px;
   font-family: var(--font-mono);
   font-size: 0.65rem;
   color: var(--faded);
 }
 
-.nav-status-dot {
+.status-dot {
   width: 6px;
   height: 6px;
   background: var(--active);
   border-radius: 50%;
   animation: pulse 2s infinite;
+}
+
+.status-text {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--faded);
 }
 
 @keyframes pulse {
@@ -639,7 +612,7 @@
   margin-bottom: var(--space-lg);
 }
 
-.subtitle .id {
+.subtitle-id {
   color: var(--gold);
 }
 
@@ -650,6 +623,29 @@
   max-width: 600px;
   margin-bottom: var(--space-lg);
   line-height: 1.6;
+}
+
+.target-word {
+  color: var(--gold);
+  font-weight: 500;
+}
+
+.hint-text {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--faded);
+  margin-top: var(--space-sm);
+  line-height: 1.5;
+}
+
+.error-message {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--alert);
+  margin: var(--space-md) 0;
+  padding: var(--space-sm);
+  border: 1px solid rgba(204, 85, 68, 0.3);
+  background: rgba(204, 85, 68, 0.05);
 }
 
 /* ============================================

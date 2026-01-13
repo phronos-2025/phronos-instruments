@@ -1,7 +1,7 @@
 /**
  * Fixed Navigation Component
  * 
- * Matches mockup: Phronos logo on left, INS-001 ACTIVE on right
+ * Matches reference: Phronos logo on left, INS-001 ACTIVE on right
  */
 
 import React from 'react';
@@ -17,20 +17,16 @@ export const Navigation: React.FC<NavigationProps> = ({
   instrumentTitle = 'ACTIVE'
 }) => {
   return (
-    <nav className="nav-fixed">
-      <div className="nav-left">
-        <a href="/" className="nav-brand">
-          <span className="nav-logo-mark">
-            <PhronosLogo size={24} />
-          </span>
-          <span className="nav-wordmark">Phronos</span>
-        </a>
-      </div>
-      <div className="nav-right">
-        <span className="nav-instrument-status">
-          <span className="nav-instrument-text">{instrumentId} {instrumentTitle}</span>
-          <span className="nav-status-dot"></span>
+    <nav className="nav">
+      <a href="/" className="nav-brand">
+        <span className="logo-mark">
+          <PhronosLogo size={24} />
         </span>
+        <span className="nav-wordmark">Phronos</span>
+      </a>
+      <div className="nav-status">
+        <span className="status-dot"></span>
+        <span className="status-text">{instrumentId} {instrumentTitle}</span>
       </div>
     </nav>
   );

@@ -69,18 +69,18 @@ export const CluesScreen: React.FC<CluesScreenProps> = ({
       <ProgressBar currentStep={2} />
       
       <p className="subtitle">
-        <span className="id">INS-001</span> · Step 2 of 3
+        <span className="subtitle-id">INS-001</span> · Step 2 of 3
       </p>
       <h1 className="title">Provide your clues.</h1>
       
       <p className="description">
         Enter five single-word clues that will help someone guess your target word:{' '}
-        <strong style={{ color: 'var(--gold)' }}>{seedWord}</strong>
+        <span className="target-word">{seedWord}</span>
       </p>
       
       <Panel title="Semantic Neighborhood" meta="Top 10 predictable associations">
         <NoiseFloor words={noiseFloor} />
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', color: 'var(--faded)', marginTop: 'var(--space-sm)' }}>
+        <p className="hint-text">
           These are the most predictable associations. Your divergence score measures how far your clues venture from this neighborhood.
         </p>
       </Panel>
@@ -99,7 +99,7 @@ export const CluesScreen: React.FC<CluesScreenProps> = ({
       </Panel>
       
       {error && (
-        <div style={{ color: 'var(--alert)', marginTop: '1rem', fontSize: 'var(--text-sm)' }}>
+        <div className="error-message">
           ◈ {error}
         </div>
       )}

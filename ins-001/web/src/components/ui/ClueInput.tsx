@@ -1,8 +1,8 @@
 /**
  * Clue Input Component
  * 
- * Simple input field for clues or guesses.
- * No validation - accepts any word.
+ * Input field for clues with validation status display.
+ * Accepts any word - validation is based on whether field is filled.
  */
 
 import React from 'react';
@@ -18,18 +18,24 @@ export const ClueInput: React.FC<ClueInputProps> = ({
   value,
   onChange
 }) => {
+  const trimmedValue = value.trim();
+  const isValid = trimmedValue !== '';
+  
   return (
     <div className="clue-row">
       <span className="clue-number">{number}</span>
       <input
         type="text"
-        className="clue-input"
+        className={`clue-input ${isValid ? 'valid' : ''}`}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="Enter clue..."
         autoComplete="off"
         spellCheck="false"
       />
+      <span className={`clue-status ${isValid ? 'valid' : ''}`}>
+        {isValid ? '✓ valid' : ''}
+      </span>
     </div>
   );
 };

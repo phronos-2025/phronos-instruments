@@ -1,0 +1,406 @@
+---
+description: "UI/Design rules for instrument interfaces - dark mode, brutalist aesthetic, exact specifications"
+globs: ["**/*.html", "**/*.css", "**/*.tsx", "**/*.jsx", "**/*.vue", "**/components/**", "**/styles/**"]
+alwaysApply: false
+---
+
+# ⛔ INSTRUMENT UI DESIGN RULES
+
+## READ FIRST
+
+Instrument interfaces (The Lab) use **dark mode** with a **brutalist-cartographic** aesthetic.
+Every value below is exact. Do not interpolate or use defaults.
+
+---
+
+## 🚨 ABSOLUTE RULES (Never Violate)
+
+### 1. NEVER Use These
+
+```css
+/* ❌ FORBIDDEN */
+border-radius: 4px;           /* NO rounded corners anywhere */
+box-shadow: 0 4px 6px blur;   /* NO blur shadows */
+font-family: Inter;           /* NO Inter */
+font-family: Roboto;          /* NO Roboto */
+font-family: Arial;           /* NO Arial */
+font-family: system-ui;       /* NO system fonts */
+background: white;            /* NO white backgrounds */
+background: #fff;             /* NO white backgrounds */
+background: #ffffff;          /* NO white backgrounds */
+```
+
+### 2. ALWAYS Use These Exact Values
+
+```css
+/* ✅ REQUIRED - Copy exactly */
+:root {
+  --bg-deep: #1A1A1A;
+  --card-bg: #252525;
+  --text-light: #F2F0E9;
+  --gold: #B08D55;
+  --gold-dim: rgba(176, 141, 85, 0.15);
+  --gold-glow: rgba(176, 141, 85, 0.3);
+  --faded: rgba(242, 240, 233, 0.5);
+  --faded-light: rgba(242, 240, 233, 0.15);
+  --faded-ultra: rgba(242, 240, 233, 0.08);
+  --active: #44AA77;
+  --alert: #CC5544;
+  --font-serif: 'Cormorant Garamond', Georgia, serif;
+  --font-body: 'Lora', Georgia, serif;
+  --font-mono: 'Fira Code', Consolas, Monaco, monospace;
+}
+```
+
+### 3. Input Fields MUST Have Dark Background
+
+```css
+/* ✅ CORRECT */
+.clue-input {
+  background: #1A1A1A;
+  border: 1px solid rgba(242, 240, 233, 0.15);
+  color: #F2F0E9;
+}
+
+/* ❌ WRONG - White background */
+.clue-input {
+  background: white;
+  background: #fff;
+  background: #ffffff;
+}
+```
+
+### 4. Noise Words MUST Be Individually Bordered
+
+```html
+<!-- ✅ CORRECT - Each word in separate bordered span -->
+<div class="noise-words">
+  <span class="noise-word">tea</span>
+  <span class="noise-word">espresso</span>
+  <span class="noise-word">caffeine</span>
+</div>
+
+<!-- ❌ WRONG - Concatenated text -->
+<div class="noise-words">
+  teaespressocaffeine
+</div>
+
+<!-- ❌ WRONG - No borders -->
+<div class="noise-words">
+  <span>tea</span>
+  <span>espresso</span>
+</div>
+```
+
+```css
+/* ✅ REQUIRED for noise words */
+.noise-words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;  /* CRITICAL: visible spacing */
+}
+
+.noise-word {
+  font-family: 'Fira Code', monospace;
+  font-size: 12px;
+  padding: 4px 10px;
+  border: 1px solid rgba(242, 240, 233, 0.15);  /* CRITICAL: visible border */
+  color: rgba(242, 240, 233, 0.5);
+  background: transparent;
+}
+```
+
+---
+
+## Component Specifications
+
+### Navigation Bar
+
+```css
+.nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: #1A1A1A;
+  border-bottom: 1px solid rgba(242, 240, 233, 0.15);
+  padding: 16px 40px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+```
+
+Structure: `[φ logo] Phronos` on LEFT, `• INS-001 ACTIVE` on RIGHT, single horizontal line.
+
+### Logo Mark
+
+```css
+.logo-mark {
+  width: 24px;
+  height: 24px;
+  border: 1px solid #B08D55;
+  border-radius: 50%;  /* EXCEPTION: logo is circular */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Fira Code', monospace;
+  font-size: 12px;
+  color: #B08D55;
+}
+```
+
+Content: Greek letter φ (phi)
+
+### Status Dot
+
+```css
+.status-dot {
+  width: 6px;
+  height: 6px;
+  background: #44AA77;
+  border-radius: 50%;  /* EXCEPTION: dots are circular */
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+```
+
+### Page Title
+
+```css
+.title {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-weight: 300;  /* Light weight - CRITICAL */
+  font-size: 44px;
+  letter-spacing: -0.02em;
+  color: #F2F0E9;
+}
+```
+
+### Panel (Card)
+
+```css
+.panel {
+  background: #252525;
+  border: 1px solid rgba(242, 240, 233, 0.15);
+  padding: 24px;
+  margin-bottom: 24px;
+  position: relative;
+}
+
+/* Grid overlay - REQUIRED */
+.panel::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image: 
+    linear-gradient(rgba(242, 240, 233, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(242, 240, 233, 0.08) 1px, transparent 1px);
+  background-size: 20px 20px;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;  /* Title LEFT, meta RIGHT */
+  align-items: center;
+  border-bottom: 1px solid rgba(242, 240, 233, 0.15);
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+}
+
+.panel-title {
+  font-family: 'Fira Code', monospace;
+  font-size: 11.2px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #F2F0E9;
+}
+
+.panel-meta {
+  font-family: 'Fira Code', monospace;
+  font-size: 10.4px;
+  color: rgba(242, 240, 233, 0.5);
+}
+```
+
+### Clue Input Row
+
+```html
+<!-- ✅ REQUIRED STRUCTURE - All three elements -->
+<div class="clue-row">
+  <span class="clue-number">1</span>
+  <input type="text" class="clue-input valid" value="ritual">
+  <span class="clue-status valid">✓ valid</span>
+</div>
+```
+
+```css
+.clue-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.clue-number {
+  font-family: 'Fira Code', monospace;
+  font-size: 11.2px;
+  color: rgba(242, 240, 233, 0.5);
+  width: 20px;
+  text-align: right;
+}
+
+.clue-input {
+  flex: 1;
+  background: #1A1A1A;  /* DARK, not white */
+  border: 1px solid rgba(242, 240, 233, 0.15);
+  color: #F2F0E9;
+  font-family: 'Fira Code', monospace;
+  font-size: 14.4px;
+  padding: 8px 16px;
+}
+
+.clue-input:focus { border-color: #B08D55; }
+.clue-input.valid { border-color: #44AA77; }
+.clue-input.invalid { border-color: #CC5544; }
+
+.clue-status {
+  font-family: 'Fira Code', monospace;
+  font-size: 10.4px;
+  width: 60px;
+  text-align: right;
+}
+
+.clue-status.valid { color: #44AA77; }
+.clue-status.invalid { color: #CC5544; }
+```
+
+### Buttons
+
+```css
+.btn {
+  font-family: 'Fira Code', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 16px 24px;
+  border: 1px solid;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-primary {
+  background: #B08D55;
+  border-color: #B08D55;
+  color: #1A1A1A;
+}
+
+.btn-primary:hover {
+  box-shadow: 4px 4px 0px rgba(176, 141, 85, 0.3);  /* Hard offset, NO blur */
+  transform: translate(-2px, -2px);
+}
+
+.btn-secondary {
+  background: transparent;
+  border-color: rgba(242, 240, 233, 0.15);
+  color: #F2F0E9;
+}
+
+.btn:disabled {
+  opacity: 0.4;
+}
+```
+
+### Background Grid
+
+```css
+/* REQUIRED on body */
+body {
+  background: #1A1A1A;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image: 
+    linear-gradient(rgba(242, 240, 233, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(242, 240, 233, 0.015) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+```
+
+---
+
+## Google Fonts (REQUIRED in head)
+
+```html
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Fira+Code:wght@400;500;600&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+```
+
+---
+
+## Validation States
+
+| State | Input Border | Status Text | Status Color |
+|-------|--------------|-------------|--------------|
+| Empty | `rgba(242, 240, 233, 0.15)` | (none) | — |
+| Focus | `#B08D55` | (none) | — |
+| Valid | `#44AA77` | `✓ valid` | `#44AA77` |
+| Invalid | `#CC5544` | `✗ invalid` | `#CC5544` |
+
+---
+
+## Border Radius Exceptions
+
+ONLY these elements may have border-radius:
+- `.logo-mark` - 50% (circle)
+- `.status-dot` - 50% (circle)
+
+Everything else: `border-radius: 0` or omit entirely.
+
+---
+
+## Shadow Rules
+
+```css
+/* ✅ CORRECT - Hard offset, no blur */
+box-shadow: 4px 4px 0px rgba(176, 141, 85, 0.3);
+
+/* ❌ WRONG - Blur shadow */
+box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+```
+
+---
+
+## Reference Implementation
+
+See `ins-001-clues-reference.html` for a complete working example.
+Copy its structure exactly when implementing screens.
+
+---
+
+## Before Submitting UI Changes
+
+1. Open in browser - is background `#1A1A1A`?
+2. Are noise words in separate bordered boxes?
+3. Is there visible gap between noise word boxes?
+4. Are input fields dark (not white)?
+5. Does each clue row have: number, input, status?
+6. Is nav on ONE line with logo left, status right?
+7. Are all fonts loading (Cormorant, Fira Code, Lora)?
+8. Are there any rounded corners (except logo/status dot)?
+9. Are there any blur shadows?
