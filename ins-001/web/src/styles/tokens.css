@@ -1,0 +1,108 @@
+/**
+ * Phronos Design System Tokens
+ * 
+ * Based on BRAND.yaml and COMPONENTS.md
+ * Dark mode for instruments (The Lab)
+ * Copied from shared/design-system/tokens.css for Vercel build
+ */
+
+:root {
+  /* ============================================
+     COLORS: DARK MODE (Instruments)
+     ============================================ */
+  
+  --bg-deep: #1A1A1A;
+  --text-light: #F2F0E9;
+  --gold: #B08D55;
+  --gold-dim: rgba(176, 141, 85, 0.12);
+  --gold-glow: rgba(176, 141, 85, 0.3);
+  --faded: rgba(242, 240, 233, 0.5);
+  --faded-light: rgba(242, 240, 233, 0.15);
+  --faded-ultra: rgba(242, 240, 233, 0.08);
+  --card-bg: #252525;
+  
+  /* Semantic colors */
+  --active: #44AA77;
+  --alert: #CC5544;
+  --warning: #DDAA33;
+  
+  /* ============================================
+     TYPOGRAPHY
+     ============================================ */
+  
+  --font-serif: 'Cormorant Garamond', Georgia, serif;
+  --font-body: 'Lora', Georgia, serif;
+  --font-mono: 'Fira Code', Consolas, Monaco, monospace;
+  
+  /* Font scale */
+  --text-xs: 0.65rem;     /* 10.4px - micro labels */
+  --text-sm: 0.7rem;      /* 11.2px - nav, status */
+  --text-base: 0.95rem;   /* 15.2px - card descriptions */
+  --text-md: 1rem;        /* 16px - body text */
+  --text-lg: 1.4rem;      /* 22.4px - card titles */
+  --text-xl: 2rem;        /* 32px - section titles */
+  --text-2xl: 2.75rem;    /* 44px - page titles */
+  
+  /* Font weights */
+  --font-light: 300;
+  --font-regular: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+  
+  /* Letter spacing */
+  --letter-tight: -0.02em;
+  --letter-normal: 0;
+  --letter-wide: 1px;
+  --letter-wider: 2px;
+  
+  /* ============================================
+     SPACING
+     ============================================ */
+  
+  --space-xs: 0.5rem;
+  --space-sm: 1rem;
+  --space-md: 1.5rem;
+  --space-lg: 2.5rem;
+  --space-xl: 4rem;
+  --space-2xl: 6rem;
+  
+  /* ============================================
+     GRID (Dark Mode)
+     ============================================ */
+  
+  --grid-color: rgba(242, 240, 233, 0.015);
+  --grid-size: 40px;
+  
+  /* ============================================
+     BORDERS
+     ============================================ */
+  
+  --border-primary: 1px solid var(--faded-light);
+  --border-divider: 1px solid var(--faded-ultra);
+  --border-gold: 1px solid var(--gold);
+  
+  /* ============================================
+     SHADOWS (Hard offsets, no blur)
+     ============================================ */
+  
+  --shadow-card-hover: 4px 4px 0px var(--gold-dim);
+  --shadow-button-hover: 4px 4px 0px var(--gold-glow);
+  
+  /* ============================================
+     TRANSITIONS
+     ============================================ */
+  
+  --transition-fast: 0.1s ease;
+  --transition-default: 0.2s ease;
+  --transition-slow: 0.3s ease;
+  
+  /* ============================================
+     BREAKPOINTS
+     ============================================ */
+  
+  --breakpoint-sm: 480px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+}
