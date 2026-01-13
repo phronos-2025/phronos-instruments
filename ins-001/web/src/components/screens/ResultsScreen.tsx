@@ -35,13 +35,15 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
   
   // Format guesses for display
   const formatGuess = (guess: string, index: number) => {
+    const similarity = game.guess_similarities?.[index];
     const isExact = guess.toLowerCase() === game.seed_word.toLowerCase();
+    const displayValue = similarity !== undefined ? similarity.toFixed(2) : '—';
+    const color = isExact ? 'var(--active)' : 'var(--faded)';
+    
     return (
       <div key={index} style={{ display: 'flex', justifyContent: 'space-between', padding: 'var(--space-xs) 0', borderBottom: index < (game.guesses?.length || 0) - 1 ? '1px solid var(--faded-ultra)' : 'none' }}>
-        <span style={{ color: isExact ? 'var(--active)' : 'var(--faded)' }}>{guess}</span>
-        <span style={{ color: isExact ? 'var(--active)' : 'var(--faded)' }}>
-          {isExact ? '✓ Exact match' : '—'}
-        </span>
+        <span style={{ color }}>{guess}</span>
+        <span style={{ color }}>{displayValue}</span>
       </div>
     );
   };

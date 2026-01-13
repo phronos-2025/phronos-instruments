@@ -64,6 +64,7 @@ export interface SubmitCluesResponse {
   status: GameStatus;
   llm_guesses?: string[];
   convergence_score?: number;
+  guess_similarities?: number[];
 }
 
 export interface SubmitGuessesRequest {
@@ -77,6 +78,7 @@ export interface SubmitGuessesResponse {
   exact_match: boolean;
   seed_word: string;
   status: GameStatus;
+  guess_similarities?: number[];
 }
 
 export interface CreateShareTokenResponse {
@@ -105,6 +107,7 @@ export interface GameResponse {
   guesses?: string[];
   divergence_score?: number;
   convergence_score?: number;
+  guess_similarities?: number[];
   status: GameStatus;
   created_at: string;
   expires_at: string;

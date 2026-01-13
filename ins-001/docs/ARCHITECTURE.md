@@ -45,13 +45,13 @@ INS-001 measures **semantic creativity** (divergence from predictable associatio
 | **Analytics** | PostHog + Sentry | Funnel analytics, error tracking. |
 | **Listings** | phronos.org/instruments/ |  Static Astro page listing instruments |
 | **Description** | phronos.org/instruments/semantic-associations | Static description/landing page |
-| **App Front-end** | instruments.phronos.org/ | React app (INS-001) |
-| **Share Link Entry Point** | instruments.phronos.org/join/{token} | Share link entry point |
+| **App Front-end** | instruments.phronos.org/ins-001/ | React app (INS-001) |
+| **Share Link Entry Point** | instruments.phronos.org/ins-001/join/{token} | Share link entry point |
 | **API** | api.instruments.phronos.org/ | FastAPI backend (or subdomain of subdomain) |
 
 User flow:
 1. Reads about INS-001 at phronos.org/instruments/semantic-associations
-2. Clicks "Launch Instrument" → instruments.phronos.org
+2. Clicks "Launch Instrument" → instruments.phronos.org/ins-001/
 3. Plays game, gets results
 4. Link back to phronos.org/methods/... for methodology details
 

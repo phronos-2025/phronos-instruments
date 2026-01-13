@@ -1,0 +1,62 @@
+---
+/**
+ * Landing Page Footer
+ * Adapted from phronos-site Footer.astro
+ */
+---
+
+<footer class="landing-footer">
+  <p class="footer-tagline">
+    Phenotyping for Human Resilience, Ontological Navigation, & Open Science
+  </p>
+  <div class="footer-links">
+    <a href="https://phronos.org" class="footer-link">phronos.org</a>
+    <span style="color: var(--faded);">·</span>
+    <a href="https://dispatches.phronos.org" class="footer-link">Dispatches</a>
+    <span style="color: var(--faded);">·</span>
+    <a href="https://github.com/phronos-org" class="footer-link">GitHub</a>
+  </div>
+  <p class="footer-copyright">© 2026 Phronos Observatory</p>
+</footer>
+
+<style>
+  .landing-footer {
+    border-top: 1px solid var(--faded-light);
+    padding-top: var(--space-lg);
+    text-align: center;
+  }
+
+  .footer-tagline {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--faded);
+    margin-bottom: var(--space-md);
+  }
+
+  .footer-links {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-md);
+    margin-bottom: var(--space-md);
+  }
+
+  .footer-link {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--faded);
+    text-decoration: none;
+    transition: color var(--transition-default);
+  }
+
+  .footer-link:hover {
+    color: var(--gold);
+  }
+
+  .footer-copyright {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--faded);
+  }
+</style>

@@ -1,0 +1,44 @@
+---
+/**
+ * Section Header Component
+ * Adapted from phronos-site SectionHeader.astro
+ */
+
+interface Props {
+  id: string;
+  title: string;
+}
+
+const { id, title } = Astro.props;
+---
+
+<div class="section-header">
+  <span class="section-number">{id}</span>
+  <h2 class="section-title">{title}</h2>
+</div>
+
+<style>
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-lg);
+    padding-bottom: var(--space-sm);
+    border-bottom: 1px solid var(--faded-light);
+  }
+
+  .section-number {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--gold);
+  }
+
+  .section-title {
+    font-family: var(--font-serif);
+    font-size: 1.25rem;
+    font-weight: 400;
+    font-style: italic;
+    color: var(--text-light);
+    margin: 0;
+  }
+</style>

@@ -91,7 +91,7 @@ def compute_convergence(
     guess_embeddings: list[list[float]],
     seed_word: str,
     guesses: list[str]
-) -> tuple[float, bool]:
+) -> tuple[float, bool, list[float]]:
     """
     Compute convergence score for a set of guesses.
     
@@ -110,9 +110,10 @@ def compute_convergence(
         guesses: The actual guess words (for exact match check)
         
     Returns:
-        Tuple of (convergence_score, exact_match)
+        Tuple of (convergence_score, exact_match, similarities)
         - convergence_score in range [0, 1] (mean of all guess similarities)
         - exact_match: True if any guess exactly matches seed (string or fuzzy)
+        - similarities: List of similarity scores for each guess (in order)
         
     Interpretation:
         - 0.0-0.4: Low convergence (communication failure)
@@ -121,12 +122,14 @@ def compute_convergence(
     """
     # 1. Check string exact match (case-insensitive)
     seed_lower = seed_word.lower().strip()
+    has_exact_match = False
     for guess in guesses:
         if guess.lower().strip() == seed_lower:
-            return 1.0, True
+            has_exact_match = True
+            break
     
     if not guess_embeddings:
-        return 0.0, False
+        return 0.0, False, []
     
     # 2. Compute similarity of each guess to seed
     similarities = []
@@ -137,14 +140,17 @@ def compute_convergence(
     # 3. Fuzzy exact match bonus
     # Handles misspellings and alternate spellings (Ghandi/Gandhi)
     # If any embedding similarity is >99%, treat as exact match
-    max_similarity = max(similarities)
-    if max_similarity > FUZZY_EXACT_MATCH_THRESHOLD:
-        return 1.0, True
+    max_similarity = max(similarities) if similarities else 0.0
+    has_fuzzy_exact = max_similarity > FUZZY_EXACT_MATCH_THRESHOLD
+    exact_match = has_exact_match or has_fuzzy_exact
     
-    # 4. Return mean similarity, clamped to [0, 1]
-    # This accounts for all guesses, not just the best one
-    mean_similarity = np.mean(similarities)
-    return float(max(0.0, min(1.0, mean_similarity))), False
+    # 4. Calculate convergence score
+    # If exact match, still return mean similarity (not forced to 1.0)
+    # This allows UI to show individual distances even when one is perfect
+    mean_similarity = np.mean(similarities) if similarities else 0.0
+    convergence_score = float(max(0.0, min(1.0, mean_similarity)))
+    
+    return convergence_score, exact_match, similarities
 
 
 def compute_semantic_portability(
@@ -287,19 +293,21 @@ def test_convergence():
     # Exact string match
     seed_emb = [1, 0, 0]
     guess_embs = [[0, 1, 0]]
-    conv, exact = compute_convergence(seed_emb, guess_embs, "cat", ["cat"])
+    conv, exact, similarities = compute_convergence(seed_emb, guess_embs, "cat", ["cat"])
     assert exact == True
     assert conv == 1.0
+    assert len(similarities) == 1
     
     # Similar guess (not exact)
     # Use vector that gives ~0.8 similarity (below 0.99 threshold)
     # For [1,0,0] and [0.8, 0.6, 0], similarity = 0.8 / sqrt(0.8^2 + 0.6^2) = 0.8
     seed_emb = [1, 0, 0]
     guess_embs = [[0.8, 0.6, 0]]
-    conv, exact = compute_convergence(seed_emb, guess_embs, "cat", ["dog"])
+    conv, exact, similarities = compute_convergence(seed_emb, guess_embs, "cat", ["dog"])
     assert exact == False
     assert conv > 0.7
     assert conv < 0.99  # Should be below fuzzy match threshold
+    assert len(similarities) == 1
 
 
 def test_fuzzy_exact_match():
@@ -309,9 +317,10 @@ def test_fuzzy_exact_match():
     seed_emb = [1.0, 0.0, 0.0]
     guess_embs = [[0.9999, 0.001, 0.0]]  # >99% similar
     
-    conv, exact = compute_convergence(seed_emb, guess_embs, "ghandi", ["gandhi"])
+    conv, exact, similarities = compute_convergence(seed_emb, guess_embs, "ghandi", ["gandhi"])
     assert exact == True, "Fuzzy match should trigger for >99% similarity"
     assert conv == 1.0
+    assert len(similarities) == 1
 
 
 def test_string_exact_match_case_insensitive():
@@ -319,9 +328,10 @@ def test_string_exact_match_case_insensitive():
     seed_emb = [1, 0, 0]
     guess_embs = [[0, 1, 0]]  # Embedding doesn't matter - string match first
     
-    conv, exact = compute_convergence(seed_emb, guess_embs, "Coffee", ["COFFEE"])
+    conv, exact, similarities = compute_convergence(seed_emb, guess_embs, "Coffee", ["COFFEE"])
     assert exact == True
     assert conv == 1.0
+    assert len(similarities) == 1
 
 
 def test_no_fuzzy_match_below_threshold():
@@ -331,10 +341,11 @@ def test_no_fuzzy_match_below_threshold():
     seed_emb = [1.0, 0.0, 0.0]
     guess_embs = [[0.9, 0.4359, 0.0]]  # Normalized: sqrt(0.9^2 + 0.4359^2) ≈ 1.0, similarity ≈ 0.9
     
-    conv, exact = compute_convergence(seed_emb, guess_embs, "cat", ["dog"])
+    conv, exact, similarities = compute_convergence(seed_emb, guess_embs, "cat", ["dog"])
     assert exact == False, "Should not trigger fuzzy match below threshold"
     assert conv < 0.99  # Should be below fuzzy match threshold
     assert conv > 0.8   # But still reasonably high
+    assert len(similarities) == 1
 
 
 def test_convergence_uses_mean():
@@ -351,8 +362,9 @@ def test_convergence_uses_mean():
         [0.866, 0.5, 0.0]          # ~30 degrees (similarity ≈ 0.866)
     ]
     
-    conv, exact = compute_convergence(seed_emb, guess_embs, "gun", ["arm", "finger", "weapon"])
+    conv, exact, similarities = compute_convergence(seed_emb, guess_embs, "gun", ["arm", "finger", "weapon"])
     assert exact == False, "Should not trigger exact match"
+    assert len(similarities) == 3, "Should return similarity for each guess"
     # Mean should be approximately (0.0 + 0.707 + 0.866) / 3 ≈ 0.524
     # With max it would be ~0.866, with mean it should be lower
     assert conv < 0.8, f"Mean should be lower than max (~0.866), got {conv}"
@@ -360,7 +372,6 @@ def test_convergence_uses_mean():
     
     # Verify it's actually using mean by checking it's between min and max
     # and closer to what we'd expect from averaging
-    similarities = [cosine_similarity(seed_emb, g) for g in guess_embs]
     expected_mean = np.mean(similarities)
     assert abs(conv - expected_mean) < 0.01, f"Should use mean ({expected_mean}), got {conv}"
 

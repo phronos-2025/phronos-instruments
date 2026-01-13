@@ -140,6 +140,22 @@ async def get_game(
     
     game = result.data
     
+    # Calculate guess similarities if guesses exist but similarities aren't stored
+    guess_similarities = game.get("guess_similarities")
+    if not guess_similarities and game.get("guesses") and game.get("clues") and game.get("convergence_score") is not None:
+        # Recalculate similarities for display (requires re-embedding)
+        # This is expensive, so we only do it if needed
+        try:
+            seed_emb = await get_contextual_embedding(game["seed_word"], game["clues"])
+            guess_embs = [await get_contextual_embedding(g, game["clues"]) for g in game["guesses"]]
+            _, _, guess_similarities = compute_convergence(
+                seed_emb, guess_embs, game["seed_word"], game["guesses"]
+            )
+        except Exception as e:
+            # If embedding fails, just return None
+            print(f"Warning: Could not calculate guess similarities: {e}")
+            guess_similarities = None
+    
     return GameResponse(
         game_id=game["id"],
         sender_id=game["sender_id"],
@@ -153,6 +169,7 @@ async def get_game(
         guesses=game.get("guesses"),
         divergence_score=game.get("divergence_score"),
         convergence_score=game.get("convergence_score"),
+        guess_similarities=guess_similarities,
         status=game["status"],
         created_at=game["created_at"],
         expires_at=game["expires_at"],
@@ -262,13 +279,15 @@ async def submit_clues(
         seed_emb = await get_contextual_embedding(game["seed_word"], clues_clean)
         guess_embs = [await get_contextual_embedding(g, clues_clean) for g in llm_guesses]
         
-        convergence_score, exact_match = compute_convergence(
+        convergence_score, exact_match, guess_similarities = compute_convergence(
             seed_emb, guess_embs, game["seed_word"], llm_guesses
         )
         
         update_data["guesses"] = llm_guesses
         update_data["convergence_score"] = convergence_score
         update_data["status"] = "completed"
+    else:
+        guess_similarities = None
     
     supabase.table("games").update(update_data).eq("id", game_id).execute()
     
@@ -284,7 +303,8 @@ async def submit_clues(
         divergence_score=divergence_score,
         status=GameStatus.COMPLETED if llm_guesses else GameStatus.PENDING_GUESS,
         llm_guesses=llm_guesses,
-        convergence_score=convergence_score
+        convergence_score=convergence_score,
+        guess_similarities=guess_similarities
     )
 
 
@@ -329,7 +349,7 @@ async def submit_guesses(
     seed_emb = await get_contextual_embedding(game["seed_word"], clues)
     guess_embs = [await get_contextual_embedding(g, clues) for g in guesses_clean]
     
-    convergence_score, exact_match = compute_convergence(
+    convergence_score, exact_match, guess_similarities = compute_convergence(
         seed_emb, guess_embs, game["seed_word"], guesses_clean
     )
     
@@ -352,5 +372,6 @@ async def submit_guesses(
         convergence_score=convergence_score,
         exact_match=exact_match,
         seed_word=game["seed_word"],  # Reveal seed word after guessing (security fix)
-        status=GameStatus.COMPLETED
+        status=GameStatus.COMPLETED,
+        guess_similarities=guess_similarities
     )

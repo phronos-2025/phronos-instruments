@@ -1,0 +1,205 @@
+---
+/**
+ * Instrument Card Component
+ * Adapted from phronos-site Card.astro for instrument-specific fields
+ */
+
+interface Props {
+  id: string;
+  title: string;
+  description: string;
+  status: 'live' | 'coming';
+  duration?: string;
+  outputs?: string;
+  href?: string;
+}
+
+const { id, title, description, status, duration, outputs, href } = Astro.props;
+const isClickable = status === 'live' && href;
+const Tag = isClickable ? 'a' : 'div';
+---
+
+<Tag
+  class:list={[
+    'instrument-card',
+    { 'available': isClickable },
+    { 'coming-soon': !isClickable }
+  ]}
+  href={isClickable ? href : undefined}
+>
+  <div class="card-header">
+    <span class="card-id">{id}</span>
+    <span class:list={['card-status', status]}>
+      {status === 'live' ? 'Live' : 'Coming'}
+    </span>
+  </div>
+  <div class="card-body">
+    <h3 class="card-title">{title}</h3>
+    <p class="card-description">{description}</p>
+    {(duration || outputs) && (
+      <div class="card-metrics">
+        {duration && (
+          <div class="card-metric">
+            <span class="card-metric-label">Duration:</span>
+            <span class="card-metric-value">{duration}</span>
+          </div>
+        )}
+        {outputs && (
+          <div class="card-metric">
+            <span class="card-metric-label">Outputs:</span>
+            <span class="card-metric-value">{outputs}</span>
+          </div>
+        )}
+      </div>
+    )}
+  </div>
+  <div class="card-footer">
+    <span class="card-cta">
+      {status === 'live' ? 'Begin Assessment' : 'In Development'}
+    </span>
+    <span class="card-arrow">{status === 'live' ? '→' : '—'}</span>
+  </div>
+</Tag>
+
+<style>
+  .instrument-card {
+    background: var(--card-bg);
+    border: 1px solid var(--faded-light);
+    padding: 0;
+    position: relative;
+    transition: all var(--transition-default);
+    text-decoration: none;
+    display: block;
+  }
+
+  .instrument-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+      linear-gradient(var(--faded-ultra) 1px, transparent 1px),
+      linear-gradient(90deg, var(--faded-ultra) 1px, transparent 1px);
+    background-size: 20px 20px;
+    pointer-events: none;
+    opacity: 0.5;
+  }
+
+  .instrument-card:hover {
+    border-color: var(--gold);
+    box-shadow: 5px 5px 0px var(--gold-dim);
+    transform: translate(-2px, -2px);
+  }
+
+  .instrument-card.coming-soon {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-sm) var(--space-md);
+    border-bottom: 1px solid var(--faded-light);
+    position: relative;
+    z-index: 1;
+  }
+
+  .card-id {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--gold);
+    text-transform: uppercase;
+  }
+
+  .card-status {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 4px 8px;
+    border: 1px solid;
+  }
+
+  .card-status.live {
+    color: var(--active);
+    border-color: var(--active);
+  }
+
+  .card-status.coming {
+    color: var(--faded);
+    border-color: var(--faded-light);
+  }
+
+  .card-body {
+    padding: var(--space-md);
+    position: relative;
+    z-index: 1;
+  }
+
+  .card-title {
+    font-family: var(--font-serif);
+    font-size: 1.5rem;
+    font-weight: 400;
+    color: var(--text-light);
+    margin-bottom: var(--space-xs);
+  }
+
+  .card-description {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--faded);
+    line-height: 1.6;
+    margin-bottom: var(--space-md);
+  }
+
+  .card-metrics {
+    display: flex;
+    gap: var(--space-md);
+  }
+
+  .card-metric {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+  }
+
+  .card-metric-label {
+    color: var(--faded);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .card-metric-value {
+    color: var(--text-light);
+  }
+
+  .card-footer {
+    padding: var(--space-sm) var(--space-md);
+    border-top: 1px solid var(--faded-light);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    z-index: 1;
+  }
+
+  .card-cta {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--gold);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .card-arrow {
+    color: var(--gold);
+    transition: transform var(--transition-default);
+  }
+
+  .instrument-card:hover .card-arrow {
+    transform: translateX(4px);
+  }
+</style>

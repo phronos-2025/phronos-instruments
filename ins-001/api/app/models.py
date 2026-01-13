@@ -106,6 +106,7 @@ class SubmitCluesResponse(BaseModel):
     # If LLM game, includes LLM guesses immediately
     llm_guesses: Optional[list[str]] = None
     convergence_score: Optional[float] = None
+    guess_similarities: Optional[list[float]] = None  # Semantic similarity for each guess
 
 
 class SubmitGuessesRequest(BaseModel):
@@ -121,6 +122,7 @@ class SubmitGuessesResponse(BaseModel):
     exact_match: bool
     seed_word: str  # Revealed here AFTER guessing (security fix)
     status: GameStatus
+    guess_similarities: Optional[list[float]] = None  # Semantic similarity for each guess
 
 
 class GameResponse(BaseModel):
@@ -137,6 +139,7 @@ class GameResponse(BaseModel):
     guesses: Optional[list[str]]
     divergence_score: Optional[float]
     convergence_score: Optional[float]
+    guess_similarities: Optional[list[float]] = None  # Semantic similarity for each guess
     status: GameStatus
     created_at: datetime
     expires_at: datetime

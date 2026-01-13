@@ -1,24 +1,17 @@
 /**
  * Phronos Logo Component
  * 
- * Animated ouroboros (self-consuming serpent) logo with pulsing gold center.
- * Based on logo-animation.ts from phronos.org (frame-rate independent, retina-ready).
+ * Minimalist logo: thin golden circle with two squares inside.
+ * Central square has a soft glow effect, smaller square to the left.
  */
 
 import React, { useEffect, useRef } from 'react';
 
-// Brand Colors (from vision/BRAND.yaml)
+// Brand Colors
 const COLORS = {
-  ink: '#1A1A1A',
   gold: '#B08D55',
   goldDim: 'rgba(176, 141, 85, 0.4)',
 };
-
-// Animation Constants
-// Rotation speed in radians per second (frame-rate independent)
-// Target: ~0.0716 rotations/second = 0.45 radians/second
-const ROTATION_SPEED_PER_SECOND = 0.45;
-const PULSE_SPEED = 400; // ms per cycle (used in sin function)
 
 interface PhronosLogoProps {
   size?: number;
@@ -27,8 +20,6 @@ interface PhronosLogoProps {
 export const PhronosLogo: React.FC<PhronosLogoProps> = ({ size = 24 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationIdRef = useRef<number | null>(null);
-  const rotationRef = useRef<number>(0);
-  const lastTimeRef = useRef<number>(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -54,78 +45,70 @@ export const PhronosLogo: React.FC<PhronosLogoProps> = ({ size = 24 }) => {
 
     const scaled = (value: number) => value * scale;
 
-    const draw = (deltaTime: number = 0) => {
+    const draw = () => {
       const centerX = size / 2;
       const centerY = size / 2;
 
       // Clear canvas
       ctx.clearRect(0, 0, size, size);
 
-      // Time-based rotation: radians per second * deltaTime (frame-rate independent)
-      rotationRef.current += ROTATION_SPEED_PER_SECOND * deltaTime;
-
-      // === 1. Ouroboros (Rotating Serpent Ring) ===
-      ctx.save();
-      ctx.translate(centerX, centerY);
-      ctx.rotate(rotationRef.current);
-
-      // Serpent body (arc)
-      const radius = scaled(11.2);
+      // === 1. Large Thin Circle ===
+      const circleRadius = scaled(13); // Large circle radius
       ctx.beginPath();
-      ctx.arc(0, 0, radius, 0.3, Math.PI * 1.9);
-      ctx.strokeStyle = COLORS.ink;
-      ctx.lineWidth = scaled(2.7);
-      ctx.lineCap = 'round';
+      ctx.arc(centerX, centerY, circleRadius, 0, Math.PI * 2);
+      ctx.strokeStyle = COLORS.gold;
+      ctx.lineWidth = scaled(0.8); // Thin stroke
       ctx.stroke();
 
-      // Serpent head position
-      const headAngle = Math.PI * 1.9;
-      const headX = Math.cos(headAngle) * radius;
-      const headY = Math.sin(headAngle) * radius;
+      // === 2. Central Glowing Square ===
+      const centralSquareSize = scaled(3);
+      const centralX = centerX;
+      const centralY = centerY;
 
-      // Serpent head (circle)
-      ctx.beginPath();
-      ctx.arc(headX, headY, scaled(3.25), 0, Math.PI * 2);
-      ctx.fillStyle = COLORS.ink;
-      ctx.fill();
-
-      // Serpent eye (gold detail inside head)
-      ctx.beginPath();
-      ctx.arc(headX, headY, scaled(1.2), 0, Math.PI * 2);
+      // Create glow effect by drawing multiple semi-transparent squares with increasing sizes
+      ctx.save();
+      
+      // Outer glow layers (blurred halo effect)
+      const glowLayers = 4;
+      for (let i = glowLayers; i >= 1; i--) {
+        const layerSize = centralSquareSize + scaled(1.5 * i);
+        const opacity = 0.15 / i;
+        ctx.fillStyle = `rgba(176, 141, 85, ${opacity})`;
+        ctx.fillRect(
+          centralX - layerSize / 2,
+          centralY - layerSize / 2,
+          layerSize,
+          layerSize
+        );
+      }
+      
+      // Main square (solid)
       ctx.fillStyle = COLORS.gold;
-      ctx.fill();
-
+      ctx.fillRect(
+        centralX - centralSquareSize / 2,
+        centralY - centralSquareSize / 2,
+        centralSquareSize,
+        centralSquareSize
+      );
+      
       ctx.restore();
 
-      // === 2. Pulsing Center Core ===
-      const pulse = (Math.sin(Date.now() / PULSE_SPEED) + 1) / 2;
+      // === 3. Smaller Square to the Left ===
+      const smallSquareSize = scaled(2);
+      const smallX = centerX - scaled(5); // Left of center
+      const smallY = centerY - scaled(1.5); // Slightly above horizontal axis
 
-      // Outer ripple (faint, expanding)
-      ctx.beginPath();
-      ctx.arc(
-        centerX,
-        centerY,
-        scaled(3.25) + (pulse * scaled(1.6)),
-        0,
-        Math.PI * 2
-      );
-      ctx.strokeStyle = COLORS.goldDim;
-      ctx.lineWidth = scaled(1.2);
-      ctx.stroke();
-
-      // Inner core (solid gold point)
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, scaled(1.6), 0, Math.PI * 2);
       ctx.fillStyle = COLORS.gold;
-      ctx.fill();
+      ctx.fillRect(
+        smallX - smallSquareSize / 2,
+        smallY - smallSquareSize / 2,
+        smallSquareSize,
+        smallSquareSize
+      );
     };
 
     const animate = (currentTime: number = 0) => {
-      // Calculate delta time in seconds (frame-rate independent)
-      const deltaTime = lastTimeRef.current ? (currentTime - lastTimeRef.current) / 1000 : 0;
-      lastTimeRef.current = currentTime;
-      
-      draw(deltaTime);
+      draw();
       animationIdRef.current = requestAnimationFrame(animate);
     };
 

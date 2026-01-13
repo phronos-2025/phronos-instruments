@@ -1,0 +1,94 @@
+---
+/**
+ * Landing Page Navigation
+ * Adapted from phronos-site Nav.astro for instruments domain
+ */
+
+import PhronosLogo from '../ui/PhronosLogo';
+---
+
+<nav class="landing-nav">
+  <a href="https://phronos.org" class="nav-brand">
+    <span class="logo-mark">
+      <PhronosLogo size={24} client:only="react" />
+    </span>
+    <span class="nav-wordmark">Phronos</span>
+  </a>
+  <div class="nav-links">
+    <a href="https://dispatches.phronos.org" class="nav-link">Dispatches</a>
+    <a href="/" class="nav-link active">Instruments</a>
+    <a href="https://phronos.org/methods" class="nav-link">Methods</a>
+  </div>
+</nav>
+
+<style>
+  .landing-nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    background: var(--bg-deep);
+    border-bottom: 1px solid var(--faded-light);
+    padding: var(--space-sm) var(--space-lg);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .nav-brand {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    text-decoration: none;
+  }
+
+  .logo-mark {
+    width: 24px;
+    height: 24px;
+    border: 1px solid var(--gold);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+
+  .nav-wordmark {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--faded);
+  }
+
+  .nav-brand:hover .nav-wordmark {
+    color: var(--gold);
+  }
+
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: var(--space-lg);
+  }
+
+  .nav-link {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--faded);
+    text-decoration: none;
+    transition: color var(--transition-default);
+  }
+
+  .nav-link:hover {
+    color: var(--gold);
+  }
+
+  .nav-link.active {
+    color: var(--text-light);
+  }
+</style>

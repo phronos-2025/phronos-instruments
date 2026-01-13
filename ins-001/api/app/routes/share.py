@@ -65,7 +65,7 @@ async def create_share_token(
     return CreateShareTokenResponse(
         token=token["token"],
         expires_at=token["expires_at"],
-        share_url=f"{FRONTEND_URL}/join/{token['token']}"
+        share_url=f"{FRONTEND_URL}/ins-001/join/{token['token']}"
     )
 
 

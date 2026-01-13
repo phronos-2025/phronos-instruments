@@ -18,7 +18,7 @@ export const Navigation: React.FC<NavigationProps> = ({
 }) => {
   return (
     <nav className="nav">
-      <a href="/" className="nav-brand">
+      <a href="https://phronos.org" className="nav-brand">
         <span className="logo-mark">
           <PhronosLogo size={24} />
         </span>
