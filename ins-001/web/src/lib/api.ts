@@ -23,9 +23,14 @@ function normalizeApiUrl(url: string): string {
 const rawApiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8000';
 const API_URL = normalizeApiUrl(rawApiUrl);
 
-// Debug: Log API URL (remove in production)
+// Debug: Log API URL and env var state (remove in production)
 if (typeof window !== 'undefined') {
-  console.log('API_URL configured as:', API_URL);
+  console.log('=== API CONFIGURATION DEBUG ===');
+  console.log('PUBLIC_API_URL from env:', import.meta.env.PUBLIC_API_URL);
+  console.log('rawApiUrl:', rawApiUrl);
+  console.log('API_URL (normalized):', API_URL);
+  console.log('Is using default (localhost)?', !import.meta.env.PUBLIC_API_URL);
+  console.log('================================');
 }
 
 // Types (matching backend models)
