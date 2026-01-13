@@ -5,13 +5,14 @@
  * "Unregistered Record" panel with progress, footer links
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useGameState } from '../../lib/state';
 import type { GameResponse } from '../../lib/api';
 import { Panel } from '../ui/Panel';
 import { Button } from '../ui/Button';
 import { ScoreCard } from '../ui/ScoreCard';
 import { ArchetypeDisplay } from '../ui/ArchetypeDisplay';
+import { MagicLinkModal } from '../auth/MagicLinkModal';
 
 interface ResultsScreenProps {
   game: GameResponse;
@@ -20,7 +21,8 @@ interface ResultsScreenProps {
 export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
   const { state, dispatch } = useGameState();
   const game = state.screen === 'results' ? state.game : null;
-  
+  const [showInitModal, setShowInitModal] = useState(false);
+
   if (!game) return null;
   
   const divergenceInterpretation = 
@@ -137,10 +139,7 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
             <Button
               variant="primary"
               style={{ fontSize: '0.65rem', padding: '10px 20px' }}
-              onClick={() => {
-                // TODO: Trigger account creation modal
-                console.log('Initialize ID clicked');
-              }}
+              onClick={() => setShowInitModal(true)}
             >
               Initialize ID
             </Button>
@@ -170,6 +169,11 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
           © 2026 Phronos Observatory
         </div>
       </footer>
+
+      <MagicLinkModal
+        isOpen={showInitModal}
+        onClose={() => setShowInitModal(false)}
+      />
     </div>
   );
 };
