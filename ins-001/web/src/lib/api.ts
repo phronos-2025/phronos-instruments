@@ -169,6 +169,8 @@ async function apiCall<T>(
   const fullUrl = `${baseUrl}${endpointPath}`;
   
   console.log('API Call:', fullUrl); // Debug log
+  console.log('API_URL from env:', API_URL);
+  console.log('Current origin:', typeof window !== 'undefined' ? window.location.origin : 'N/A');
   
   try {
     const response = await fetch(fullUrl, {
@@ -204,8 +206,19 @@ async function apiCall<T>(
     return response.json();
   } catch (error) {
     // Network errors (CORS, connection refused, etc.)
-    if (error instanceof TypeError && error.message.includes('fetch')) {
-      throw new Error(`Network error: Cannot connect to API at ${API_URL}. Check CORS and API URL.`);
+    if (error instanceof TypeError) {
+      if (error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
+        // More specific error message
+        const errorMsg = `Network error: Cannot connect to API at ${API_URL}. ` +
+          `Possible causes: ` +
+          `1) API URL incorrect - check PUBLIC_API_URL env var, ` +
+          `2) CORS not configured - add ${window.location.origin} to API CORS origins, ` +
+          `3) API server not running or unreachable.`;
+        console.error('API Connection Error:', errorMsg);
+        console.error('Current origin:', window.location.origin);
+        console.error('API URL:', API_URL);
+        throw new Error(errorMsg);
+      }
     }
     throw error;
   }

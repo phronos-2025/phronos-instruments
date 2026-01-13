@@ -56,6 +56,8 @@ app = FastAPI(
 from app.config import FRONTEND_URL, APP_ENV
 
 # Build CORS origins list
+# Note: CORS is about the ORIGIN (where the request comes FROM), not the API domain
+# Add the domain where your frontend is hosted (Vercel, Netlify, etc.)
 cors_origins = [
     "http://localhost:3000",  # Local dev
     "http://localhost:4321",  # Astro dev
@@ -63,9 +65,16 @@ cors_origins = [
     "https://phronos-instruments.vercel.app",  # Vercel production frontend
 ]
 
-# Add frontend URL from env if set
-if FRONTEND_URL and FRONTEND_URL not in cors_origins:
-    cors_origins.append(FRONTEND_URL)
+# Add frontend URL from env if set (this is the recommended way)
+# Set FRONTEND_URL in Railway environment variables to your Vercel/Netlify domain
+# Normalize FRONTEND_URL (remove trailing slash) before adding
+if FRONTEND_URL:
+    normalized_frontend_url = FRONTEND_URL.rstrip('/')
+    if normalized_frontend_url not in cors_origins:
+        cors_origins.append(normalized_frontend_url)
+    
+# Log CORS origins for debugging
+print(f"CORS allowed origins: {cors_origins}")
 
 # Note: Cannot use allow_origins=["*"] with allow_credentials=True
 # Must explicitly list allowed origins
