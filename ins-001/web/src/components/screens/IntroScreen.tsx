@@ -85,7 +85,7 @@ export const IntroScreen: React.FC = () => {
               rel="noopener noreferrer" 
               style={{ color: 'var(--gold)', textDecoration: 'none', borderBottom: '1px dotted' }}
             >
-              Read Data Constitution
+              Read Constitution
             </a>.
           </span>
         </label>
