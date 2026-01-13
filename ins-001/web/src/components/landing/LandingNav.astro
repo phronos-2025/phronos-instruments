@@ -1,28 +1,94 @@
 ---
 /**
  * Landing Page Navigation
- * Adapted from phronos-site Nav.astro for instruments domain
+ * Adapted from phronos-site Nav.astro for instruments domain (dark mode)
  */
 
 import { PhronosLogo } from '../ui/PhronosLogo';
 ---
 
-<nav class="landing-nav">
-  <a href="https://phronos.org" class="nav-brand">
-    <span class="logo-mark">
-      <PhronosLogo size={24} client:only="react" />
-    </span>
+<nav class="nav">
+  <a href="https://phronos.org" class="nav-logo-group">
+    <PhronosLogo size={31} theme="dark" client:only="react" />
     <span class="nav-wordmark">Phronos</span>
   </a>
-  <div class="nav-links">
-    <a href="https://dispatches.phronos.org" class="nav-link">Dispatches</a>
-    <a href="/" class="nav-link active">Instruments</a>
-    <a href="https://phronos.org/methods" class="nav-link">Methods</a>
-  </div>
+
+  <ul class="nav-links">
+    <li><a href="https://phronos.org/dispatches" class="nav-link">Dispatches</a></li>
+    <li><span class="nav-link disabled">Library</span></li>
+    <li><a href="https://phronos.org/methods" class="nav-link">Methods</a></li>
+    <li><a href="/" class="nav-link active">Instruments</a></li>
+  </ul>
+
+  <a href="https://phronos.substack.com/subscribe" class="nav-subscribe nav-subscribe-desktop">
+    Subscribe
+  </a>
+
+  <button class="nav-hamburger" aria-label="Open menu">
+    <span></span>
+    <span></span>
+    <span></span>
+  </button>
 </nav>
 
+<!-- Mobile Menu -->
+<div class="nav-mobile-menu">
+  <div class="nav-mobile-header">
+    <a href="https://phronos.org" class="nav-logo-group">
+      <PhronosLogo size={31} theme="dark" client:only="react" />
+      <span class="nav-wordmark">Phronos</span>
+    </a>
+    <button class="nav-mobile-close" aria-label="Close menu"></button>
+  </div>
+
+  <div class="nav-mobile-links">
+    <a href="https://phronos.org/dispatches" class="nav-mobile-link">Dispatches</a>
+    <span class="nav-mobile-link disabled">
+      Library
+      <span class="soon-label">(soon)</span>
+    </span>
+    <a href="https://phronos.org/methods" class="nav-mobile-link">Methods</a>
+    <a href="/" class="nav-mobile-link active">Instruments</a>
+  </div>
+
+  <a href="https://phronos.substack.com/subscribe" class="nav-mobile-subscribe">
+    Subscribe
+  </a>
+</div>
+
+<script>
+  function initNav() {
+    const hamburger = document.querySelector('.nav-hamburger');
+    const mobileMenu = document.querySelector('.nav-mobile-menu');
+    const closeBtn = document.querySelector('.nav-mobile-close');
+
+    hamburger?.addEventListener('click', () => {
+      mobileMenu?.classList.add('is-open');
+      document.body.style.overflow = 'hidden';
+    });
+
+    closeBtn?.addEventListener('click', () => {
+      mobileMenu?.classList.remove('is-open');
+      document.body.style.overflow = '';
+    });
+
+    // Close menu when clicking a link
+    const mobileLinks = document.querySelectorAll('.nav-mobile-link:not(.disabled)');
+    mobileLinks.forEach((link) => {
+      link.addEventListener('click', () => {
+        mobileMenu?.classList.remove('is-open');
+        document.body.style.overflow = '';
+      });
+    });
+  }
+
+  initNav();
+  document.addEventListener('astro:after-swap', initNav);
+</script>
+
 <style>
-  .landing-nav {
+  /* Navigation Styles - Dark Mode */
+  .nav {
     position: fixed;
     top: 0;
     left: 0;
@@ -30,65 +96,236 @@ import { PhronosLogo } from '../ui/PhronosLogo';
     z-index: 100;
     background: var(--bg-deep);
     border-bottom: 1px solid var(--faded-light);
-    padding: var(--space-sm) var(--space-lg);
+    padding: 0 var(--space-lg);
+    height: 64px;
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    justify-content: space-between;
   }
 
-  .nav-brand {
+  .nav-logo-group {
     display: flex;
     align-items: center;
     gap: var(--space-sm);
     text-decoration: none;
   }
 
-  .logo-mark {
-    width: 24px;
-    height: 24px;
-    border: 1px solid var(--gold);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    overflow: hidden;
-  }
-
   .nav-wordmark {
     font-family: var(--font-mono);
-    font-size: 0.7rem;
+    font-size: 0.85rem;
     font-weight: 600;
-    text-transform: uppercase;
     letter-spacing: 2px;
+    text-transform: uppercase;
     color: var(--faded);
+    transition: color var(--transition-default);
   }
 
-  .nav-brand:hover .nav-wordmark {
+  .nav-logo-group:hover .nav-wordmark {
     color: var(--gold);
   }
 
   .nav-links {
     display: flex;
-    align-items: center;
-    gap: var(--space-lg);
+    gap: var(--space-xl);
+    list-style: none;
+    margin: 0;
+    padding: 0;
   }
 
   .nav-link {
     font-family: var(--font-mono);
-    font-size: 0.65rem;
+    font-size: var(--text-sm);
+    font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 1px;
     color: var(--faded);
     text-decoration: none;
-    transition: color var(--transition-default);
+    padding: var(--space-xs) 0;
+    border-bottom: 1px solid transparent;
+    transition: color var(--transition-default), border-color var(--transition-default);
   }
 
   .nav-link:hover {
     color: var(--gold);
+    border-bottom-color: var(--gold);
   }
 
   .nav-link.active {
     color: var(--text-light);
+  }
+
+  .nav-link.disabled {
+    color: var(--faded-light);
+    cursor: default;
+    pointer-events: none;
+  }
+
+  .nav-link.disabled:hover {
+    border-bottom-color: transparent;
+  }
+
+  .nav-subscribe {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--bg-deep);
+    background: var(--text-light);
+    border: 1px solid var(--text-light);
+    padding: var(--space-sm) var(--space-md);
+    cursor: pointer;
+    transition: all var(--transition-default);
+    text-decoration: none;
+  }
+
+  .nav-subscribe:hover {
+    background: var(--gold);
+    border-color: var(--gold);
+    color: var(--bg-deep);
+  }
+
+  /* Mobile */
+  .nav-hamburger {
+    display: none;
+    width: 24px;
+    height: 24px;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+  }
+
+  .nav-hamburger span {
+    display: block;
+    width: 100%;
+    height: 2px;
+    background: var(--text-light);
+  }
+
+  @media (max-width: 767px) {
+    .nav-links,
+    .nav-subscribe-desktop {
+      display: none;
+    }
+
+    .nav-hamburger {
+      display: flex;
+    }
+  }
+
+  /* Mobile Menu Overlay */
+  .nav-mobile-menu {
+    position: fixed;
+    inset: 0;
+    background: var(--bg-deep);
+    z-index: 200;
+    padding: var(--space-lg);
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+  }
+
+  .nav-mobile-menu.is-open {
+    transform: translateX(0);
+  }
+
+  .nav-mobile-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-xl);
+  }
+
+  .nav-mobile-close {
+    width: 24px;
+    height: 24px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    position: relative;
+  }
+
+  .nav-mobile-close::before,
+  .nav-mobile-close::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: var(--text-light);
+  }
+
+  .nav-mobile-close::before {
+    transform: rotate(45deg);
+  }
+
+  .nav-mobile-close::after {
+    transform: rotate(-45deg);
+  }
+
+  .nav-mobile-links {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+
+  .nav-mobile-link {
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--faded);
+    text-decoration: none;
+    padding: var(--space-md) 0;
+    border-bottom: 1px solid var(--faded-light);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: color var(--transition-default);
+  }
+
+  .nav-mobile-link:hover {
+    color: var(--gold);
+  }
+
+  .nav-mobile-link.active {
+    color: var(--text-light);
+  }
+
+  .nav-mobile-link.disabled {
+    color: var(--faded-light);
+  }
+
+  .nav-mobile-link .soon-label {
+    font-size: var(--text-xs);
+    color: var(--faded-light);
+  }
+
+  .nav-mobile-subscribe {
+    margin-top: auto;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--bg-deep);
+    background: var(--text-light);
+    border: 1px solid var(--text-light);
+    padding: var(--space-md);
+    text-align: center;
+    text-decoration: none;
+    display: block;
+    transition: all var(--transition-default);
+  }
+
+  .nav-mobile-subscribe:hover {
+    background: var(--gold);
+    border-color: var(--gold);
   }
 </style>
