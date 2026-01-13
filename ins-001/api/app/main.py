@@ -6,10 +6,12 @@ Entry point for the FastAPI application.
 
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
+import sys
 
 # Import routes
 from app.routes import games, embeddings, users, share
@@ -65,6 +67,17 @@ cors_origins = [
 # Add frontend URL from env if set
 if FRONTEND_URL and FRONTEND_URL not in cors_origins:
     cors_origins.append(FRONTEND_URL)
+
+# Debug middleware to log incoming requests
+class DebugMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        auth_header = request.headers.get("Authorization")
+        print(f"[DEBUG] Incoming request | path={request.url.path} | method={request.method} | hasAuthHeader={bool(auth_header)} | authPrefix={auth_header[:30] if auth_header else None} | hypothesisId=I", file=sys.stderr, flush=True)
+        response = await call_next(request)
+        print(f"[DEBUG] Response | path={request.url.path} | status={response.status_code} | hypothesisId=I", file=sys.stderr, flush=True)
+        return response
+
+app.add_middleware(DebugMiddleware)
 
 # For MVP: Allow all origins to avoid CORS issues
 # TODO: Restrict to specific domains in production

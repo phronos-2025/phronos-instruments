@@ -18,6 +18,7 @@ from typing import Tuple
 from fastapi import HTTPException, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from supabase import create_client, Client
+import httpx
 
 # ============================================
 # CONFIGURATION
@@ -78,27 +79,51 @@ async def get_authenticated_client(
     
     try:
         # #region agent log
-        print(f"[DEBUG] Before set_session | hypothesisId=H", file=sys.stderr, flush=True)
+        print(f"[DEBUG] Before token verification | hypothesisId=H", file=sys.stderr, flush=True)
         # #endregion
-        # This verifies the JWT signature and returns user info
-        # If token is invalid/expired, this raises an exception
+        
+        # Use Supabase REST API to verify the token and get user info
+        # This is more reliable than set_session + get_user
+        verify_url = f"{SUPABASE_URL}/auth/v1/user"
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "apikey": SUPABASE_ANON_KEY,
+        }
+        
+        # #region agent log
+        print(f"[DEBUG] Calling Supabase REST API to verify token | url={verify_url} | hypothesisId=H", file=sys.stderr, flush=True)
+        # #endregion
+        
+        async with httpx.AsyncClient() as client:
+            verify_response = await client.get(verify_url, headers=headers, timeout=10.0)
+        
+        # #region agent log
+        print(f"[DEBUG] Supabase REST API response | status={verify_response.status_code} | hypothesisId=H", file=sys.stderr, flush=True)
+        # #endregion
+        
+        if verify_response.status_code != 200:
+            error_detail = verify_response.text
+            # #region agent log
+            print(f"[DEBUG] Token verification failed | status={verify_response.status_code} | error={error_detail} | hypothesisId=H", file=sys.stderr, flush=True)
+            # #endregion
+            raise HTTPException(
+                status_code=401,
+                detail=f"Token verification failed: {error_detail}"
+            )
+        
+        user_data = verify_response.json()
+        
+        # #region agent log
+        print(f"[DEBUG] Token verified | userId={user_data.get('id')} | hypothesisId=H", file=sys.stderr, flush=True)
+        # #endregion
+        
+        # Set the session in the Supabase client for RLS to work
         supabase.auth.set_session(token, "")
-        # #region agent log
-        print(f"[DEBUG] After set_session, before get_user | hypothesisId=H", file=sys.stderr, flush=True)
-        # #endregion
-        response = supabase.auth.get_user()
         
-        # #region agent log
-        print(f"[DEBUG] After get_user | hasUser={bool(response.user)} | userId={response.user.id if response.user else None} | hypothesisId=H", file=sys.stderr, flush=True)
-        # #endregion
-        
-        if not response.user:
-            raise HTTPException(status_code=401, detail="Invalid token")
-            
         return supabase, {
-            "id": response.user.id,
-            "email": response.user.email,
-            "is_anonymous": response.user.is_anonymous or False,
+            "id": user_data["id"],
+            "email": user_data.get("email"),
+            "is_anonymous": user_data.get("is_anonymous", False) or False,
         }
         
     except Exception as e:
