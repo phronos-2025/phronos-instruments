@@ -68,7 +68,14 @@ export const CluesScreen: React.FC<CluesScreenProps> = ({
   React.useEffect(() => {
     const panelHeader = document.querySelector('.panel-header');
     const computedStyle = panelHeader ? window.getComputedStyle(panelHeader) : null;
-    fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CluesScreen.tsx:67',message:'CluesScreen rendered',data:{hasPanelHeader:!!panelHeader,justifyContent:computedStyle?.justifyContent||'N/A',display:computedStyle?.display||'N/A',noiseFloorCount:noiseFloor.length,cluesCount:clues.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    const logData = {
+      hasPanelHeader: !!panelHeader,
+      justifyContent: computedStyle?.justifyContent || 'N/A',
+      display: computedStyle?.display || 'N/A',
+      noiseFloorCount: noiseFloor.length,
+      cluesCount: clues.length
+    };
+    console.log('[DEBUG] CluesScreen CSS:', logData);
   }, [noiseFloor.length, clues.length]);
   // #endregion
   
