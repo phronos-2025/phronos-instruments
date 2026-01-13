@@ -144,7 +144,6 @@ async def get_game(
     guess_similarities = game.get("guess_similarities")
     
     # #region agent log
-    import json
     with open('/Users/vishal/Documents/GitHub/phronos-instruments/.cursor/debug.log', 'a') as f:
         f.write(json.dumps({"location":"games.py:144","message":"get_game: checking guess_similarities","data":{"has_guess_similarities":bool(guess_similarities),"guess_similarities":guess_similarities,"has_guesses":bool(game.get("guesses")),"has_clues":bool(game.get("clues")),"has_convergence":game.get("convergence_score") is not None},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"F"}) + '\n')
     # #endregion
@@ -305,7 +304,6 @@ async def submit_clues(
         )
         
         # #region agent log
-        import json
         with open('/Users/vishal/Documents/GitHub/phronos-instruments/.cursor/debug.log', 'a') as f:
             f.write(json.dumps({"location":"games.py:285","message":"Computed guess_similarities","data":{"convergence_score":convergence_score,"guess_similarities":guess_similarities,"llm_guesses":llm_guesses},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}) + '\n')
         # #endregion
