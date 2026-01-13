@@ -47,7 +47,16 @@ export const ShareScreen: React.FC<ShareScreenProps> = ({
   
   const handleClaudeClick = async () => {
     try {
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ShareScreen.tsx:50',message:'Fetching game data',data:{gameId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
+      // #endregion
+      
       const game = await api.games.get(gameId);
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ShareScreen.tsx:54',message:'Game data received from API',data:{hasGuessSimilarities:!!game.guess_similarities,guessSimilaritiesLength:game.guess_similarities?.length,guessesLength:game.guesses?.length,recipientType:game.recipient_type},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
+      // #endregion
+      
       dispatch({ type: 'GAME_COMPLETED', game });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load results');

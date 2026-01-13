@@ -21,6 +21,12 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
   const { state, dispatch } = useGameState();
   const game = state.screen === 'results' ? state.game : null;
   
+  // #region agent log
+  if (game) {
+    fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ResultsScreen.tsx:23',message:'Game data received',data:{hasGuessSimilarities:!!game.guess_similarities,guessSimilaritiesLength:game.guess_similarities?.length,guessesLength:game.guesses?.length,recipientType:game.recipient_type},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
+  }
+  // #endregion
+  
   if (!game) return null;
   
   const divergenceInterpretation = 
@@ -33,18 +39,36 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
     game.convergence_score && game.convergence_score < 0.7 ? 'Partial' :
     'Strong';
   
-  // Format guesses for display
+  // Format guesses for display as pills with shaded bars
   const formatGuess = (guess: string, index: number) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ResultsScreen.tsx:38',message:'Format guess called',data:{guess,index,hasGuessSimilarities:!!game.guess_similarities,guessSimilaritiesLength:game.guess_similarities?.length,similarity:game.guess_similarities?.[index]},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
+    // #endregion
+    
     const similarity = game.guess_similarities?.[index];
     const isExact = guess.toLowerCase() === game.seed_word.toLowerCase();
-    const displayValue = similarity !== undefined ? similarity.toFixed(2) : '—';
-    const color = isExact ? 'var(--active)' : 'var(--faded)';
+    const similarityPercent = similarity !== undefined ? Math.min(Math.max(similarity * 100, 0), 100) : 0;
+    const borderColor = isExact ? 'var(--active)' : 'rgba(242, 240, 233, 0.15)';
+    const textColor = isExact ? 'var(--active)' : 'var(--faded)';
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ResultsScreen.tsx:50',message:'Similarity value for display',data:{similarity,similarityPercent,isExact},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
+    // #endregion
     
     return (
-      <div key={index} style={{ display: 'flex', justifyContent: 'space-between', padding: 'var(--space-xs) 0', borderBottom: index < (game.guesses?.length || 0) - 1 ? '1px solid var(--faded-ultra)' : 'none' }}>
-        <span style={{ color }}>{guess}</span>
-        <span style={{ color }}>{displayValue}</span>
-      </div>
+      <span
+        key={index}
+        className="noise-word"
+        data-similarity={similarity !== undefined ? similarity.toFixed(2) : '—'}
+        style={{ 
+          '--similarity-width': `${similarityPercent}%`,
+          borderColor: borderColor,
+          color: textColor
+        } as React.CSSProperties}
+        title={similarity !== undefined ? `Similarity: ${similarity.toFixed(2)}` : 'Similarity: —'}
+      >
+        {guess}
+      </span>
     );
   };
   
@@ -86,7 +110,7 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
       
       {game.recipient_type === 'llm' && game.guesses && game.guesses.length > 0 && (
         <Panel title="Claude's Guesses" meta={`${game.guesses.length} attempts`}>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem' }}>
+          <div className="noise-words">
             {game.guesses.map((guess, idx) => formatGuess(guess, idx))}
           </div>
         </Panel>

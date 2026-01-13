@@ -249,11 +249,13 @@
 .clue-status {
   font-family: var(--font-mono);
   font-size: 0.65rem;
-  width: 60px;
+  width: auto; /* Changed from 60px to auto to accommodate "✓ valid" text */
+  min-width: 60px; /* Keep minimum width for alignment */
   text-align: right;
   flex-shrink: 0;
   display: inline-block;
   min-height: 1em;
+  white-space: nowrap; /* Prevent text wrapping */
 }
 
 .clue-status.valid {
