@@ -6,63 +6,26 @@
 
 import { supabase } from './supabase';
 
-// #region agent log
-const rawEnvValue = import.meta.env.PUBLIC_API_URL;
-if (typeof window !== 'undefined') {
-  fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:9',message:'Raw PUBLIC_API_URL env value',data:{rawEnvValue:rawEnvValue,hasProtocol:rawEnvValue?.startsWith('http://')||rawEnvValue?.startsWith('https://'),isUndefined:rawEnvValue===undefined,isEmpty:rawEnvValue===''},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
-}
-// #endregion
-
 /**
  * Normalize API URL to ensure it has a protocol.
  * If the URL doesn't start with http:// or https://, prepend https://
  */
 function normalizeApiUrl(url: string): string {
-  // #region agent log
-  if (typeof window !== 'undefined') {
-    fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:20',message:'normalizeApiUrl called',data:{inputUrl:url,isEmpty:!url,trimmed:url?.trim()},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix-v2',hypothesisId:'A'})}).catch(()=>{});
-  }
-  // #endregion
   if (!url) return url;
   const trimmed = url.trim();
-  const hasProtocol = trimmed.startsWith('http://') || trimmed.startsWith('https://');
-  // #region agent log
-  if (typeof window !== 'undefined') {
-    fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:25',message:'normalizeApiUrl check protocol',data:{trimmed:trimmed,hasProtocol:hasProtocol},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix-v2',hypothesisId:'A'})}).catch(()=>{});
-  }
-  // #endregion
-  if (hasProtocol) {
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
     return trimmed;
   }
   // Default to https:// for production URLs
-  const normalized = `https://${trimmed}`;
-  // #region agent log
-  if (typeof window !== 'undefined') {
-    fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:32',message:'normalizeApiUrl returning normalized',data:{normalized:normalized},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix-v2',hypothesisId:'A'})}).catch(()=>{});
-  }
-  // #endregion
-  return normalized;
+  return `https://${trimmed}`;
 }
 
 const rawApiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8000';
-// #region agent log
-if (typeof window !== 'undefined') {
-  fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:40',message:'Before normalizeApiUrl call',data:{rawApiUrl:rawApiUrl},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix-v2',hypothesisId:'A'})}).catch(()=>{});
-}
-// #endregion
 const API_URL = normalizeApiUrl(rawApiUrl);
-// #region agent log
-if (typeof window !== 'undefined') {
-  fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:43',message:'After normalizeApiUrl call',data:{apiUrl:API_URL,rawApiUrl:rawApiUrl,wasNormalized:rawApiUrl!==API_URL},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix-v2',hypothesisId:'A'})}).catch(()=>{});
-}
-// #endregion
 
 // Debug: Log API URL (remove in production)
 if (typeof window !== 'undefined') {
   console.log('API_URL configured as:', API_URL);
-  // #region agent log
-  fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:28',message:'Final API_URL constant value after normalization',data:{rawApiUrl:rawApiUrl,normalizedApiUrl:API_URL,hasProtocol:API_URL.startsWith('http://')||API_URL.startsWith('https://'),length:API_URL.length,wasNormalized:rawApiUrl!==API_URL},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
-  // #endregion
 }
 
 // Types (matching backend models)
@@ -199,31 +162,15 @@ async function apiCall<T>(
   
   // Defensive check: ensure baseUrl has a protocol (runtime safety net)
   if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
-    // #region agent log
-    if (typeof window !== 'undefined') {
-      fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:199',message:'Runtime protocol fix applied',data:{originalBaseUrl:baseUrl},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix-v2',hypothesisId:'C'})}).catch(()=>{});
-    }
-    // #endregion
     baseUrl = `https://${baseUrl}`;
   }
   
   const endpointPath = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   const fullUrl = `${baseUrl}${endpointPath}`;
   
-  // #region agent log
-  if (typeof window !== 'undefined') {
-    fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:207',message:'URL construction before fetch',data:{baseUrl:baseUrl,endpointPath:endpointPath,fullUrl:fullUrl,baseUrlHasProtocol:baseUrl.startsWith('http://')||baseUrl.startsWith('https://'),fullUrlHasProtocol:fullUrl.startsWith('http://')||fullUrl.startsWith('https://'),isRelativeUrl:!fullUrl.startsWith('http://')&&!fullUrl.startsWith('https://')},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix-v2',hypothesisId:'C'})}).catch(()=>{});
-  }
-  // #endregion
-  
   console.log('API Call:', fullUrl); // Debug log
   
   try {
-    // #region agent log
-    if (typeof window !== 'undefined') {
-      fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:217',message:'About to call fetch',data:{fullUrl:fullUrl,urlType:fullUrl.startsWith('http://')||fullUrl.startsWith('https://')?'absolute':'relative',windowLocation:typeof window!=='undefined'?window.location.href:'N/A'},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix-v2',hypothesisId:'C'})}).catch(()=>{});
-    }
-    // #endregion
     const response = await fetch(fullUrl, {
       ...options,
       headers: {
@@ -231,12 +178,6 @@ async function apiCall<T>(
         ...options.headers,
       },
     });
-    
-    // #region agent log
-    if (typeof window !== 'undefined') {
-      fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:229',message:'Fetch response received',data:{status:response.status,statusText:response.statusText,ok:response.ok,url:response.url},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix-v2',hypothesisId:'C'})}).catch(()=>{});
-    }
-    // #endregion
     
     if (!response.ok) {
       // Try to get error details
