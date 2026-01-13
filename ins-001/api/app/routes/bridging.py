@@ -254,65 +254,78 @@ async def suggest_distant_word(
     """
     supabase, user = auth
 
+    # Helper to get a random word from vocabulary
+    async def get_random_word() -> str:
+        try:
+            random_offset = random.randint(0, 49999)
+            result = supabase.table("vocabulary_embeddings") \
+                .select("word") \
+                .range(random_offset, random_offset) \
+                .execute()
+            if result.data:
+                return result.data[0]["word"]
+        except Exception:
+            pass
+        # Hardcoded fallback list of diverse words
+        fallback_words = [
+            "universe", "cosmos", "ocean", "mountain", "algorithm",
+            "symphony", "crystal", "whisper", "thunder", "horizon",
+            "paradox", "labyrinth", "enigma", "essence", "catalyst"
+        ]
+        return random.choice(fallback_words)
+
     if not from_word:
         # Return random word from vocabulary
-        # Use random offset to get random word
-        count_result = supabase.table("vocabulary_embeddings") \
-            .select("word", count="exact") \
-            .limit(1) \
-            .execute()
-
-        total_count = count_result.count if count_result.count else 50000
-        random_offset = random.randint(0, min(total_count - 1, 49999))
-
-        result = supabase.table("vocabulary_embeddings") \
-            .select("word") \
-            .range(random_offset, random_offset) \
-            .execute()
-
-        if result.data:
-            return SuggestWordResponse(
-                suggestion=result.data[0]["word"],
-                from_word=None
-            )
-        else:
-            # Fallback
-            return SuggestWordResponse(suggestion="universe", from_word=None)
+        suggestion = await get_random_word()
+        return SuggestWordResponse(suggestion=suggestion, from_word=None)
 
     # Get embedding for from_word
     from_word_clean = from_word.lower().strip()
-    from_emb = await get_embedding(from_word_clean)
 
-    # Find words with lowest similarity (most distant)
-    # Use pgvector to find LEAST similar words
-    # We query for words ordered by distance DESC (most distant first)
-    result = supabase.rpc(
-        "get_distant_words",
-        {"query_embedding": from_emb, "k": 100}
-    ).execute()
+    try:
+        from_emb = await get_embedding(from_word_clean)
 
-    if result.data and len(result.data) > 0:
-        # Pick random from the most distant 10%
-        distant_candidates = result.data[:10]
-        chosen = random.choice(distant_candidates)
+        # Try the RPC function for distant words
+        try:
+            # Format embedding as a string for pgvector
+            emb_str = "[" + ",".join(str(x) for x in from_emb) + "]"
+
+            result = supabase.rpc(
+                "get_distant_words",
+                {"query_embedding": emb_str, "k": 100}
+            ).execute()
+
+            if result.data and len(result.data) > 0:
+                # Pick random from the most distant 10%
+                distant_candidates = result.data[:10]
+                chosen = random.choice(distant_candidates)
+                return SuggestWordResponse(
+                    suggestion=chosen["word"],
+                    from_word=from_word_clean
+                )
+        except Exception as rpc_error:
+            # RPC failed - log and fall through to fallback
+            print(f"get_distant_words RPC failed: {rpc_error}")
+
+        # Fallback: get random words and pick one that's likely different
+        # Get 20 random words and return one
+        suggestion = await get_random_word()
         return SuggestWordResponse(
-            suggestion=chosen["word"],
+            suggestion=suggestion,
             from_word=from_word_clean
         )
 
-    # Fallback: if RPC not available, use simple random
-    random_result = supabase.table("vocabulary_embeddings") \
-        .select("word") \
-        .range(random.randint(0, 49999), random.randint(0, 49999)) \
-        .execute()
-
-    if random_result.data:
+    except Exception as e:
+        # If everything fails, return a random word from fallback list
+        print(f"suggest_distant_word error: {e}")
+        fallback_words = [
+            "universe", "cosmos", "ocean", "mountain", "algorithm",
+            "symphony", "crystal", "whisper", "thunder", "horizon"
+        ]
         return SuggestWordResponse(
-            suggestion=random_result.data[0]["word"],
-            from_word=from_word_clean
+            suggestion=random.choice(fallback_words),
+            from_word=from_word_clean if from_word else None
         )
-
-    return SuggestWordResponse(suggestion="cosmos", from_word=from_word_clean)
 
 
 # ============================================
