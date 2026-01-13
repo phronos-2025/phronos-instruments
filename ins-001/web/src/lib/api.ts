@@ -111,20 +111,45 @@ async function apiCall<T>(
 ): Promise<T> {
   const headers = await getAuthHeaders();
   
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    ...options,
-    headers: {
-      ...headers,
-      ...options.headers,
-    },
-  });
-  
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(error.detail?.error || error.error || `HTTP ${response.status}`);
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      ...options,
+      headers: {
+        ...headers,
+        ...options.headers,
+      },
+    });
+    
+    if (!response.ok) {
+      // Try to get error details
+      let errorMessage = `HTTP ${response.status}`;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.detail || errorData.message || errorData.error || errorMessage;
+        // If detail is an object, try to extract message
+        if (typeof errorMessage === 'object') {
+          errorMessage = errorMessage.message || JSON.stringify(errorMessage);
+        }
+      } catch {
+        // If JSON parsing fails, try text
+        try {
+          const errorText = await response.text();
+          errorMessage = errorText || errorMessage;
+        } catch {
+          // Keep default error message
+        }
+      }
+      throw new Error(errorMessage);
+    }
+    
+    return response.json();
+  } catch (error) {
+    // Network errors (CORS, connection refused, etc.)
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error(`Network error: Cannot connect to API at ${API_URL}. Check CORS and API URL.`);
+    }
+    throw error;
   }
-  
-  return response.json();
 }
 
 // API client

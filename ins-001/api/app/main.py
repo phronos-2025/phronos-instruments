@@ -53,14 +53,24 @@ app = FastAPI(
 )
 
 # CORS - adjust origins for production
+from app.config import FRONTEND_URL, APP_ENV
+
+# Build CORS origins list
+cors_origins = [
+    "http://localhost:3000",  # Local dev
+    "http://localhost:4321",  # Astro dev
+    "https://instruments.phronos.org",  # Production frontend (custom domain)
+]
+
+# Add frontend URL from env if set
+if FRONTEND_URL and FRONTEND_URL not in cors_origins:
+    cors_origins.append(FRONTEND_URL)
+
+# For MVP: Allow all origins to avoid CORS issues
+# TODO: Restrict to specific domains in production
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",  # Local dev
-        "http://localhost:4321",  # Astro dev
-        "https://instruments.phronos.org",  # Production frontend
-        "https://phronos.org",  # Main site
-    ],
+    allow_origins=["*"],  # Allow all for MVP - restrict later
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

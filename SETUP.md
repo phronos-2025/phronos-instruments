@@ -270,10 +270,19 @@ PUBLIC_API_URL=https://api.instruments.phronos.org (or Railway domain)
 
 ### 4.6 Custom Domain (Optional)
 
+**Note:** You can skip this for now and use Vercel's generated domain. Custom domains can be added later.
+
 1. In Vercel project, go to **Settings** → **Domains**
 2. Add: `instruments.phronos.org`
-3. Follow DNS instructions (add CNAME or A record)
-4. Wait for SSL (automatic, ~1 minute)
+3. **If you get "invalid configuration" error:**
+   - Make sure you own the domain `phronos.org`
+   - The domain must be added to your Vercel team account first
+   - Go to **Settings** → **Domains** (team level) to add the root domain
+   - Then add the subdomain `instruments.phronos.org` to the project
+4. Follow DNS instructions (add CNAME or A record)
+5. Wait for SSL (automatic, ~1 minute)
+
+**For now:** Use Vercel's generated domain (e.g., `https://xxxxx.vercel.app`) and add the custom domain later.
 
 ---
 
