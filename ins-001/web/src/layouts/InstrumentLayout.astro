@@ -34,6 +34,10 @@ const { id, title, version = '0.1', status = 'live' } = Astro.props;
     </script>
   </head>
   <body>
+    <!-- DELETE THIS AFTER TESTING - BUILD VERIFICATION -->
+    <div style="position:fixed;top:0;left:0;right:0;background:green;color:white;padding:15px;z-index:99999;font-size:20px;text-align:center;font-weight:bold;">
+      🟢 INSTRUMENT LAYOUT v2.0 | BUILD: {new Date().toISOString()}
+    </div>
     <div class="instrument-page">
       <div class="instrument-container">
         <slot />

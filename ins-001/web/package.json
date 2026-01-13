@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",
-    "build": "astro build",
+    "build": "astro build && echo '=== BUILD OUTPUT CHECK ===' && ls -la .vercel/output/ 2>/dev/null || ls -la dist/ 2>/dev/null || echo 'No dist or .vercel/output found'",
     "preview": "astro preview",
     "astro": "astro"
   },

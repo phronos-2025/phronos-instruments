@@ -28,6 +28,10 @@ import LandingFooter from '../components/landing/LandingFooter.astro';
     </script>
   </head>
   <body>
+    <!-- DELETE THIS AFTER TESTING - BUILD VERIFICATION -->
+    <div style="position:fixed;top:0;left:0;right:0;background:red;color:white;padding:20px;z-index:99999;font-size:24px;text-align:center;font-weight:bold;">
+      🔴 BUILD TIME: {new Date().toISOString()} | LANDING PAGE v2.0 DEPLOYED
+    </div>
     <script>
       // #region agent log
       fetch('http://127.0.0.1:7244/ingest/d2fccf00-3424-45da-b940-77d949e2891b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.astro:body',message:'Body rendering',data:{hasLandingNav:true,pathname:window.location.pathname,timestamp:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
