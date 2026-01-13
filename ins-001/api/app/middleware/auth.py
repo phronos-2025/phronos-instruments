@@ -91,11 +91,20 @@ async def get_authenticated_client(
         }
         
         # #region agent log
-        print(f"[DEBUG] Calling Supabase REST API to verify token | url={verify_url} | hypothesisId=H", file=sys.stderr, flush=True)
+        print(f"[DEBUG] Calling Supabase REST API to verify token | url={verify_url} | hasHttpx={httpx is not None} | hypothesisId=H", file=sys.stderr, flush=True)
         # #endregion
         
-        async with httpx.AsyncClient() as client:
-            verify_response = await client.get(verify_url, headers=headers, timeout=10.0)
+        try:
+            async with httpx.AsyncClient() as client:
+                verify_response = await client.get(verify_url, headers=headers, timeout=10.0)
+        except Exception as httpx_error:
+            # #region agent log
+            print(f"[DEBUG] httpx request failed | errorType={type(httpx_error).__name__} | errorMsg={str(httpx_error)} | hypothesisId=H", file=sys.stderr, flush=True)
+            # #endregion
+            raise HTTPException(
+                status_code=500,
+                detail=f"Token verification request failed: {str(httpx_error)}"
+            )
         
         # #region agent log
         print(f"[DEBUG] Supabase REST API response | status={verify_response.status_code} | hypothesisId=H", file=sys.stderr, flush=True)
@@ -111,14 +120,29 @@ async def get_authenticated_client(
                 detail=f"Token verification failed: {error_detail}"
             )
         
-        user_data = verify_response.json()
+        try:
+            user_data = verify_response.json()
+        except Exception as json_error:
+            # #region agent log
+            print(f"[DEBUG] Failed to parse JSON response | error={str(json_error)} | responseText={verify_response.text[:200]} | hypothesisId=H", file=sys.stderr, flush=True)
+            # #endregion
+            raise HTTPException(
+                status_code=500,
+                detail=f"Invalid response from auth service: {str(json_error)}"
+            )
         
         # #region agent log
         print(f"[DEBUG] Token verified | userId={user_data.get('id')} | hypothesisId=H", file=sys.stderr, flush=True)
         # #endregion
         
         # Set the session in the Supabase client for RLS to work
-        supabase.auth.set_session(token, "")
+        try:
+            supabase.auth.set_session(token, "")
+        except Exception as session_error:
+            # #region agent log
+            print(f"[DEBUG] set_session failed but continuing | error={str(session_error)} | hypothesisId=H", file=sys.stderr, flush=True)
+            # #endregion
+            # Continue anyway - the token is verified, RLS might still work
         
         return supabase, {
             "id": user_data["id"],
@@ -126,6 +150,9 @@ async def get_authenticated_client(
             "is_anonymous": user_data.get("is_anonymous", False) or False,
         }
         
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
     except Exception as e:
         # #region agent log
         print(f"[DEBUG] Auth exception caught | errorType={type(e).__name__} | errorMsg={str(e)} | hypothesisId=H", file=sys.stderr, flush=True)

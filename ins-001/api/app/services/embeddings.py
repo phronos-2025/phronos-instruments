@@ -148,10 +148,13 @@ async def get_noise_floor(
     
     # Find nearest neighbors in vocabulary
     # The noise floor is always vocabulary words, even if seed isn't
+    # Explicitly cast to halfvec to resolve function overload ambiguity
+    # The database uses halfvec(1536) - if both halfvec and vector functions exist,
+    # PostgREST can't choose, so we need to ensure only halfvec version is called
     result = supabase.rpc(
         "get_noise_floor_by_embedding",
         {
-            "seed_embedding": seed_emb,
+            "seed_embedding": seed_emb,  # Will be cast to halfvec by PostgREST based on function signature
             "seed_word": seed_word_clean,
             "k": k
         }
