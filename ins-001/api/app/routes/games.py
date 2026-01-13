@@ -264,57 +264,46 @@ async def submit_clues(
 
     divergence_score = compute_divergence(clue_embeddings, floor_embeddings)
 
+    # ALWAYS get LLM guesses (for baseline analytics)
+    llm_guesses = await llm_guess(clues_clean, num_guesses=3)
+
+    # Compute LLM convergence using batch embedding
+    convergence_texts = [
+        f"{game['seed_word']} (in context: {', '.join(clues_clean)})"
+    ] + [
+        f"{g} (in context: {', '.join(clues_clean)})" for g in llm_guesses
+    ]
+    convergence_embeddings = await get_embeddings_batch(convergence_texts)
+
+    seed_emb = convergence_embeddings[0]
+    guess_embs = convergence_embeddings[1:]
+
+    llm_convergence_score, exact_match, llm_guess_similarities = compute_convergence(
+        seed_emb, guess_embs, game["seed_word"], llm_guesses
+    )
+
+    # Update game - store LLM results in llm_* fields, keep status pending_guess
     update_data = {
         "clues": clues_clean,
         "divergence_score": divergence_score,
-        "status": "pending_guess"
+        "llm_guesses": llm_guesses,
+        "llm_convergence_score": llm_convergence_score,
+        "llm_guess_similarities": llm_guess_similarities,
+        "status": "pending_guess"  # Stay pending until user skips or friend guesses
     }
-
-    # If LLM recipient, get LLM guesses immediately
-    llm_guesses = None
-    convergence_score = None
-
-    if game["recipient_type"] == "llm":
-        llm_guesses = await llm_guess(clues_clean, num_guesses=3)
-
-        # OPTIMIZATION: Batch embed seed + all guesses together
-        # Instead of 4 sequential calls, use single batch
-        convergence_texts = [
-            f"{game['seed_word']} (in context: {', '.join(clues_clean)})"
-        ] + [
-            f"{g} (in context: {', '.join(clues_clean)})" for g in llm_guesses
-        ]
-        convergence_embeddings = await get_embeddings_batch(convergence_texts)
-
-        seed_emb = convergence_embeddings[0]
-        guess_embs = convergence_embeddings[1:]
-
-        convergence_score, exact_match, guess_similarities = compute_convergence(
-            seed_emb, guess_embs, game["seed_word"], llm_guesses
-        )
-
-        update_data["guesses"] = llm_guesses
-        update_data["convergence_score"] = convergence_score
-        update_data["status"] = "completed"
-    else:
-        guess_similarities = None
 
     supabase.table("games").update(update_data).eq("id", game_id).execute()
 
-    # Update profile for sender if game completed (LLM games complete immediately)
-    if game["recipient_type"] == "llm":
-        if SUPABASE_SERVICE_KEY:
-            service_supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-            await update_user_profile(service_supabase, user["id"])
-    
+    # Don't update profile yet - wait until game truly completes
+
     return SubmitCluesResponse(
         game_id=game_id,
         clues=clues_clean,
         divergence_score=divergence_score,
-        status=GameStatus.COMPLETED if llm_guesses else GameStatus.PENDING_GUESS,
+        status=GameStatus.PENDING_GUESS,
         llm_guesses=llm_guesses,
-        convergence_score=convergence_score,
-        guess_similarities=guess_similarities
+        convergence_score=llm_convergence_score,
+        guess_similarities=llm_guess_similarities
     )
 
 
@@ -391,19 +380,19 @@ async def submit_guesses(
 
 
 # ============================================
-# REQUEST LLM GUESS
+# SKIP SHARING
 # ============================================
 
-@router.post("/{game_id}/request-llm-guess", response_model=SubmitCluesResponse)
-async def request_llm_guess(
+@router.post("/{game_id}/skip-sharing", response_model=SubmitCluesResponse)
+async def skip_sharing(
     game_id: str,
     auth = Depends(get_authenticated_client)
 ):
     """
-    Request LLM to guess for a game in pending_guess status.
+    Skip sharing and mark game as completed.
 
-    This is called when user skips sharing and wants to see AI results.
-    Changes recipient_type to 'llm' and triggers LLM guesses.
+    LLM guesses are already computed when clues were submitted.
+    This just marks the game as completed (user chose not to share).
     """
     supabase, user = auth
 
@@ -424,33 +413,13 @@ async def request_llm_guess(
 
     game = result.data
 
-    # Get LLM guesses
-    llm_guesses = await llm_guess(game["clues"], num_guesses=3)
-
-    # Compute convergence using batch embedding
-    convergence_texts = [
-        f"{game['seed_word']} (in context: {', '.join(game['clues'])})"
-    ] + [
-        f"{g} (in context: {', '.join(game['clues'])})" for g in llm_guesses
-    ]
-    convergence_embeddings = await get_embeddings_batch(convergence_texts)
-
-    seed_emb = convergence_embeddings[0]
-    guess_embs = convergence_embeddings[1:]
-
-    convergence_score, exact_match, guess_similarities = compute_convergence(
-        seed_emb, guess_embs, game["seed_word"], llm_guesses
-    )
-
-    # Update game with LLM results
+    # Mark game as completed (user skipped sharing)
     supabase.table("games").update({
-        "recipient_type": "llm",
-        "guesses": llm_guesses,
-        "convergence_score": convergence_score,
+        "sharing_skipped": True,
         "status": "completed"
     }).eq("id", game_id).execute()
 
-    # Update user profile
+    # Update user profile now that game is complete
     if SUPABASE_SERVICE_KEY:
         service_supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
         await update_user_profile(service_supabase, user["id"])
@@ -460,7 +429,7 @@ async def request_llm_guess(
         clues=game["clues"],
         divergence_score=game["divergence_score"],
         status=GameStatus.COMPLETED,
-        llm_guesses=llm_guesses,
-        convergence_score=convergence_score,
-        guess_similarities=guess_similarities
+        llm_guesses=game.get("llm_guesses"),
+        convergence_score=game.get("llm_convergence_score"),
+        guess_similarities=game.get("llm_guess_similarities")
     )

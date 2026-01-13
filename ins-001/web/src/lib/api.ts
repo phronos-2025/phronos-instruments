@@ -304,8 +304,8 @@ export const api = {
         body: JSON.stringify(data),
       }),
 
-    requestLlmGuess: (id: string): Promise<SubmitCluesResponse> =>
-      apiCall(`/api/v1/games/${id}/request-llm-guess`, {
+    skipSharing: (id: string): Promise<SubmitCluesResponse> =>
+      apiCall(`/api/v1/games/${id}/skip-sharing`, {
         method: 'POST',
       }),
   },
