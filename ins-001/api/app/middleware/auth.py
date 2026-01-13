@@ -59,6 +59,15 @@ async def get_authenticated_client(
             # This query is filtered by RLS - only returns user's games
             result = supabase.table("games").select("*").eq("id", game_id).execute()
     """
+    import json
+    import os
+    log_path = "/Users/vishal/Documents/GitHub/phronos-instruments/.cursor/debug.log"
+    # #region agent log
+    try:
+        with open(log_path, "a") as f:
+            f.write(json.dumps({"location":"auth.py:43","message":"get_authenticated_client entry","data":{"hasCredentials":bool(credentials),"scheme":credentials.scheme if credentials else None},"timestamp":int(__import__("time").time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"G"})+"\n")
+    except: pass
+    # #endregion
     # Create fresh client with anon key
     supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
     
@@ -66,11 +75,37 @@ async def get_authenticated_client(
     # The JWT is verified by Supabase and auth.uid() returns this user
     token = credentials.credentials
     
+    # #region agent log
     try:
+        with open(log_path, "a") as f:
+            f.write(json.dumps({"location":"auth.py:67","message":"Token extracted","data":{"hasToken":bool(token),"tokenLength":len(token) if token else 0,"tokenPrefix":token[:20] if token else None},"timestamp":int(__import__("time").time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"G"})+"\n")
+    except: pass
+    # #endregion
+    
+    try:
+        # #region agent log
+        try:
+            with open(log_path, "a") as f:
+                f.write(json.dumps({"location":"auth.py:70","message":"Before set_session","data":{},"timestamp":int(__import__("time").time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"H"})+"\n")
+        except: pass
+        # #endregion
         # This verifies the JWT signature and returns user info
         # If token is invalid/expired, this raises an exception
         supabase.auth.set_session(token, "")
+        # #region agent log
+        try:
+            with open(log_path, "a") as f:
+                f.write(json.dumps({"location":"auth.py:73","message":"After set_session, before get_user","data":{},"timestamp":int(__import__("time").time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"H"})+"\n")
+        except: pass
+        # #endregion
         response = supabase.auth.get_user()
+        
+        # #region agent log
+        try:
+            with open(log_path, "a") as f:
+                f.write(json.dumps({"location":"auth.py:74","message":"After get_user","data":{"hasUser":bool(response.user),"userId":response.user.id if response.user else None},"timestamp":int(__import__("time").time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"H"})+"\n")
+        except: pass
+        # #endregion
         
         if not response.user:
             raise HTTPException(status_code=401, detail="Invalid token")
@@ -82,6 +117,12 @@ async def get_authenticated_client(
         }
         
     except Exception as e:
+        # #region agent log
+        try:
+            with open(log_path, "a") as f:
+                f.write(json.dumps({"location":"auth.py:84","message":"Auth exception caught","data":{"errorType":type(e).__name__,"errorMsg":str(e)},"timestamp":int(__import__("time").time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"H"})+"\n")
+        except: pass
+        # #endregion
         raise HTTPException(
             status_code=401, 
             detail=f"Authentication failed: {str(e)}"
