@@ -388,3 +388,79 @@ async def submit_guesses(
         status=GameStatus.COMPLETED,
         guess_similarities=guess_similarities
     )
+
+
+# ============================================
+# REQUEST LLM GUESS
+# ============================================
+
+@router.post("/{game_id}/request-llm-guess", response_model=SubmitCluesResponse)
+async def request_llm_guess(
+    game_id: str,
+    auth = Depends(get_authenticated_client)
+):
+    """
+    Request LLM to guess for a game in pending_guess status.
+
+    This is called when user skips sharing and wants to see AI results.
+    Changes recipient_type to 'llm' and triggers LLM guesses.
+    """
+    supabase, user = auth
+
+    # Get game (must be sender, must be in pending_guess status)
+    try:
+        result = supabase.table("games") \
+            .select("*") \
+            .eq("id", game_id) \
+            .eq("sender_id", user["id"]) \
+            .eq("status", "pending_guess") \
+            .single() \
+            .execute()
+    except APIError:
+        raise HTTPException(status_code=404, detail={"error": "Game not found or not in correct state"})
+
+    if not result.data:
+        raise HTTPException(status_code=404, detail={"error": "Game not found or not in correct state"})
+
+    game = result.data
+
+    # Get LLM guesses
+    llm_guesses = await llm_guess(game["clues"], num_guesses=3)
+
+    # Compute convergence using batch embedding
+    convergence_texts = [
+        f"{game['seed_word']} (in context: {', '.join(game['clues'])})"
+    ] + [
+        f"{g} (in context: {', '.join(game['clues'])})" for g in llm_guesses
+    ]
+    convergence_embeddings = await get_embeddings_batch(convergence_texts)
+
+    seed_emb = convergence_embeddings[0]
+    guess_embs = convergence_embeddings[1:]
+
+    convergence_score, exact_match, guess_similarities = compute_convergence(
+        seed_emb, guess_embs, game["seed_word"], llm_guesses
+    )
+
+    # Update game with LLM results
+    supabase.table("games").update({
+        "recipient_type": "llm",
+        "guesses": llm_guesses,
+        "convergence_score": convergence_score,
+        "status": "completed"
+    }).eq("id", game_id).execute()
+
+    # Update user profile
+    if SUPABASE_SERVICE_KEY:
+        service_supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+        await update_user_profile(service_supabase, user["id"])
+
+    return SubmitCluesResponse(
+        game_id=game_id,
+        clues=game["clues"],
+        divergence_score=game["divergence_score"],
+        status=GameStatus.COMPLETED,
+        llm_guesses=llm_guesses,
+        convergence_score=convergence_score,
+        guess_similarities=guess_similarities
+    )

@@ -89,7 +89,7 @@ export const SeedScreen: React.FC = () => {
     try {
       const response = await api.games.create({
         seed_word: seedWord.trim(),
-        recipient_type: 'llm' // Default to LLM for now
+        recipient_type: 'human' // Human by default, LLM triggered on demand
       });
       
       if (response.is_polysemous && response.sense_options) {

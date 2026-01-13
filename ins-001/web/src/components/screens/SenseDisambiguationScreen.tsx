@@ -33,7 +33,7 @@ export const SenseDisambiguationScreen: React.FC<SenseDisambiguationScreenProps>
       const response = await api.games.create({
         seed_word: seedWord,
         seed_word_sense: selectedSense,
-        recipient_type: 'llm'
+        recipient_type: 'human' // Human by default, LLM triggered on demand
       });
       
       dispatch({

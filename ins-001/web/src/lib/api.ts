@@ -303,6 +303,11 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(data),
       }),
+
+    requestLlmGuess: (id: string): Promise<SubmitCluesResponse> =>
+      apiCall(`/api/v1/games/${id}/request-llm-guess`, {
+        method: 'POST',
+      }),
   },
   
   share: {
