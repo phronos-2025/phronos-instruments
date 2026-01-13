@@ -216,15 +216,37 @@ async function apiCall<T>(
     // Network errors (CORS, connection refused, etc.)
     if (error instanceof TypeError) {
       if (error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
-        // More specific error message
-        const errorMsg = `Network error: Cannot connect to API at ${API_URL}. ` +
-          `Possible causes: ` +
-          `1) API URL incorrect - check PUBLIC_API_URL env var, ` +
-          `2) CORS not configured - add ${window.location.origin} to API CORS origins, ` +
-          `3) API server not running or unreachable.`;
-        console.error('API Connection Error:', errorMsg);
-        console.error('Current origin:', window.location.origin);
+        // Log the actual error for debugging
+        console.error('=== API REQUEST FAILED ===');
+        console.error('Error type:', error.constructor.name);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+        console.error('Request URL:', fullUrl);
+        console.error('Request method:', options.method || 'GET');
+        console.error('Request headers:', headers);
+        console.error('Current origin:', typeof window !== 'undefined' ? window.location.origin : 'N/A');
         console.error('API URL:', API_URL);
+        console.error('================================');
+        
+        // Check if it's a CORS error (browser blocks before response)
+        const isCorsError = error.message.includes('CORS') || 
+                           error.message.includes('Access-Control') ||
+                           (typeof window !== 'undefined' && !error.message.includes('NetworkError'));
+        
+        let errorMsg;
+        if (isCorsError) {
+          errorMsg = `CORS error: API at ${API_URL} is blocking requests from ${window.location.origin}. ` +
+            `Check Railway API CORS configuration and ensure it includes: ${window.location.origin}`;
+        } else {
+          errorMsg = `Network error: Cannot connect to API at ${API_URL}. ` +
+            `Possible causes: ` +
+            `1) API URL incorrect - check PUBLIC_API_URL env var, ` +
+            `2) CORS not configured - add ${window.location.origin} to API CORS origins, ` +
+            `3) API server not running or unreachable. ` +
+            `Check browser Network tab for detailed error.`;
+        }
+        
+        console.error('Final error message:', errorMsg);
         throw new Error(errorMsg);
       }
     }
