@@ -77,16 +77,26 @@ export const IntroScreen: React.FC = () => {
             onChange={(e) => setConsentAccepted(e.target.checked)}
             style={{ marginTop: '4px', accentColor: 'var(--gold)', width: '16px', height: '16px', cursor: 'pointer' }}
           />
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--faded)', lineHeight: '1.4' }}>
-            I consent to the anonymous processing of my semantic associations for the Phronos Index.{' '}
-            <a 
-              href="https://phronos.org/constitution" 
-              target="_blank" 
-              rel="noopener noreferrer" 
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--faded)', lineHeight: '1.5' }}>
+            I agree to the{' '}
+            <a
+              href="https://phronos.org/terms"
+              target="_blank"
+              rel="noopener noreferrer"
               style={{ color: 'var(--gold)', textDecoration: 'none', borderBottom: '1px dotted' }}
             >
-              Read Constitution
-            </a>.
+              Terms of Service
+            </a>
+            {' '}and{' '}
+            <a
+              href="https://phronos.org/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: 'var(--gold)', textDecoration: 'none', borderBottom: '1px dotted' }}
+            >
+              Privacy Policy
+            </a>
+            , and consent to the processing of my responses as described therein.
           </span>
         </label>
       </div>
