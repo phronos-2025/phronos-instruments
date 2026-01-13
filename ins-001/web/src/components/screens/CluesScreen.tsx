@@ -64,21 +64,6 @@ export const CluesScreen: React.FC<CluesScreenProps> = ({
     }
   };
   
-  // #region agent log
-  React.useEffect(() => {
-    const panelHeader = document.querySelector('.panel-header');
-    const computedStyle = panelHeader ? window.getComputedStyle(panelHeader) : null;
-    const logData = {
-      hasPanelHeader: !!panelHeader,
-      justifyContent: computedStyle?.justifyContent || 'N/A',
-      display: computedStyle?.display || 'N/A',
-      noiseFloorCount: noiseFloor.length,
-      cluesCount: clues.length
-    };
-    console.log('[DEBUG] CluesScreen CSS:', logData);
-  }, [noiseFloor.length, clues.length]);
-  // #endregion
-  
   return (
     <div>
       <ProgressBar currentStep={2} />

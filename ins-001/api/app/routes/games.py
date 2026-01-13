@@ -4,6 +4,7 @@ Games Routes - INS-001 Semantic Associations
 Handles game CRUD operations.
 """
 
+import json
 from fastapi import APIRouter, HTTPException, Depends
 from app.models import (
     CreateGameRequest, CreateGameResponse,
@@ -209,7 +210,36 @@ async def submit_clues(
             .single() \
             .execute()
         if word_result.data:
-            floor_embeddings.append(word_result.data["embedding"])
+            embedding = word_result.data["embedding"]
+            # Convert halfvec to list of floats
+            # Supabase may return halfvec as string, list, or other format
+            if isinstance(embedding, str):
+                # Try JSON first (most common format)
+                try:
+                    embedding = json.loads(embedding)
+                except (json.JSONDecodeError, ValueError):
+                    # If not JSON, try parsing as space/comma-separated values
+                    try:
+                        # Remove brackets and parse
+                        cleaned = embedding.strip('[]{}')
+                        embedding = [float(x.strip()) for x in cleaned.replace(',', ' ').split() if x.strip()]
+                    except (ValueError, AttributeError):
+                        print(f"ERROR: Could not parse embedding for word '{floor_word['word']}': {type(embedding)}")
+                        continue
+            elif not isinstance(embedding, list):
+                # Try to convert other iterable types
+                try:
+                    embedding = list(embedding)
+                except (TypeError, ValueError):
+                    print(f"ERROR: Embedding for word '{floor_word['word']}' is not convertible: {type(embedding)}")
+                    continue
+            
+            # Validate it's a list of numbers
+            if not isinstance(embedding, list) or not all(isinstance(x, (int, float)) for x in embedding):
+                print(f"ERROR: Invalid embedding format for word '{floor_word['word']}': {type(embedding)}")
+                continue
+                
+            floor_embeddings.append(embedding)
     
     divergence_score = compute_divergence(clue_embeddings, floor_embeddings)
     

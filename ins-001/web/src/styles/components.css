@@ -285,12 +285,52 @@
   border: 1px solid rgba(242, 240, 233, 0.15);
   color: var(--faded);
   background: transparent;
+  position: relative;
+  z-index: 1;
   transition: all var(--transition-default);
+  overflow: hidden;
+}
+
+/* Similarity bar background (like a bar chart) */
+.noise-word::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: var(--similarity-width, 0%);
+  background: rgba(242, 240, 233, 0.08);
+  z-index: 0;
+  transition: width var(--transition-default);
 }
 
 .noise-word:hover {
   border-color: var(--gold);
   color: var(--text-light);
+}
+
+/* Show similarity score on hover */
+.noise-word::after {
+  content: 'Similarity: ' attr(data-similarity);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--card-bg);
+  border: 1px solid var(--faded-light);
+  padding: 4px 8px;
+  font-size: var(--text-xs);
+  color: var(--faded);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-default);
+  margin-bottom: 4px;
+  z-index: 10;
+}
+
+.noise-word:hover::after {
+  opacity: 1;
 }
 
 /* ============================================
