@@ -181,6 +181,31 @@ async def get_game(
 # SUBMIT CLUES
 # ============================================
 
+def _parse_embedding(embedding, word: str) -> list[float] | None:
+    """Parse embedding from various formats returned by Supabase."""
+    if isinstance(embedding, str):
+        # Try JSON first (most common format)
+        try:
+            embedding = json.loads(embedding)
+        except (json.JSONDecodeError, ValueError):
+            # If not JSON, try parsing as space/comma-separated values
+            try:
+                cleaned = embedding.strip('[]{}')
+                embedding = [float(x.strip()) for x in cleaned.replace(',', ' ').split() if x.strip()]
+            except (ValueError, AttributeError):
+                return None
+    elif not isinstance(embedding, list):
+        try:
+            embedding = list(embedding)
+        except (TypeError, ValueError):
+            return None
+
+    if not isinstance(embedding, list) or not all(isinstance(x, (int, float)) for x in embedding):
+        return None
+
+    return embedding
+
+
 @router.post("/{game_id}/clues", response_model=SubmitCluesResponse)
 async def submit_clues(
     game_id: str,
@@ -189,14 +214,14 @@ async def submit_clues(
 ):
     """
     Submit clues for a game.
-    
+
     Clues can be ANY word - XML escaping handles LLM prompt safety.
     """
     supabase, user = auth
-    
+
     # Clean clues (no vocabulary validation - accept any word)
     clues_clean = [c.lower().strip() for c in request.clues]
-    
+
     # Get game
     result = supabase.table("games") \
         .select("*") \
@@ -205,81 +230,58 @@ async def submit_clues(
         .eq("status", "pending_clues") \
         .single() \
         .execute()
-    
+
     if not result.data:
         raise HTTPException(status_code=404, detail={"error": "Game not found or not in correct state"})
-    
+
     game = result.data
-    
-    # Compute divergence score
-    # Get contextual embeddings for clues (in context of seed word)
-    clue_embeddings = []
-    for clue in clues_clean:
-        emb = await get_contextual_embedding(clue, [game["seed_word"]])
-        clue_embeddings.append(emb)
-    
-    # Get floor embeddings
+
+    # OPTIMIZATION: Batch embed all clues in a single API call
+    # Instead of 5 sequential calls, use batch embedding
+    clue_texts = [f"{clue} (in context: {game['seed_word']})" for clue in clues_clean]
+    clue_embeddings = await get_embeddings_batch(clue_texts)
+
+    # OPTIMIZATION: Batch fetch all floor embeddings in a single query
+    floor_words = [fw["word"] for fw in game["noise_floor"]]
+    floor_result = supabase.table("vocabulary_embeddings") \
+        .select("word, embedding") \
+        .in_("word", floor_words) \
+        .execute()
+
     floor_embeddings = []
-    for floor_word in game["noise_floor"]:
-        # Use stored vocabulary embedding (don't re-embed)
-        word_result = supabase.table("vocabulary_embeddings") \
-            .select("embedding") \
-            .eq("word", floor_word["word"]) \
-            .single() \
-            .execute()
-        if word_result.data:
-            embedding = word_result.data["embedding"]
-            # Convert halfvec to list of floats
-            # Supabase may return halfvec as string, list, or other format
-            if isinstance(embedding, str):
-                # Try JSON first (most common format)
-                try:
-                    embedding = json.loads(embedding)
-                except (json.JSONDecodeError, ValueError):
-                    # If not JSON, try parsing as space/comma-separated values
-                    try:
-                        # Remove brackets and parse
-                        cleaned = embedding.strip('[]{}')
-                        embedding = [float(x.strip()) for x in cleaned.replace(',', ' ').split() if x.strip()]
-                    except (ValueError, AttributeError):
-                        print(f"ERROR: Could not parse embedding for word '{floor_word['word']}': {type(embedding)}")
-                        continue
-            elif not isinstance(embedding, list):
-                # Try to convert other iterable types
-                try:
-                    embedding = list(embedding)
-                except (TypeError, ValueError):
-                    print(f"ERROR: Embedding for word '{floor_word['word']}' is not convertible: {type(embedding)}")
-                    continue
-            
-            # Validate it's a list of numbers
-            if not isinstance(embedding, list) or not all(isinstance(x, (int, float)) for x in embedding):
-                print(f"ERROR: Invalid embedding format for word '{floor_word['word']}': {type(embedding)}")
-                continue
-                
-            floor_embeddings.append(embedding)
-    
+    if floor_result.data:
+        for row in floor_result.data:
+            parsed = _parse_embedding(row["embedding"], row["word"])
+            if parsed:
+                floor_embeddings.append(parsed)
+
     divergence_score = compute_divergence(clue_embeddings, floor_embeddings)
-    
+
     update_data = {
         "clues": clues_clean,
         "divergence_score": divergence_score,
         "status": "pending_guess"
     }
-    
-    # 5. If LLM recipient, get LLM guesses immediately
+
+    # If LLM recipient, get LLM guesses immediately
     llm_guesses = None
     convergence_score = None
-    
+
     if game["recipient_type"] == "llm":
         llm_guesses = await llm_guess(clues_clean, num_guesses=3)
-        
-        # Compute convergence for LLM guesses
-        # CRITICAL: Use contextual embeddings with clues as context
-        # This ensures polysemous seeds are disambiguated correctly
-        seed_emb = await get_contextual_embedding(game["seed_word"], clues_clean)
-        guess_embs = [await get_contextual_embedding(g, clues_clean) for g in llm_guesses]
-        
+
+        # OPTIMIZATION: Batch embed seed + all guesses together
+        # Instead of 4 sequential calls, use single batch
+        convergence_texts = [
+            f"{game['seed_word']} (in context: {', '.join(clues_clean)})"
+        ] + [
+            f"{g} (in context: {', '.join(clues_clean)})" for g in llm_guesses
+        ]
+        convergence_embeddings = await get_embeddings_batch(convergence_texts)
+
+        seed_emb = convergence_embeddings[0]
+        guess_embs = convergence_embeddings[1:]
+
         convergence_score, exact_match, guess_similarities = compute_convergence(
             seed_emb, guess_embs, game["seed_word"], llm_guesses
         )
@@ -289,7 +291,7 @@ async def submit_clues(
         update_data["status"] = "completed"
     else:
         guess_similarities = None
-    
+
     supabase.table("games").update(update_data).eq("id", game_id).execute()
 
     # Update profile for sender if game completed (LLM games complete immediately)
