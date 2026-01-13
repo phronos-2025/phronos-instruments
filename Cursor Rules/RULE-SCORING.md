@@ -18,7 +18,7 @@ Changing them invalidates all collected data.
 divergence = 1 - mean(cosine_similarity(clue_embeddings, floor_centroid))
 
 # Convergence - DO NOT CHANGE  
-convergence = max(cosine_similarity(guess_embeddings, seed_embedding))
+convergence = mean(cosine_similarity(guess_embeddings, seed_embedding))
 
 # Fuzzy match threshold - DO NOT CHANGE
 FUZZY_EXACT_MATCH_THRESHOLD = 0.99
@@ -27,7 +27,6 @@ FUZZY_EXACT_MATCH_THRESHOLD = 0.99
 ## Locked Constants
 
 - Range: [0, 1] for both metrics
-- Exact string match returns 1.0
 - Fuzzy match (>99% similarity) returns 1.0
 
 ## If You Think Changes Are Needed

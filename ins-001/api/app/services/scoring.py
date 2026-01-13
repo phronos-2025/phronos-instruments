@@ -95,6 +95,10 @@ def compute_convergence(
     """
     Compute convergence score for a set of guesses.
     
+    Uses mean similarity across all guesses to account for the full
+    attempt sequence, not just the best guess. This penalizes cases
+    where early guesses were far off even if later guesses were correct.
+    
     Handles the case where seed might be misspelled or use alternate
     spelling (e.g., "Ghandi" vs "Gandhi") by treating very high
     similarity (>99%) as an exact match.
@@ -107,7 +111,7 @@ def compute_convergence(
         
     Returns:
         Tuple of (convergence_score, exact_match)
-        - convergence_score in range [0, 1]
+        - convergence_score in range [0, 1] (mean of all guess similarities)
         - exact_match: True if any guess exactly matches seed (string or fuzzy)
         
     Interpretation:
@@ -130,16 +134,17 @@ def compute_convergence(
         sim = cosine_similarity(guess_emb, seed_embedding)
         similarities.append(sim)
     
-    max_similarity = max(similarities)
-    
     # 3. Fuzzy exact match bonus
     # Handles misspellings and alternate spellings (Ghandi/Gandhi)
-    # If embedding similarity is >99%, treat as exact match
+    # If any embedding similarity is >99%, treat as exact match
+    max_similarity = max(similarities)
     if max_similarity > FUZZY_EXACT_MATCH_THRESHOLD:
         return 1.0, True
     
-    # 4. Return best similarity, clamped to [0, 1]
-    return float(max(0.0, min(1.0, max_similarity))), False
+    # 4. Return mean similarity, clamped to [0, 1]
+    # This accounts for all guesses, not just the best one
+    mean_similarity = np.mean(similarities)
+    return float(max(0.0, min(1.0, mean_similarity))), False
 
 
 def compute_semantic_portability(
@@ -287,11 +292,14 @@ def test_convergence():
     assert conv == 1.0
     
     # Similar guess (not exact)
+    # Use vector that gives ~0.8 similarity (below 0.99 threshold)
+    # For [1,0,0] and [0.8, 0.6, 0], similarity = 0.8 / sqrt(0.8^2 + 0.6^2) = 0.8
     seed_emb = [1, 0, 0]
-    guess_embs = [[0.9, 0.1, 0]]
+    guess_embs = [[0.8, 0.6, 0]]
     conv, exact = compute_convergence(seed_emb, guess_embs, "cat", ["dog"])
     assert exact == False
-    assert conv > 0.8
+    assert conv > 0.7
+    assert conv < 0.99  # Should be below fuzzy match threshold
 
 
 def test_fuzzy_exact_match():
@@ -318,12 +326,43 @@ def test_string_exact_match_case_insensitive():
 
 def test_no_fuzzy_match_below_threshold():
     """Test that similarity below threshold doesn't trigger fuzzy match."""
+    # Use vector that gives ~0.9 similarity (below 0.99 threshold)
+    # For [1,0,0] and [0.9, 0.4359, 0], similarity ≈ 0.9
     seed_emb = [1.0, 0.0, 0.0]
-    guess_embs = [[0.95, 0.1, 0.0]]  # ~95% similar, below 99% threshold
+    guess_embs = [[0.9, 0.4359, 0.0]]  # Normalized: sqrt(0.9^2 + 0.4359^2) ≈ 1.0, similarity ≈ 0.9
     
     conv, exact = compute_convergence(seed_emb, guess_embs, "cat", ["dog"])
     assert exact == False, "Should not trigger fuzzy match below threshold"
-    assert conv < 1.0
+    assert conv < 0.99  # Should be below fuzzy match threshold
+    assert conv > 0.8   # But still reasonably high
+
+
+def test_convergence_uses_mean():
+    """Test that convergence uses mean of all guesses, not just max."""
+    # Test with multiple guesses where none are exact matches
+    # Use vectors that give different similarity scores
+    seed_emb = [1.0, 0.0, 0.0]
+    # First guess: orthogonal (similarity = 0)
+    # Second guess: 45 degrees (similarity ≈ 0.707)
+    # Third guess: 30 degrees (similarity ≈ 0.866)
+    guess_embs = [
+        [0.0, 1.0, 0.0],           # Orthogonal to seed (similarity = 0.0)
+        [0.707, 0.707, 0.0],       # 45 degrees (similarity ≈ 0.707)
+        [0.866, 0.5, 0.0]          # ~30 degrees (similarity ≈ 0.866)
+    ]
+    
+    conv, exact = compute_convergence(seed_emb, guess_embs, "gun", ["arm", "finger", "weapon"])
+    assert exact == False, "Should not trigger exact match"
+    # Mean should be approximately (0.0 + 0.707 + 0.866) / 3 ≈ 0.524
+    # With max it would be ~0.866, with mean it should be lower
+    assert conv < 0.8, f"Mean should be lower than max (~0.866), got {conv}"
+    assert conv > 0.4, f"Mean should account for all guesses, got {conv}"
+    
+    # Verify it's actually using mean by checking it's between min and max
+    # and closer to what we'd expect from averaging
+    similarities = [cosine_similarity(seed_emb, g) for g in guess_embs]
+    expected_mean = np.mean(similarities)
+    assert abs(conv - expected_mean) < 0.01, f"Should use mean ({expected_mean}), got {conv}"
 
 
 def test_archetypes():

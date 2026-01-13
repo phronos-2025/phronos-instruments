@@ -2,7 +2,7 @@
  * Phronos Logo Component
  * 
  * Animated ouroboros (self-consuming serpent) logo with pulsing gold center.
- * Based on logo-animation.js specifications.
+ * Based on logo-animation.ts from phronos.org (frame-rate independent, retina-ready).
  */
 
 import React, { useEffect, useRef } from 'react';
@@ -15,8 +15,10 @@ const COLORS = {
 };
 
 // Animation Constants
-const ROTATION_SPEED = 0.015;  // radians per frame
-const PULSE_SPEED = 400;       // ms per cycle (used in sin function)
+// Rotation speed in radians per second (frame-rate independent)
+// Target: ~0.0716 rotations/second = 0.45 radians/second
+const ROTATION_SPEED_PER_SECOND = 0.45;
+const PULSE_SPEED = 400; // ms per cycle (used in sin function)
 
 interface PhronosLogoProps {
   size?: number;
@@ -26,6 +28,7 @@ export const PhronosLogo: React.FC<PhronosLogoProps> = ({ size = 24 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationIdRef = useRef<number | null>(null);
   const rotationRef = useRef<number>(0);
+  const lastTimeRef = useRef<number>(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -36,15 +39,30 @@ export const PhronosLogo: React.FC<PhronosLogoProps> = ({ size = 24 }) => {
 
     // Calculate scaled dimensions based on reference size of 31px
     const scale = size / 31;
+    
+    // Device Pixel Ratio for retina displays
+    const dpr = window.devicePixelRatio || 1;
+    
+    // Scale canvas for retina (internal size is larger, CSS size stays the same)
+    canvas.width = size * dpr;
+    canvas.height = size * dpr;
+    canvas.style.width = `${size}px`;
+    canvas.style.height = `${size}px`;
+    
+    // Scale context to match DPR
+    ctx.scale(dpr, dpr);
 
     const scaled = (value: number) => value * scale;
 
-    const draw = () => {
+    const draw = (deltaTime: number = 0) => {
       const centerX = size / 2;
       const centerY = size / 2;
 
       // Clear canvas
       ctx.clearRect(0, 0, size, size);
+
+      // Time-based rotation: radians per second * deltaTime (frame-rate independent)
+      rotationRef.current += ROTATION_SPEED_PER_SECOND * deltaTime;
 
       // === 1. Ouroboros (Rotating Serpent Ring) ===
       ctx.save();
@@ -100,13 +118,14 @@ export const PhronosLogo: React.FC<PhronosLogoProps> = ({ size = 24 }) => {
       ctx.arc(centerX, centerY, scaled(1.6), 0, Math.PI * 2);
       ctx.fillStyle = COLORS.gold;
       ctx.fill();
-
-      // Update rotation for next frame
-      rotationRef.current += ROTATION_SPEED;
     };
 
-    const animate = () => {
-      draw();
+    const animate = (currentTime: number = 0) => {
+      // Calculate delta time in seconds (frame-rate independent)
+      const deltaTime = lastTimeRef.current ? (currentTime - lastTimeRef.current) / 1000 : 0;
+      lastTimeRef.current = currentTime;
+      
+      draw(deltaTime);
       animationIdRef.current = requestAnimationFrame(animate);
     };
 
@@ -124,8 +143,6 @@ export const PhronosLogo: React.FC<PhronosLogoProps> = ({ size = 24 }) => {
   return (
     <canvas
       ref={canvasRef}
-      width={size}
-      height={size}
       style={{ 
         display: 'block',
         width: `${size}px`,

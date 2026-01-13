@@ -93,6 +93,7 @@ export const CluesScreen: React.FC<CluesScreenProps> = ({
               number={idx + 1}
               value={clue}
               onChange={(value) => handleClueChange(idx, value)}
+              noiseFloor={noiseFloor}
             />
           ))}
         </div>
