@@ -517,21 +517,28 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(data),
       }),
-    
+
     get: (id: string): Promise<GameResponse> =>
       apiCall(`/api/v1/games/${id}`),
-    
+
     submitClues: (id: string, data: SubmitCluesRequest): Promise<SubmitCluesResponse> =>
       apiCall(`/api/v1/games/${id}/clues`, {
         method: 'POST',
         body: JSON.stringify(data),
       }),
-    
+
     submitGuesses: (id: string, data: SubmitGuessesRequest): Promise<SubmitGuessesResponse> =>
       apiCall(`/api/v1/games/${id}/guesses`, {
         method: 'POST',
         body: JSON.stringify(data),
       }),
+
+    suggest: (attempt?: number): Promise<SuggestWordResponse> => {
+      const params = new URLSearchParams();
+      if (attempt) params.set('attempt', attempt.toString());
+      const query = params.toString();
+      return apiCall(`/api/v1/bridging/suggest${query ? `?${query}` : ''}`);
+    },
   },
   
   share: {

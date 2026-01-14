@@ -16,6 +16,8 @@ export const SeedScreen: React.FC = () => {
   const { dispatch } = useGameState();
   const [seedWord, setSeedWord] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSuggesting, setIsSuggesting] = useState(false);
+  const [suggestAttempt, setSuggestAttempt] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [authReady, setAuthReady] = useState(false);
   
@@ -79,6 +81,19 @@ export const SeedScreen: React.FC = () => {
     });
   }, [authReady]);
   
+  const handleSuggest = async () => {
+    setIsSuggesting(true);
+    try {
+      const response = await api.games.suggest(suggestAttempt);
+      setSeedWord(response.suggestion);
+      setSuggestAttempt((a) => a + 1);
+    } catch (err) {
+      console.error('Suggest failed:', err);
+    } finally {
+      setIsSuggesting(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!seedWord.trim() || !authReady) return;
@@ -147,6 +162,24 @@ export const SeedScreen: React.FC = () => {
               autoFocus
               disabled={isSubmitting}
             />
+            <button
+              type="button"
+              onClick={handleSuggest}
+              disabled={isSuggesting || isSubmitting}
+              style={{
+                marginTop: 'var(--space-xs)',
+                background: 'transparent',
+                border: '1px solid var(--border)',
+                color: 'var(--faded)',
+                padding: '0.5rem 1rem',
+                fontSize: '0.75rem',
+                fontFamily: 'var(--font-mono)',
+                cursor: 'pointer',
+                borderRadius: '4px',
+              }}
+            >
+              {isSuggesting ? '...' : 'Suggest'}
+            </button>
             <p className="input-hint">
               Any word works: common words, technical terms, proper nouns, slang.
             </p>

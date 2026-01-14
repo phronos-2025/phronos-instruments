@@ -34,7 +34,6 @@ interface DotPlotRowProps {
 // Single row in the connected dot plot
 function DotPlotRow({ label, concepts, relevance, spread, isYou }: DotPlotRowProps) {
   const scale = (val: number) => Math.min(100, Math.max(0, val));
-  const delta = Math.round(spread - relevance);
 
   return (
     <div style={{ marginBottom: 'var(--space-lg)' }}>
@@ -46,6 +45,7 @@ function DotPlotRow({ label, concepts, relevance, spread, isYou }: DotPlotRowPro
           color: isYou ? 'var(--gold)' : 'var(--text-light)',
           marginBottom: 'var(--space-xs)',
           letterSpacing: '0.02em',
+          textAlign: 'center',
         }}
       >
         {concepts.join(' · ')}
@@ -59,9 +59,10 @@ function DotPlotRow({ label, concepts, relevance, spread, isYou }: DotPlotRowPro
             width: '80px',
             fontFamily: 'var(--font-mono)',
             fontSize: '0.65rem',
+            fontWeight: 600,
             textTransform: 'uppercase',
             letterSpacing: '0.5px',
-            color: isYou ? 'var(--gold)' : 'var(--faded)',
+            color: isYou ? 'var(--gold)' : 'var(--text-light)',
           }}
         >
           {label}
@@ -75,6 +76,7 @@ function DotPlotRow({ label, concepts, relevance, spread, isYou }: DotPlotRowPro
             position: 'relative',
             backgroundColor: 'rgba(255, 255, 255, 0.03)',
             borderRadius: '2px',
+            marginBottom: '16px',
           }}
         >
           {/* Gridlines */}
@@ -141,7 +143,7 @@ function DotPlotRow({ label, concepts, relevance, spread, isYou }: DotPlotRowPro
             style={{
               position: 'absolute',
               left: `${scale(relevance)}%`,
-              top: '2px',
+              bottom: '-16px',
               transform: 'translateX(-50%)',
               fontFamily: 'var(--font-mono)',
               fontSize: '0.6rem',
@@ -154,7 +156,7 @@ function DotPlotRow({ label, concepts, relevance, spread, isYou }: DotPlotRowPro
             style={{
               position: 'absolute',
               left: `${scale(spread)}%`,
-              top: '2px',
+              bottom: '-16px',
               transform: 'translateX(-50%)',
               fontFamily: 'var(--font-mono)',
               fontSize: '0.6rem',
@@ -165,18 +167,6 @@ function DotPlotRow({ label, concepts, relevance, spread, isYou }: DotPlotRowPro
           </span>
         </div>
 
-        {/* Delta indicator */}
-        <div
-          style={{
-            width: '40px',
-            textAlign: 'right',
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.65rem',
-            color: 'var(--faded)',
-          }}
-        >
-          {delta > 0 ? `+${delta}` : delta}
-        </div>
       </div>
     </div>
   );
@@ -205,6 +195,7 @@ function HumanShareRow({
           marginBottom: 'var(--space-xs)',
           letterSpacing: '0.02em',
           fontStyle: 'italic',
+          textAlign: 'center',
         }}
       >
         compare your concepts
@@ -218,9 +209,10 @@ function HumanShareRow({
             width: '80px',
             fontFamily: 'var(--font-mono)',
             fontSize: '0.65rem',
+            fontWeight: 600,
             textTransform: 'uppercase',
             letterSpacing: '0.5px',
-            color: 'var(--faded)',
+            color: 'var(--text-light)',
           }}
         >
           Human
@@ -272,8 +264,6 @@ function HumanShareRow({
           </div>
         </div>
 
-        {/* Empty delta space for alignment */}
-        <div style={{ width: '40px' }} />
       </div>
 
       {shareError && (
@@ -283,7 +273,7 @@ function HumanShareRow({
             fontSize: '0.6rem',
             color: 'var(--alert)',
             marginTop: 'var(--space-xs)',
-            marginLeft: '92px',
+            textAlign: 'center',
           }}
         >
           {shareError}
@@ -384,6 +374,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
         <div
           style={{
             display: 'flex',
+            justifyContent: 'center',
             gap: 'var(--space-md)',
             marginBottom: 'var(--space-md)',
             fontFamily: 'var(--font-mono)',
@@ -417,19 +408,16 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
             />
             <span>Spread</span>
           </div>
-          <div style={{ marginLeft: 'auto', color: 'var(--faded)' }}>
-            <span>Δ = gap</span>
-          </div>
         </div>
 
         {/* Axis scale */}
-        <div style={{ marginLeft: '92px', marginRight: '52px', marginBottom: 'var(--space-sm)' }}>
+        <div style={{ marginLeft: '92px', marginRight: '12px', marginBottom: 'var(--space-sm)' }}>
           <div
             style={{
               display: 'flex',
               justifyContent: 'space-between',
               fontFamily: 'var(--font-mono)',
-              fontSize: '0.55rem',
+              fontSize: '11px',
               color: 'var(--faded)',
               marginBottom: '2px',
             }}
