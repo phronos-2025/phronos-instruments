@@ -27,16 +27,20 @@ from app.models import (
 )
 from app.middleware.auth import get_authenticated_client
 from app.services.embeddings import get_embedding, get_embeddings_batch
+from app.services.scoring import (
+    score_union,
+    compare_submissions,
+    get_relevance_interpretation,
+    get_divergence_interpretation,
+)
 from app.services.scoring_bridging import (
-    calculate_divergence,
-    calculate_binding_strength,
+    # Legacy functions for backwards compatibility
     calculate_reconstruction,
     calculate_bridge_similarity,
     calculate_semantic_distance,
-    calculate_statistical_baseline,
-    get_divergence_interpretation,
     get_reconstruction_interpretation,
     find_lexical_bridge,
+    find_lexical_union,
     _is_morphological_variant
 )
 from app.services.llm import haiku_reconstruct_bridge, haiku_build_bridge
@@ -200,21 +204,31 @@ async def submit_bridging_clues(
     target_emb = all_embeddings[1]
     clue_embs = all_embeddings[2:]
 
-    # Calculate divergence (perpendicular distance from anchor-target line)
-    divergence_score = calculate_divergence(anchor_emb, target_emb, clue_embs)
+    # Calculate unified scores using new scoring system (relevance + spread)
+    participant_scores = score_union(clue_embs, anchor_emb, target_emb)
+    relevance = participant_scores["relevance"]
+    divergence = participant_scores["divergence"]  # DAT-style spread (0-100)
 
-    # Calculate binding strength (how well clues relate to BOTH endpoints)
-    binding_score = calculate_binding_strength(anchor_emb, target_emb, clue_embs)
+    # Legacy field names for backwards compatibility
+    divergence_score = divergence
+    binding_score = relevance * 100  # Convert 0-1 to 0-100 for legacy display
 
     # Calculate lexical union (equidistant concepts with same count as participant)
     lexical_bridge = None
     lexical_similarity = None
+    lexical_relevance = None
+    lexical_divergence = None
     try:
-        lexical_bridge = await find_lexical_bridge(anchor, target, len(clues_clean), supabase)
+        lexical_bridge = await find_lexical_union(anchor, target, len(clues_clean), supabase)
 
-        # Calculate similarity between user's clues and lexical union
+        # Calculate scores for lexical union
         if lexical_bridge and len(lexical_bridge) > 0:
             lexical_embs = await get_embeddings_batch(lexical_bridge)
+            lexical_scores = score_union(lexical_embs, anchor_emb, target_emb)
+            lexical_relevance = lexical_scores["relevance"]
+            lexical_divergence = lexical_scores["divergence"]
+
+            # Legacy: Calculate similarity between user's clues and lexical union
             lexical_sim_result = calculate_bridge_similarity(
                 sender_clue_embeddings=clue_embs,
                 recipient_clue_embeddings=lexical_embs,
@@ -235,16 +249,24 @@ async def submit_bridging_clues(
 
     update_data = {
         "clues": clues_clean,
+        # New unified scoring fields
+        "relevance": relevance,
+        "divergence": divergence,
+        # Legacy fields for backwards compatibility
         "divergence_score": divergence_score,
         "binding_score": binding_score,
+        # Lexical union
         "lexical_bridge": lexical_bridge,
-        "lexical_similarity": lexical_similarity,
+        "lexical_relevance": lexical_relevance,
+        "lexical_divergence": lexical_divergence,
+        "lexical_similarity": lexical_similarity,  # Legacy
         "share_code": share_code,
         "status": "pending_guess" if game["recipient_type"] == "human" else "pending_clues"
     }
 
     # If Haiku recipient, have Haiku build its own bridge (V2 approach)
     haiku_clues = None
+    haiku_relevance = None
     haiku_divergence = None
     haiku_binding = None
     haiku_bridge_similarity = None
@@ -263,11 +285,13 @@ async def submit_bridging_clues(
             # Embed Haiku's clues
             haiku_clue_embs = await get_embeddings_batch(haiku_clues)
 
-            # Calculate Haiku's divergence and binding
-            haiku_divergence = calculate_divergence(anchor_emb, target_emb, haiku_clue_embs)
-            haiku_binding = calculate_binding_strength(anchor_emb, target_emb, haiku_clue_embs)
+            # Calculate Haiku's scores using new unified scoring
+            haiku_scores = score_union(haiku_clue_embs, anchor_emb, target_emb)
+            haiku_relevance = haiku_scores["relevance"]
+            haiku_divergence = haiku_scores["divergence"]  # DAT-style spread
+            haiku_binding = haiku_relevance * 100  # Legacy: convert to 0-100
 
-            # Calculate union similarity between sender and Haiku
+            # Calculate union similarity between sender and Haiku (legacy)
             similarity_result = calculate_bridge_similarity(
                 sender_clue_embeddings=clue_embs,
                 recipient_clue_embeddings=haiku_clue_embs,
@@ -277,8 +301,9 @@ async def submit_bridging_clues(
             haiku_bridge_similarity = similarity_result["overall"]
 
             update_data["haiku_clues"] = haiku_clues
+            update_data["haiku_relevance"] = haiku_relevance
             update_data["haiku_divergence"] = haiku_divergence
-            update_data["haiku_binding"] = haiku_binding
+            update_data["haiku_binding"] = haiku_binding  # Legacy
             update_data["haiku_bridge_similarity"] = haiku_bridge_similarity
             update_data["status"] = "completed"
 
@@ -287,18 +312,27 @@ async def submit_bridging_clues(
     return SubmitBridgingCluesResponse(
         game_id=game_id,
         clues=clues_clean,
+        # New unified scoring fields
+        relevance=relevance,
+        relevance_percentile=None,  # TODO: Bootstrap percentile calculation
+        divergence=divergence,
+        # Legacy scoring fields
         divergence_score=divergence_score,
         binding_score=binding_score,
+        # Lexical union
         lexical_bridge=lexical_bridge,
+        lexical_relevance=lexical_relevance,
+        lexical_divergence=lexical_divergence,
         lexical_similarity=lexical_similarity,
         status=BridgingGameStatus(update_data["status"]),
         share_code=share_code,
-        # V2 fields
+        # V2/V3 fields
         haiku_clues=haiku_clues,
+        haiku_relevance=haiku_relevance,
         haiku_divergence=haiku_divergence,
         haiku_binding=haiku_binding,
         haiku_bridge_similarity=haiku_bridge_similarity,
-        # Legacy fields (return None for V2 games)
+        # Legacy fields (return None for V2/V3 games)
         haiku_guessed_anchor=haiku_guessed_anchor,
         haiku_guessed_target=haiku_guessed_target,
         haiku_reconstruction_score=haiku_reconstruction_score
@@ -674,10 +708,12 @@ async def submit_bridging_bridge(
     sender_clue_embs = all_embeddings[2:2 + len(sender_clues)]
     recipient_clue_embs = all_embeddings[2 + len(sender_clues):]
 
-    # Calculate recipient's divergence
-    recipient_divergence = calculate_divergence(anchor_emb, target_emb, recipient_clue_embs)
+    # Calculate recipient's scores using new unified scoring
+    recipient_scores = score_union(recipient_clue_embs, anchor_emb, target_emb)
+    recipient_relevance = recipient_scores["relevance"]
+    recipient_divergence = recipient_scores["divergence"]  # DAT-style spread
 
-    # Calculate bridge similarity
+    # Calculate bridge similarity (legacy)
     similarity_result = calculate_bridge_similarity(
         sender_clue_embeddings=sender_clue_embs,
         recipient_clue_embeddings=recipient_clue_embs,
@@ -688,6 +724,7 @@ async def submit_bridging_bridge(
     # Update game
     update_data = {
         "recipient_clues": clues_clean,
+        "recipient_relevance": recipient_relevance,
         "recipient_divergence": recipient_divergence,
         "bridge_similarity": similarity_result["overall"],
         "status": "completed",
@@ -1048,10 +1085,12 @@ async def trigger_haiku_bridge(
     sender_clue_embs = await get_embeddings_batch(game["clues"])
     haiku_clue_embs = await get_embeddings_batch(haiku_clues)
 
-    # Calculate Haiku's divergence (how creative its path is)
-    haiku_divergence = calculate_divergence(anchor_emb, target_emb, haiku_clue_embs)
+    # Calculate Haiku's scores using new unified scoring
+    haiku_scores = score_union(haiku_clue_embs, anchor_emb, target_emb)
+    haiku_relevance = haiku_scores["relevance"]
+    haiku_divergence = haiku_scores["divergence"]  # DAT-style spread
 
-    # Calculate bridge similarity (how similar Haiku's path is to sender's)
+    # Calculate bridge similarity (how similar Haiku's path is to sender's) - legacy
     similarity_result = calculate_bridge_similarity(
         sender_clue_embeddings=sender_clue_embs,
         recipient_clue_embeddings=haiku_clue_embs
@@ -1061,6 +1100,7 @@ async def trigger_haiku_bridge(
     # Update game with Haiku's bridge
     supabase.table("games_bridging").update({
         "haiku_clues": haiku_clues,
+        "haiku_relevance": haiku_relevance,
         "haiku_divergence": haiku_divergence,
         "haiku_bridge_similarity": haiku_bridge_similarity,
         "status": "completed"

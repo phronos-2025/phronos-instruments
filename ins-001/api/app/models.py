@@ -283,17 +283,32 @@ class SubmitBridgingCluesResponse(BaseModel):
     """Response after submitting bridging clues."""
     game_id: str
     clues: list[str]
-    divergence_score: float
-    binding_score: float  # How well clues jointly relate to both anchor and target
-    lexical_bridge: Optional[list[str]] = None  # Optimal embedding-based path
-    lexical_similarity: Optional[float] = None  # Similarity between user clues and lexical union
+
+    # New unified scoring (V3) - Relevance + Spread (DAT-style)
+    relevance: Optional[float] = None           # 0-1: mean similarity to anchor+target
+    relevance_percentile: Optional[float] = None  # 0-100: percentile vs random baseline
+    divergence: Optional[float] = None          # 0-100: DAT-style spread score
+
+    # Legacy scoring fields (V2) - kept for backwards compatibility
+    divergence_score: float                     # Old divergence (angular, 0-100)
+    binding_score: float                        # Old binding (min-based, 0-100)
+
+    # Lexical union (statistical baseline)
+    lexical_bridge: Optional[list[str]] = None
+    lexical_relevance: Optional[float] = None   # New: relevance of lexical union
+    lexical_divergence: Optional[float] = None  # New: spread of lexical union
+    lexical_similarity: Optional[float] = None  # Legacy: similarity to user's union
+
     status: BridgingGameStatus
     share_code: Optional[str] = None
-    # V2: If Haiku recipient, includes Haiku's bridge (its own clues)
+
+    # V2/V3: If Haiku recipient, includes Haiku's union
     haiku_clues: Optional[list[str]] = None
-    haiku_divergence: Optional[float] = None
-    haiku_binding: Optional[float] = None
-    haiku_bridge_similarity: Optional[float] = None
+    haiku_relevance: Optional[float] = None     # New: relevance of Haiku's union
+    haiku_divergence: Optional[float] = None    # Spread of Haiku's union
+    haiku_binding: Optional[float] = None       # Legacy: old binding score
+    haiku_bridge_similarity: Optional[float] = None  # Legacy: similarity to user's union
+
     # Legacy fields (for backwards compat with old games)
     haiku_guessed_anchor: Optional[str] = None
     haiku_guessed_target: Optional[str] = None

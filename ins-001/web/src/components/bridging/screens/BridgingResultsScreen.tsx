@@ -2,8 +2,12 @@
  * Bridging Results Screen - INS-001.2 V2
  *
  * Shows full results including:
- * - Your Union (user's concepts + binding/divergence metrics)
+ * - Your Union (user's concepts + relevance/spread metrics)
  * - How Others See This Union (Haiku, Statistical, Human)
+ *
+ * Metrics:
+ * - Relevance: How connected clues are to anchor+target (0-100, bootstrapped percentile)
+ * - Spread: How spread out the clues are (0-100, DAT-style, using published norms)
  */
 
 import React, { useState } from 'react';
@@ -18,31 +22,75 @@ interface BridgingResultsScreenProps {
   game: BridgingGameResponse;
 }
 
-// 2x2 interpretation based on binding and divergence
-function getInterpretation(binding: number, divergence: number): { label: string; description: string } {
-  const highBinding = binding >= 50;
-  const highDivergence = divergence >= 50;
+// 2x2 interpretation based on relevance and spread
+function getInterpretation(relevance: number, spread: number): { label: string; description: string } {
+  // relevance is 0-100 (displayed as percentage), spread is 0-100 (DAT scale)
+  const highRelevance = relevance >= 30;  // 0.30 threshold * 100
+  const highSpread = spread >= 70;        // DAT "above average"
 
-  if (highBinding && highDivergence) {
+  if (highRelevance && highSpread) {
     return {
       label: 'Creative union',
-      description: 'Your concepts take a novel path while staying connected to both endpoints.',
+      description: 'Your concepts cover wide semantic territory while staying connected to both endpoints.',
     };
-  } else if (highBinding && !highDivergence) {
+  } else if (highRelevance && !highSpread) {
     return {
-      label: 'Solid union',
-      description: 'Your concepts form a direct, well-grounded connection between the endpoints.',
+      label: 'Focused union',
+      description: 'Your concepts form a tight, coherent cluster connecting the endpoints.',
     };
-  } else if (!highBinding && highDivergence) {
+  } else if (!highRelevance && highSpread) {
     return {
       label: 'Drifting',
-      description: 'Your concepts arc creatively but connect weakly to one or both endpoints.',
+      description: 'Your concepts spread widely but connect weakly to the endpoints.',
     };
   } else {
     return {
       label: 'Weak union',
-      description: 'Your concepts stay close to the obvious path but don\'t connect strongly.',
+      description: "Your concepts cluster together but don't connect strongly to either endpoint.",
     };
+  }
+}
+
+// Get spread interpretation using DAT norms
+function getSpreadInterpretation(spread: number): string {
+  if (spread < 50) {
+    return 'low · concepts are very similar';
+  } else if (spread < 65) {
+    return 'below average · DAT norm: 65-80';
+  } else if (spread < 80) {
+    return 'average · DAT norm: 65-80';
+  } else if (spread < 90) {
+    return 'above average · DAT norm: 65-80';
+  } else {
+    return 'high · wide semantic coverage';
+  }
+}
+
+// Get relevance interpretation based on percentile (if available) or raw score
+function getRelevanceInterpretation(relevance: number, percentile?: number): string {
+  if (percentile !== undefined) {
+    if (percentile >= 90) {
+      return `${Math.round(percentile)}th percentile vs random · exceptional`;
+    } else if (percentile >= 75) {
+      return `${Math.round(percentile)}th percentile vs random · strong`;
+    } else if (percentile >= 50) {
+      return `${Math.round(percentile)}th percentile vs random · good`;
+    } else if (percentile >= 25) {
+      return `${Math.round(percentile)}th percentile vs random · moderate`;
+    } else {
+      return `${Math.round(percentile)}th percentile vs random · weak`;
+    }
+  }
+
+  // Fallback to raw score interpretation
+  if (relevance < 15) {
+    return 'noise · not connected to endpoints';
+  } else if (relevance < 30) {
+    return 'weak · tangential connection';
+  } else if (relevance < 45) {
+    return 'moderate · connected to endpoints';
+  } else {
+    return 'strong · core semantic neighborhood';
   }
 }
 
@@ -117,29 +165,40 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
   const [isCreatingShare, setIsCreatingShare] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
 
-  const divergence = game.divergence_score || 0;
-  const binding = game.binding_score || 0;
-  const interpretation = getInterpretation(binding, divergence);
+  // New metrics (with fallback to old field names for backwards compatibility)
+  const relevance = game.relevance ?? game.binding_score ?? 0;
+  const relevancePercentile = game.relevance_percentile;
+  const spread = game.divergence ?? game.divergence_score ?? 0;
 
-  // Dim divergence when binding is below threshold (divergence is meaningless without binding)
-  const lowBinding = binding < 40;
+  // Convert relevance from 0-1 to 0-100 for display if it's in the new format
+  const relevanceDisplay = relevance <= 1 ? relevance * 100 : relevance;
 
-  // V2 fields - check for Haiku's bridge (steps)
-  const haikuSteps = game.haiku_clues;
-  const haikuBinding = game.haiku_binding;
-  const haikuBridgeSimilarity = game.haiku_bridge_similarity;
-  const hasHaikuBridge = haikuSteps && haikuSteps.length > 0;
+  const interpretation = getInterpretation(relevanceDisplay, spread);
+
+  // Dim spread when relevance is below threshold (spread is meaningless without relevance)
+  const lowRelevance = relevanceDisplay < 15;
+
+  // V2 fields - check for Haiku's union
+  const haikuClues = game.haiku_clues;
+  const haikuRelevance = game.haiku_relevance ?? game.haiku_binding;
+  const haikuSpread = game.haiku_divergence;
+  const hasHaikuUnion = haikuClues && haikuClues.length > 0;
 
   // Lexical union (statistical baseline)
   const lexicalUnion = game.lexical_bridge;
-  const lexicalSimilarity = game.lexical_similarity;
+  const lexicalRelevance = game.lexical_relevance;
+  const lexicalSpread = game.lexical_divergence ?? game.lexical_similarity;
   const hasLexicalUnion = lexicalUnion && lexicalUnion.length > 0;
 
-  // Human recipient bridge (V2)
-  const recipientSteps = game.recipient_clues;
-  const recipientBinding = game.recipient_binding;
-  const bridgeSimilarity = game.bridge_similarity;
-  const hasHumanBridge = recipientSteps && recipientSteps.length > 0;
+  // Human recipient union (V2)
+  const recipientClues = game.recipient_clues;
+  const recipientRelevance = game.recipient_relevance ?? game.recipient_binding;
+  const recipientSpread = game.recipient_divergence;
+  const hasHumanUnion = recipientClues && recipientClues.length > 0;
+
+  // Comparison: is participant more creative than baseline?
+  const moreCreativeThanHaiku = hasHaikuUnion && haikuSpread !== undefined && spread > haikuSpread;
+  const moreCreativeThanLexical = hasLexicalUnion && lexicalSpread !== undefined && spread > lexicalSpread;
 
   const handleCreateShareLink = async () => {
     setIsCreatingShare(true);
@@ -200,18 +259,6 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
           {game.clues?.join(' · ')}
         </div>
 
-        {/* Score summary line */}
-        <div
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.75rem',
-            color: 'var(--text-light)',
-            marginBottom: 'var(--space-xs)',
-          }}
-        >
-          Binding {Math.round(binding)} · Divergence {Math.round(divergence)}
-        </div>
-
         {/* Interpretation */}
         <div
           style={{
@@ -234,7 +281,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
           {interpretation.description}
         </div>
 
-        {/* Binding metric - always prominent */}
+        {/* Relevance metric */}
         <div style={{ marginBottom: 'var(--space-md)' }}>
           <div
             style={{
@@ -253,7 +300,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
                 letterSpacing: '0.05em',
               }}
             >
-              Binding
+              Relevance
             </span>
             <span
               style={{
@@ -262,14 +309,24 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
                 color: 'var(--gold)',
               }}
             >
-              {Math.round(binding)}
+              {Math.round(relevanceDisplay)}
             </span>
           </div>
-          <ScoreBar score={binding} leftLabel="weak" rightLabel="strong" />
+          <ScoreBar score={relevanceDisplay} leftLabel="noise" rightLabel="strong" />
+          <div
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.6rem',
+              color: 'var(--faded)',
+              marginTop: 'var(--space-xs)',
+            }}
+          >
+            {getRelevanceInterpretation(relevanceDisplay, relevancePercentile)}
+          </div>
         </div>
 
-        {/* Divergence metric - dimmed when binding is low */}
-        <div style={{ opacity: lowBinding ? 0.4 : 1 }}>
+        {/* Spread metric - dimmed when relevance is low */}
+        <div style={{ opacity: lowRelevance ? 0.4 : 1 }}>
           <div
             style={{
               display: 'flex',
@@ -287,10 +344,10 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
                 letterSpacing: '0.05em',
               }}
             >
-              Divergence
-              {lowBinding && (
-                <span style={{ color: 'var(--faded)', marginLeft: 'var(--space-xs)' }}>
-                  (strengthen binding first)
+              Spread
+              {lowRelevance && (
+                <span style={{ color: 'var(--faded)', marginLeft: 'var(--space-xs)', textTransform: 'none' }}>
+                  (relevance too low)
                 </span>
               )}
             </span>
@@ -301,10 +358,23 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
                 color: 'var(--gold)',
               }}
             >
-              {Math.round(divergence)}
+              {Math.round(spread)}
             </span>
           </div>
-          <ScoreBar score={divergence} leftLabel="predictable" rightLabel="creative" />
+          <ScoreBar score={spread} leftLabel="clustered" rightLabel="spread" />
+          <div
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.6rem',
+              color: 'var(--faded)',
+              marginTop: 'var(--space-xs)',
+            }}
+          >
+            {getSpreadInterpretation(spread)}
+            {!lowRelevance && spread >= 70 && (
+              <span style={{ color: 'var(--gold)' }}> · impressive for a bridging task</span>
+            )}
+          </div>
         </div>
       </Panel>
 
@@ -324,7 +394,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
         </div>
 
         {/* Haiku */}
-        {hasHaikuBridge && (
+        {hasHaikuUnion && (
           <>
             <div
               style={{
@@ -346,20 +416,23 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
                 marginBottom: 'var(--space-xs)',
               }}
             >
-              {haikuSteps.join(' · ')}
+              {haikuClues.join(' · ')}
             </div>
             <div
               style={{
                 fontFamily: 'var(--font-mono)',
-                fontSize: '0.75rem',
+                fontSize: '0.65rem',
                 color: 'var(--faded)',
               }}
             >
-              {haikuBridgeSimilarity !== undefined && (
-                <span>{Math.round(haikuBridgeSimilarity)}% similar to your thinking</span>
+              {haikuRelevance !== undefined && (
+                <span>relevance: {Math.round(haikuRelevance <= 1 ? haikuRelevance * 100 : haikuRelevance)}</span>
               )}
-              {haikuBinding !== undefined && (
-                <span> · binding: {Math.round(haikuBinding)}</span>
+              {haikuSpread !== undefined && (
+                <span> · spread: {Math.round(haikuSpread)}</span>
+              )}
+              {moreCreativeThanHaiku && (
+                <span style={{ color: 'var(--gold)' }}> · you're more creative</span>
               )}
             </div>
             <Divider />
@@ -394,20 +467,26 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
             <div
               style={{
                 fontFamily: 'var(--font-mono)',
-                fontSize: '0.75rem',
+                fontSize: '0.65rem',
                 color: 'var(--faded)',
               }}
             >
-              {lexicalSimilarity !== undefined
-                ? `${Math.round(lexicalSimilarity)}% similar to your thinking`
-                : 'Calculating similarity...'}
+              {lexicalRelevance !== undefined && (
+                <span>relevance: {Math.round(lexicalRelevance <= 1 ? lexicalRelevance * 100 : lexicalRelevance)}</span>
+              )}
+              {lexicalSpread !== undefined && (
+                <span> · spread: {Math.round(lexicalSpread)}</span>
+              )}
+              {moreCreativeThanLexical && (
+                <span style={{ color: 'var(--gold)' }}> · you're more creative</span>
+              )}
             </div>
             <Divider />
           </>
         )}
 
         {/* Human */}
-        {hasHumanBridge ? (
+        {hasHumanUnion ? (
           <>
             <div
               style={{
@@ -429,20 +508,20 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
                 marginBottom: 'var(--space-xs)',
               }}
             >
-              {recipientSteps.join(' · ')}
+              {recipientClues.join(' · ')}
             </div>
             <div
               style={{
                 fontFamily: 'var(--font-mono)',
-                fontSize: '0.75rem',
+                fontSize: '0.65rem',
                 color: 'var(--faded)',
               }}
             >
-              {bridgeSimilarity !== undefined && (
-                <span>{Math.round(bridgeSimilarity)}% similar to your thinking</span>
+              {recipientRelevance !== undefined && (
+                <span>relevance: {Math.round(recipientRelevance <= 1 ? recipientRelevance * 100 : recipientRelevance)}</span>
               )}
-              {recipientBinding !== undefined && (
-                <span> · binding: {Math.round(recipientBinding)}</span>
+              {recipientSpread !== undefined && (
+                <span> · spread: {Math.round(recipientSpread)}</span>
               )}
             </div>
           </>
