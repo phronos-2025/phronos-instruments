@@ -472,11 +472,11 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
                 color: 'var(--faded)',
               }}
             >
-              {lexicalRelevance !== undefined && (
+              {lexicalRelevance != null && (
                 <span>relevance: {Math.round(lexicalRelevance <= 1 ? lexicalRelevance * 100 : lexicalRelevance)}</span>
               )}
-              {lexicalSpread !== undefined && (
-                <span> · spread: {Math.round(lexicalSpread)}</span>
+              {lexicalSpread != null && (
+                <span>{lexicalRelevance != null ? ' · ' : ''}spread: {Math.round(lexicalSpread)}</span>
               )}
               {moreCreativeThanLexical && (
                 <span style={{ color: 'var(--gold)' }}> · you're more creative</span>

@@ -383,10 +383,18 @@ class BridgingGameResponse(BaseModel):
     anchor_word: str
     target_word: str
     clues: Optional[list[str]]
+    # V3: Unified scoring (relevance + spread)
+    relevance: Optional[float] = None           # 0-1: mean similarity to anchor+target
+    relevance_percentile: Optional[float] = None  # 0-100: percentile vs random baseline
+    divergence: Optional[float] = None          # 0-100: DAT-style spread score
+    # Legacy scoring (V1/V2)
     divergence_score: Optional[float]
     binding_score: Optional[float] = None  # How well clues jointly relate to both endpoints
+    # Lexical union (statistical baseline)
     lexical_bridge: Optional[list[str]] = None  # Equidistant concept set
-    lexical_similarity: Optional[float] = None  # Similarity between user clues and lexical union
+    lexical_relevance: Optional[float] = None   # V3: relevance of lexical union
+    lexical_divergence: Optional[float] = None  # V3: spread of lexical union
+    lexical_similarity: Optional[float] = None  # Legacy: similarity between user clues and lexical union
     # Legacy V1: Recipient guesses
     guessed_anchor: Optional[str]
     guessed_target: Optional[str]
@@ -398,6 +406,7 @@ class BridgingGameResponse(BaseModel):
     exact_target_match: Optional[bool]
     # V2: Recipient's union
     recipient_clues: Optional[list[str]] = None
+    recipient_relevance: Optional[float] = None   # V3: relevance
     recipient_divergence: Optional[float] = None
     recipient_binding: Optional[float] = None
     bridge_similarity: Optional[float] = None
@@ -405,12 +414,13 @@ class BridgingGameResponse(BaseModel):
     haiku_guessed_anchor: Optional[str]
     haiku_guessed_target: Optional[str]
     haiku_reconstruction_score: Optional[float]
-    # V2: Haiku's union
+    # V2/V3: Haiku's union
     haiku_clues: Optional[list[str]] = None
+    haiku_relevance: Optional[float] = None       # V3: relevance
     haiku_divergence: Optional[float] = None
     haiku_binding: Optional[float] = None
     haiku_bridge_similarity: Optional[float] = None
-    # Statistical baseline
+    # Statistical baseline (legacy)
     statistical_guessed_anchor: Optional[str]
     statistical_guessed_target: Optional[str]
     statistical_baseline_score: Optional[float]
