@@ -2,9 +2,10 @@
  * Bridging Concepts Screen - INS-001.2
  *
  * Step 2: Enter 1-5 concepts connecting anchor and target.
+ * Real-time validation with visual feedback (green check / red X).
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useBridgingSenderState } from '../../../lib/bridging-state';
 import { api } from '../../../lib/api';
 import { Button } from '../../ui/Button';
@@ -14,6 +15,49 @@ interface BridgingStepsScreenProps {
   gameId: string;
   anchor: string;
   target: string;
+}
+
+// Morphological variant detection (mirrors backend logic)
+function getWordStem(word: string): string {
+  word = word.toLowerCase();
+  const suffixes = [
+    'ically', 'ation', 'ness', 'ment', 'able', 'ible', 'tion',
+    'sion', 'ally', 'ful', 'less', 'ing', 'ity', 'ous', 'ive',
+    'est', 'ier', 'ies', 'ied', 'ly', 'ed', 'er', 'en', 'es', 's'
+  ];
+  for (const suffix of suffixes) {
+    if (word.endsWith(suffix) && word.length > suffix.length + 2) {
+      return word.slice(0, -suffix.length);
+    }
+  }
+  return word;
+}
+
+function isMorphologicalVariant(word1: string, word2: string): boolean {
+  const w1 = word1.toLowerCase();
+  const w2 = word2.toLowerCase();
+
+  // Exact match
+  if (w1 === w2) return true;
+
+  // One is substring of the other (catches most plurals/verb forms)
+  if (w1.startsWith(w2) || w2.startsWith(w1)) {
+    if (Math.abs(w1.length - w2.length) <= 4) {
+      return true;
+    }
+  }
+
+  // Same stem
+  if (getWordStem(w1) === getWordStem(w2)) return true;
+
+  return false;
+}
+
+type ValidationStatus = 'empty' | 'valid' | 'invalid';
+
+interface ConceptValidation {
+  status: ValidationStatus;
+  error?: string;
 }
 
 export const BridgingStepsScreen: React.FC<BridgingStepsScreenProps> = ({
@@ -30,55 +74,79 @@ export const BridgingStepsScreen: React.FC<BridgingStepsScreenProps> = ({
     const newSteps = [...steps];
     newSteps[index] = value;
     setSteps(newSteps);
+    setError(null); // Clear error when user types
   };
 
-  const getFilledSteps = () => {
-    return steps.filter((c) => c.trim()).map((c) => c.trim().toLowerCase());
-  };
+  // Validate each concept in real-time
+  const validations = useMemo((): ConceptValidation[] => {
+    const anchorLower = anchor.toLowerCase();
+    const targetLower = target.toLowerCase();
+    const filledSoFar: string[] = [];
 
-  const validateSteps = (): string | null => {
-    const filled = getFilledSteps();
+    return steps.map((step) => {
+      const trimmed = step.trim().toLowerCase();
 
-    if (filled.length === 0) {
-      return 'Please provide at least one concept';
-    }
-
-    // Check for anchor/target in steps
-    for (const step of filled) {
-      if (step === anchor.toLowerCase() || step === target.toLowerCase()) {
-        return `Concept "${step}" cannot be the anchor or target word`;
+      // Empty field - no validation needed
+      if (!trimmed) {
+        return { status: 'empty' as ValidationStatus };
       }
-    }
 
-    // Check for duplicates
-    const unique = new Set(filled);
-    if (unique.size !== filled.length) {
-      return 'Concepts must be unique';
-    }
+      // Check if it's a morphological variant of anchor
+      if (isMorphologicalVariant(trimmed, anchorLower)) {
+        return {
+          status: 'invalid' as ValidationStatus,
+          error: `Too similar to anchor "${anchor}"`,
+        };
+      }
 
-    return null;
-  };
+      // Check if it's a morphological variant of target
+      if (isMorphologicalVariant(trimmed, targetLower)) {
+        return {
+          status: 'invalid' as ValidationStatus,
+          error: `Too similar to target "${target}"`,
+        };
+      }
+
+      // Check for duplicates (compare against previously validated concepts)
+      for (const prev of filledSoFar) {
+        if (isMorphologicalVariant(trimmed, prev)) {
+          return {
+            status: 'invalid' as ValidationStatus,
+            error: `Duplicate of "${prev}"`,
+          };
+        }
+      }
+
+      // Valid - add to filled list for duplicate checking
+      filledSoFar.push(trimmed);
+      return { status: 'valid' as ValidationStatus };
+    });
+  }, [steps, anchor, target]);
+
+  // Count valid filled concepts
+  const validFilledCount = validations.filter((v) => v.status === 'valid').length;
+  const hasInvalidConcepts = validations.some((v) => v.status === 'invalid');
+  const canSubmit = validFilledCount > 0 && !hasInvalidConcepts && !isSubmitting;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const validationError = validateSteps();
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
+    if (!canSubmit) return;
 
     setIsSubmitting(true);
     setError(null);
 
     try {
-      // API still uses 'clues' field name for now
+      // Get only valid filled concepts
+      const validConcepts = steps
+        .filter((_, i) => validations[i].status === 'valid')
+        .map((c) => c.trim().toLowerCase());
+
       const response = await api.bridging.submitClues(gameId, {
-        clues: getFilledSteps(),
+        clues: validConcepts,
       });
 
       // If Haiku game and completed, go to results
-      // V2 uses haiku_clues, V1 legacy uses haiku_guessed_anchor
       if (response.status === 'completed' && (response.haiku_clues || response.haiku_guessed_anchor)) {
         const game = await api.bridging.get(gameId);
         dispatch({
@@ -101,8 +169,6 @@ export const BridgingStepsScreen: React.FC<BridgingStepsScreenProps> = ({
       setIsSubmitting(false);
     }
   };
-
-  const filledCount = getFilledSteps().length;
 
   return (
     <div>
@@ -138,56 +204,93 @@ export const BridgingStepsScreen: React.FC<BridgingStepsScreenProps> = ({
           <label className="input-label">
             Your Concepts{' '}
             <span style={{ color: 'var(--faded)', fontWeight: 'normal' }}>
-              {filledCount}/5 concepts
+              {validFilledCount}/5 concepts
             </span>
           </label>
 
-          {steps.map((step, index) => (
-            <div
-              key={index}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'var(--space-sm)',
-                marginBottom: 'var(--space-sm)',
-              }}
-            >
-              <span
+          {steps.map((step, index) => {
+            const validation = validations[index];
+            const isValid = validation.status === 'valid';
+            const isInvalid = validation.status === 'invalid';
+            const isEmpty = validation.status === 'empty';
+
+            return (
+              <div
+                key={index}
                 style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '0.75rem',
-                  color: 'var(--faded)',
-                  width: '20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--space-sm)',
+                  marginBottom: 'var(--space-sm)',
                 }}
               >
-                {index + 1}
-              </span>
-              <input
-                type="text"
-                className="text-input"
-                value={step}
-                onChange={(e) => updateStep(index, e.target.value)}
-                placeholder={index === 0 ? 'morning' : ''}
-                autoComplete="off"
-                spellCheck="false"
-                autoFocus={index === 0}
-                disabled={isSubmitting}
-                style={{ flex: 1, marginBottom: 0 }}
-              />
-              {index > 0 && (
+                <span
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '0.75rem',
+                    color: 'var(--faded)',
+                    width: '20px',
+                  }}
+                >
+                  {index + 1}
+                </span>
+                <input
+                  type="text"
+                  className="text-input"
+                  value={step}
+                  onChange={(e) => updateStep(index, e.target.value)}
+                  placeholder={index === 0 ? 'first concept' : ''}
+                  autoComplete="off"
+                  spellCheck="false"
+                  autoFocus={index === 0}
+                  disabled={isSubmitting}
+                  style={{
+                    flex: 1,
+                    marginBottom: 0,
+                    borderColor: isInvalid
+                      ? 'var(--alert)'
+                      : isValid
+                      ? 'var(--active)'
+                      : undefined,
+                  }}
+                />
                 <span
                   style={{
                     fontFamily: 'var(--font-mono)',
                     fontSize: '0.65rem',
-                    color: 'var(--faded)',
                     minWidth: '60px',
+                    textAlign: 'right',
+                    color: isInvalid
+                      ? 'var(--alert)'
+                      : isValid
+                      ? 'var(--active)'
+                      : 'var(--faded)',
                   }}
                 >
-                  (optional)
+                  {isInvalid && '✗'}
+                  {isValid && '✓'}
+                  {isEmpty && index > 0 && '(optional)'}
                 </span>
-              )}
-            </div>
-          ))}
+              </div>
+            );
+          })}
+
+          {/* Show first invalid error message */}
+          {validations.map((v, i) =>
+            v.status === 'invalid' && v.error ? (
+              <div
+                key={`error-${i}`}
+                style={{
+                  color: 'var(--alert)',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '0.7rem',
+                  marginTop: 'var(--space-xs)',
+                }}
+              >
+                Concept {i + 1}: {v.error}
+              </div>
+            ) : null
+          )}
 
           <p className="input-hint">
             At least 1 concept required. More concepts provide more signal.
@@ -217,7 +320,7 @@ export const BridgingStepsScreen: React.FC<BridgingStepsScreenProps> = ({
           <Button
             type="submit"
             variant="primary"
-            disabled={filledCount === 0 || isSubmitting}
+            disabled={!canSubmit}
           >
             {isSubmitting ? 'Submitting...' : 'Submit Union →'}
           </Button>
