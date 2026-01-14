@@ -176,6 +176,9 @@ def score_union(
     Score a participant's semantic union submission (INS-001.2).
 
     Relevance: How connected are clues to BOTH anchor and target?
+    Uses min(sim_anchor, sim_target) to ensure clues bridge both endpoints,
+    not just cluster near one. This matches the lexical union baseline scoring.
+
     Divergence: How spread out are the clues? (DAT-style, includes anchor+target)
 
     Args:
@@ -185,7 +188,7 @@ def score_union(
 
     Returns:
         Dictionary with:
-        - relevance: Overall relevance score (mean of mean(sim_a, sim_t))
+        - relevance: Overall relevance score (mean of min(sim_a, sim_t) per clue)
         - relevance_individual: Per-clue relevance scores
         - divergence: Overall divergence (0-100, DAT-style, includes anchor+target)
         - valid: Whether submission passes relevance threshold
@@ -198,12 +201,14 @@ def score_union(
             "valid": False
         }
 
-    # Relevance: mean similarity to both endpoints
+    # Relevance: min similarity to both endpoints (must connect to BOTH)
+    # Using min() ensures clues bridge between anchor and target,
+    # rather than clustering near just one endpoint
     relevance_scores = []
     for clue in clue_embeddings:
         sim_a = cosine_similarity(clue, anchor_embedding)
         sim_t = cosine_similarity(clue, target_embedding)
-        relevance_scores.append((sim_a + sim_t) / 2)
+        relevance_scores.append(min(sim_a, sim_t))
 
     overall_relevance = float(np.mean(relevance_scores))
     overall_divergence = calculate_divergence(

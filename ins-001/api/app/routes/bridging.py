@@ -133,11 +133,12 @@ async def _calculate_relevance_percentile(
             sample_embs = [vocab_pool[i] for i in indices]
 
             # Calculate relevance for this random sample (same as score_union)
+            # Using min() to match participant scoring - clue must connect to BOTH
             relevance_scores = []
             for clue_emb in sample_embs:
                 sim_a = cosine_similarity(clue_emb, anchor_emb)
                 sim_t = cosine_similarity(clue_emb, target_emb)
-                relevance_scores.append((sim_a + sim_t) / 2)
+                relevance_scores.append(min(sim_a, sim_t))
 
             random_relevances.append(float(np.mean(relevance_scores)))
 
