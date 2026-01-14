@@ -85,8 +85,8 @@ async def _calculate_relevance_percentile(
     """
     Calculate percentile of participant's relevance score vs random word samples.
 
-    Fetches a pool of random word embeddings from vocabulary, then samples from them
-    to generate null distribution. Returns what percentile the participant's score falls in.
+    Fetches random word embeddings from vocabulary using multiple random offsets
+    to ensure true randomness, then samples from them to generate null distribution.
 
     Args:
         participant_relevance: Participant's relevance score (0-1)
@@ -100,26 +100,25 @@ async def _calculate_relevance_percentile(
         Percentile (0-100) indicating how participant compares to random samples
     """
     try:
-        # Fetch a pool of random embeddings (one batch query for efficiency)
-        # We need n_clues * n_samples total words, but we can reuse with replacement
-        pool_size = min(500, n_clues * 10)  # Fetch enough variety
-        random_offset = random.randint(0, max(0, 50000 - pool_size))
-
-        result = supabase.table("vocabulary_embeddings") \
-            .select("word, embedding") \
-            .range(random_offset, random_offset + pool_size - 1) \
-            .execute()
-
-        if not result.data:
-            return 50.0
-
-        # Parse all embeddings
+        # Fetch random embeddings from multiple locations in the table
+        # This ensures we get truly random samples, not consecutive rows
         vocab_pool = []
-        for row in result.data:
-            if row.get("embedding"):
-                emb = _parse_embedding(row["embedding"], row["word"])
-                if emb:
-                    vocab_pool.append(emb)
+        num_fetches = 10  # Fetch from 10 different random locations
+        rows_per_fetch = 50
+
+        for _ in range(num_fetches):
+            random_offset = random.randint(0, max(0, 50000 - rows_per_fetch))
+            result = supabase.table("vocabulary_embeddings") \
+                .select("word, embedding") \
+                .range(random_offset, random_offset + rows_per_fetch - 1) \
+                .execute()
+
+            if result.data:
+                for row in result.data:
+                    if row.get("embedding"):
+                        emb = _parse_embedding(row["embedding"], row["word"])
+                        if emb:
+                            vocab_pool.append(emb)
 
         if len(vocab_pool) < n_clues:
             return 50.0  # Not enough vocabulary
@@ -129,7 +128,7 @@ async def _calculate_relevance_percentile(
         rng = np.random.default_rng()
 
         for _ in range(n_samples):
-            # Sample n_clues embeddings (with replacement for variety)
+            # Sample n_clues embeddings without replacement
             indices = rng.choice(len(vocab_pool), size=n_clues, replace=False)
             sample_embs = [vocab_pool[i] for i in indices]
 
@@ -144,6 +143,11 @@ async def _calculate_relevance_percentile(
 
         if not random_relevances:
             return 50.0
+
+        # Debug: log the distribution stats
+        null_mean = float(np.mean(random_relevances))
+        null_std = float(np.std(random_relevances))
+        print(f"Bootstrap null distribution: mean={null_mean:.4f}, std={null_std:.4f}, participant={participant_relevance:.4f}")
 
         # Calculate percentile: what fraction of random samples is participant better than?
         percentile = float(np.mean([participant_relevance > r for r in random_relevances]) * 100)

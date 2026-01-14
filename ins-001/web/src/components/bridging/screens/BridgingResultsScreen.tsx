@@ -69,21 +69,25 @@ function getSpreadInterpretation(spread: number): string {
 
 // Get relevance interpretation based on percentile (if available) or raw score
 function getRelevanceInterpretation(relevance: number, percentile?: number): string {
-  if (percentile !== undefined) {
+  if (percentile != null) {
+    // Format percentile with proper suffix
+    const pct = Math.round(percentile);
+    const suffix = pct === 1 ? 'st' : pct === 2 ? 'nd' : pct === 3 ? 'rd' : 'th';
+
     if (percentile >= 90) {
-      return `${Math.round(percentile)}th percentile vs random · exceptional`;
+      return `${pct}${suffix} percentile vs random · exceptional`;
     } else if (percentile >= 75) {
-      return `${Math.round(percentile)}th percentile vs random · strong`;
+      return `${pct}${suffix} percentile vs random · strong`;
     } else if (percentile >= 50) {
-      return `${Math.round(percentile)}th percentile vs random · good`;
+      return `${pct}${suffix} percentile vs random · above average`;
     } else if (percentile >= 25) {
-      return `${Math.round(percentile)}th percentile vs random · moderate`;
+      return `${pct}${suffix} percentile vs random · below average`;
     } else {
-      return `${Math.round(percentile)}th percentile vs random · weak`;
+      return `${pct}${suffix} percentile vs random · weak`;
     }
   }
 
-  // Fallback to raw score interpretation
+  // Fallback to raw score interpretation (when percentile not available)
   if (relevance < 15) {
     return 'noise · not connected to endpoints';
   } else if (relevance < 30) {
