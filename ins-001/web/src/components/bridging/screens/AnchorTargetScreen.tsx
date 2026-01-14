@@ -197,7 +197,7 @@ export const AnchorTargetScreen: React.FC<AnchorTargetScreenProps> = ({
       <h1 className="title">Choose your anchor and target.</h1>
 
       <p className="description">
-        Pick two words to connect. Your steps will build a bridge between them.
+        Pick two words to connect. Your concepts will build a union between them.
       </p>
 
       {!authReady ? (
@@ -335,7 +335,7 @@ export const AnchorTargetScreen: React.FC<AnchorTargetScreenProps> = ({
           )}
 
           <p className="input-hint">
-            Tip: Distant concepts make for more interesting bridges.
+            Tip: Distant concepts make for more interesting unions.
           </p>
 
           {error && (

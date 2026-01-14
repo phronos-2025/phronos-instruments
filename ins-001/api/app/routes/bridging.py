@@ -821,6 +821,7 @@ async def get_bridging_game(
         clues=game.get("clues"),
         divergence_score=game.get("divergence_score"),
         lexical_bridge=game.get("lexical_bridge"),
+        # Legacy V1: Human recipient guesses
         guessed_anchor=game.get("guessed_anchor"),
         guessed_target=game.get("guessed_target"),
         reconstruction_score=game.get("reconstruction_score"),
@@ -829,9 +830,19 @@ async def get_bridging_game(
         order_swapped=game.get("order_swapped"),
         exact_anchor_match=game.get("exact_anchor_match"),
         exact_target_match=game.get("exact_target_match"),
+        # V2: Human recipient union
+        recipient_clues=game.get("recipient_clues"),
+        recipient_divergence=game.get("recipient_divergence"),
+        bridge_similarity=game.get("bridge_similarity"),
+        # Legacy V1: Haiku guesses
         haiku_guessed_anchor=game.get("haiku_guessed_anchor"),
         haiku_guessed_target=game.get("haiku_guessed_target"),
         haiku_reconstruction_score=game.get("haiku_reconstruction_score"),
+        # V2: Haiku union
+        haiku_clues=game.get("haiku_clues"),
+        haiku_divergence=game.get("haiku_divergence"),
+        haiku_bridge_similarity=game.get("haiku_bridge_similarity"),
+        # Statistical baseline
         statistical_guessed_anchor=game.get("statistical_guessed_anchor"),
         statistical_guessed_target=game.get("statistical_guessed_target"),
         statistical_baseline_score=game.get("statistical_baseline_score"),

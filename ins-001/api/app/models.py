@@ -366,8 +366,8 @@ class BridgingGameResponse(BaseModel):
     target_word: str
     clues: Optional[list[str]]
     divergence_score: Optional[float]
-    lexical_bridge: Optional[list[str]] = None  # Optimal embedding-based path
-    # Recipient guesses
+    lexical_bridge: Optional[list[str]] = None  # Equidistant concept set
+    # Legacy V1: Recipient guesses
     guessed_anchor: Optional[str]
     guessed_target: Optional[str]
     reconstruction_score: Optional[float]
@@ -376,10 +376,19 @@ class BridgingGameResponse(BaseModel):
     order_swapped: Optional[bool]
     exact_anchor_match: Optional[bool]
     exact_target_match: Optional[bool]
-    # Baselines
+    # V2: Recipient's union
+    recipient_clues: Optional[list[str]] = None
+    recipient_divergence: Optional[float] = None
+    bridge_similarity: Optional[float] = None
+    # Legacy V1: Haiku guesses
     haiku_guessed_anchor: Optional[str]
     haiku_guessed_target: Optional[str]
     haiku_reconstruction_score: Optional[float]
+    # V2: Haiku's union
+    haiku_clues: Optional[list[str]] = None
+    haiku_divergence: Optional[float] = None
+    haiku_bridge_similarity: Optional[float] = None
+    # Statistical baseline
     statistical_guessed_anchor: Optional[str]
     statistical_guessed_target: Optional[str]
     statistical_baseline_score: Optional[float]
