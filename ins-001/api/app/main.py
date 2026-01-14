@@ -105,12 +105,26 @@ app.include_router(bridging.router, prefix="/api/v1/bridging", tags=["bridging"]
 # EXCEPTION HANDLERS (ensure CORS headers on errors)
 # ============================================
 
+def _get_cors_headers(request: Request) -> dict:
+    """Get CORS headers based on request origin."""
+    origin = request.headers.get("origin", "")
+    # Check if origin is in allowed origins
+    if origin in cors_origins:
+        return {
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "*",
+            "Access-Control-Allow-Headers": "*",
+        }
+    return {}
+
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     """Handle HTTP exceptions (401, 403, etc.) with CORS headers."""
     return JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.detail},
+        headers=_get_cors_headers(request),
     )
 
 @app.exception_handler(RequestValidationError)
@@ -119,17 +133,21 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={"detail": exc.errors()},
+        headers=_get_cors_headers(request),
     )
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
     """Handle all exceptions with CORS headers."""
-    # Log the error
+    # Log the error with more detail
+    import traceback
     print(f"Unhandled exception: {type(exc).__name__}: {str(exc)}")
-    
+    print(f"Traceback: {traceback.format_exc()}")
+
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"detail": "Internal server error"},
+        content={"detail": f"Internal server error: {type(exc).__name__}"},
+        headers=_get_cors_headers(request),
     )
 
 
