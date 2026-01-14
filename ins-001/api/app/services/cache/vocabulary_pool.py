@@ -24,6 +24,7 @@ Usage:
 
 import random
 import asyncio
+import json
 from typing import Optional
 from threading import Lock
 from datetime import datetime, timedelta
@@ -108,7 +109,15 @@ class VocabularyPool:
                 for row in result.data:
                     all_words.append(row["word"])
                     if load_embeddings and "embedding" in row:
-                        all_embeddings.append((row["word"], row["embedding"]))
+                        embedding = row["embedding"]
+                        # Parse embedding if it's a string (Supabase returns JSON strings)
+                        if isinstance(embedding, str):
+                            try:
+                                embedding = json.loads(embedding)
+                            except (json.JSONDecodeError, ValueError):
+                                continue  # Skip invalid embeddings
+                        if isinstance(embedding, list):
+                            all_embeddings.append((row["word"], embedding))
 
                 offset += batch_size
 

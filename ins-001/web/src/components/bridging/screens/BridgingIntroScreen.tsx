@@ -76,7 +76,7 @@ export const BridgingIntroScreen: React.FC = () => {
               Find common ground
             </div>
             <div style={{ color: 'var(--faded)', fontSize: '0.65rem' }}>
-              1-5 concepts that belong to both.
+              1-5 clues that belong to both.
             </div>
           </div>
           <div>
@@ -93,7 +93,7 @@ export const BridgingIntroScreen: React.FC = () => {
               See what emerges
             </div>
             <div style={{ color: 'var(--faded)', fontSize: '0.65rem' }}>
-              Divergence. Reconstruction.
+              Divergence. Relevance.
             </div>
           </div>
         </div>
@@ -115,14 +115,14 @@ export const BridgingIntroScreen: React.FC = () => {
           </strong>
           <br />
           <br />
-          <strong>Divergence</strong> — How far your concepts arc from the direct
+          <strong>Divergence</strong> — How far your clues arc from the direct
           path between anchor and target. High divergence indicates unexpected
           routes.
           <br />
           <br />
-          <strong>Common Ground Similarity</strong> — How similarly you and others
-          navigate between the same concepts. High similarity indicates shared
-          conceptual pathways.
+          <strong>Relevance</strong> — How connected your clues are to both anchor
+          and target. High relevance indicates clues in the shared semantic
+          neighborhood.
         </div>
       </Panel>
 

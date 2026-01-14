@@ -201,22 +201,11 @@ class EagerPrecompute:
             # Task 3: Find lexical union (statistical baseline)
             async def compute_lexical_union():
                 try:
-                    # Get anchor/target embeddings (may already be computing)
-                    if result.anchor_embedding is None:
-                        embeddings = await cache.get_embeddings_batch([anchor, target])
-                        anchor_emb = embeddings[0]
-                        target_emb = embeddings[1]
-                    else:
-                        anchor_emb = result.anchor_embedding
-                        target_emb = result.target_embedding
-
                     lexical_words = await find_lexical_union(
-                        supabase,
                         anchor,
                         target,
-                        anchor_emb,
-                        target_emb,
-                        k=5
+                        5,  # num_concepts
+                        supabase
                     )
                     result.lexical_bridge = lexical_words
                     if lexical_words:
