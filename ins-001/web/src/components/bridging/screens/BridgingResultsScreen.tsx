@@ -1,7 +1,10 @@
 /**
  * Bridging Results Screen - INS-001.2 V2
  *
- * Shows full results including divergence and Haiku's bridge comparison.
+ * Shows full results including:
+ * - Your Semantic Bridge (user's steps + divergence)
+ * - The Lexical Bridge (embedding-based shortest path)
+ * - The LLM Bridge (Haiku's steps)
  */
 
 import React from 'react';
@@ -67,28 +70,25 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
   const { dispatch } = useBridgingSenderState();
 
   const divergence = game.divergence_score || 0;
+  const stepCount = game.clues?.length || 0;
 
-  // V2 fields - check for Haiku's bridge (clues)
-  const haikuClues = game.haiku_clues;
+  // V2 fields - check for Haiku's bridge (steps)
+  const haikuSteps = game.haiku_clues;
   const haikuDivergence = game.haiku_divergence;
   const haikuBridgeSimilarity = game.haiku_bridge_similarity;
-  const hasHaikuBridge = haikuClues && haikuClues.length > 0;
+  const hasHaikuBridge = haikuSteps && haikuSteps.length > 0;
 
-  // V1 legacy fields - Haiku's guesses
+  // V1 legacy fields - Haiku's guesses (deprecated)
   const haikuGuessedAnchor = game.haiku_guessed_anchor;
   const haikuGuessedTarget = game.haiku_guessed_target;
   const haikuReconstructionScore = game.haiku_reconstruction_score;
-  const hasLegacyHaikuGuess = haikuGuessedAnchor && haikuGuessedTarget;
-
-  // Determine which Haiku result to show
-  const showHaikuBridge = hasHaikuBridge;
-  const showLegacyGuess = !hasHaikuBridge && hasLegacyHaikuGuess;
+  const hasLegacyHaikuGuess = haikuGuessedAnchor && haikuGuessedTarget && !hasHaikuBridge;
 
   // Human recipient bridge (V2)
-  const recipientClues = game.recipient_clues;
+  const recipientSteps = game.recipient_clues;
   const recipientDivergence = game.recipient_divergence;
   const bridgeSimilarity = game.bridge_similarity;
-  const hasHumanBridge = recipientClues && recipientClues.length > 0;
+  const hasHumanBridge = recipientSteps && recipientSteps.length > 0;
 
   // Human recipient guesses (V1 legacy)
   const hasLegacyHumanGuess = game.guessed_anchor && game.guessed_target;
@@ -128,9 +128,9 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
         </div>
       </div>
 
-      {/* Divergence Score */}
+      {/* Your Semantic Bridge */}
       <Panel
-        title="Your Divergence"
+        title="Your Semantic Bridge"
         meta={Math.round(divergence).toString()}
         style={{ marginBottom: 'var(--space-md)' }}
       >
@@ -147,14 +147,56 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
             marginTop: 'var(--space-sm)',
           }}
         >
-          How far your clues arc from the direct path.
+          How far your steps arc from the direct path.
         </div>
       </Panel>
 
-      {/* Haiku's Bridge (V2) */}
-      {showHaikuBridge && (
+      {/* The Lexical Bridge - embedding-based path */}
+      <Panel
+        title="The Lexical Bridge"
+        meta={`${stepCount} steps`}
+        style={{ marginBottom: 'var(--space-md)' }}
+      >
+        <div
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.75rem',
+            color: 'var(--faded)',
+            marginBottom: 'var(--space-sm)',
+          }}
+        >
+          The shortest semantic path between anchor and target:
+        </div>
+        <div
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.85rem',
+            color: 'var(--text-light)',
+            textAlign: 'center',
+            padding: 'var(--space-sm)',
+            background: 'var(--bg-card)',
+            borderRadius: '4px',
+          }}
+        >
+          {game.anchor_word} → {game.target_word}
+        </div>
+        <div
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.65rem',
+            color: 'var(--faded)',
+            marginTop: 'var(--space-sm)',
+            textAlign: 'center',
+          }}
+        >
+          Direct embedding distance (baseline)
+        </div>
+      </Panel>
+
+      {/* The LLM Bridge (Haiku) */}
+      {hasHaikuBridge && (
         <Panel
-          title="Haiku's Bridge"
+          title="The LLM Bridge (Haiku)"
           meta={haikuBridgeSimilarity !== undefined ? `${Math.round(haikuBridgeSimilarity)}% similar` : undefined}
           style={{ marginBottom: 'var(--space-md)' }}
         >
@@ -167,10 +209,10 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
               marginBottom: 'var(--space-md)',
             }}
           >
-            {haikuClues.map((clue, i) => (
+            {haikuSteps.map((step, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
                 <span style={{ color: 'var(--faded)', fontSize: '0.7rem' }}>•</span>
-                <span>{clue}</span>
+                <span>{step}</span>
               </div>
             ))}
           </div>
@@ -220,10 +262,10 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
         </Panel>
       )}
 
-      {/* Legacy Haiku Guess (V1) */}
-      {showLegacyGuess && (
+      {/* Legacy Haiku Guess (V1) - for old games */}
+      {hasLegacyHaikuGuess && (
         <Panel
-          title="Haiku's Reconstruction"
+          title="The LLM Bridge (Haiku)"
           meta={haikuReconstructionScore !== undefined ? Math.round(haikuReconstructionScore).toString() : undefined}
           style={{ marginBottom: 'var(--space-md)' }}
         >
@@ -253,7 +295,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
               marginTop: 'var(--space-sm)',
             }}
           >
-            What Haiku guessed from your clues.
+            Legacy: What Haiku guessed from your steps.
           </div>
         </Panel>
       )}
@@ -274,10 +316,10 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
               marginBottom: 'var(--space-md)',
             }}
           >
-            {recipientClues.map((clue, i) => (
+            {recipientSteps.map((step, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
                 <span style={{ color: 'var(--gold)', fontSize: '0.7rem' }}>•</span>
-                <span>{clue}</span>
+                <span>{step}</span>
               </div>
             ))}
           </div>
@@ -372,7 +414,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
       )}
 
       {/* Comparison insight */}
-      {(showHaikuBridge || hasHumanBridge) && (
+      {(hasHaikuBridge || hasHumanBridge) && (
         <Panel
           style={{
             background: 'transparent',
@@ -413,7 +455,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
                   Both: {Math.round(bridgeSimilarity)}% similarity
                 </>
               )
-            ) : showHaikuBridge && haikuBridgeSimilarity !== undefined ? (
+            ) : hasHaikuBridge && haikuBridgeSimilarity !== undefined ? (
               <>
                 Haiku approached this bridge with {Math.round(haikuBridgeSimilarity)}% similarity to your thinking.
                 <br />

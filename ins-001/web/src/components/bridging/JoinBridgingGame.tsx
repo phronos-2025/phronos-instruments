@@ -62,7 +62,7 @@ function BridgingRecipientRouter({ shareCode }: { shareCode: string }) {
           gameId={state.gameId}
           anchor={state.anchor}
           target={state.target}
-          senderClueCount={state.senderClueCount}
+          senderStepCount={state.senderStepCount}
         />
       );
 
@@ -71,8 +71,8 @@ function BridgingRecipientRouter({ shareCode }: { shareCode: string }) {
         <BridgingComparisonScreen
           anchor={state.anchor}
           target={state.target}
-          senderClues={state.senderClues}
-          recipientClues={state.recipientClues}
+          senderSteps={state.senderSteps}
+          recipientSteps={state.recipientSteps}
           bridgeSimilarity={state.bridgeSimilarity}
           centroidSimilarity={state.centroidSimilarity}
           pathAlignment={state.pathAlignment}

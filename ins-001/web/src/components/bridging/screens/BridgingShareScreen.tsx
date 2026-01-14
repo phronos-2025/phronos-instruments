@@ -15,7 +15,7 @@ interface BridgingShareScreenProps {
   gameId: string;
   anchor: string;
   target: string;
-  clues: string[];
+  steps: string[];
   divergence: number;
   shareCode?: string;
 }
@@ -27,22 +27,22 @@ function getDivergenceInterpretation(score: number): {
   if (score < 30) {
     return {
       label: 'Predictable',
-      description: 'Your clues stay close to the direct path between anchor and target.',
+      description: 'Your steps stay close to the direct path between anchor and target.',
     };
   } else if (score < 50) {
     return {
       label: 'Moderate',
-      description: 'Your clues take a moderately creative route.',
+      description: 'Your steps take a moderately creative route.',
     };
   } else if (score < 70) {
     return {
       label: 'Creative',
-      description: 'Your clues arc away from the obvious path.',
+      description: 'Your steps arc away from the obvious path.',
     };
   } else {
     return {
       label: 'Highly Creative',
-      description: 'Your clues take a highly unexpected route to connect the concepts.',
+      description: 'Your steps take a highly unexpected route to connect the concepts.',
     };
   }
 }
@@ -51,7 +51,7 @@ export const BridgingShareScreen: React.FC<BridgingShareScreenProps> = ({
   gameId,
   anchor,
   target,
-  clues,
+  steps,
   divergence,
   shareCode: initialShareCode,
 }) => {
@@ -124,7 +124,7 @@ export const BridgingShareScreen: React.FC<BridgingShareScreenProps> = ({
       </p>
       <h1 className="title">Bridge submitted.</h1>
 
-      {/* Bridge and clues display */}
+      {/* Bridge and steps display */}
       <div
         style={{
           textAlign: 'center',
@@ -148,7 +148,7 @@ export const BridgingShareScreen: React.FC<BridgingShareScreenProps> = ({
             color: 'var(--text-light)',
           }}
         >
-          {clues.join(' · ')}
+          {steps.join(' · ')}
         </div>
       </div>
 
@@ -209,7 +209,7 @@ export const BridgingShareScreen: React.FC<BridgingShareScreenProps> = ({
       </Panel>
 
       {/* Share options */}
-      <p className="description">Who should guess?</p>
+      <p className="description">Who should build the bridge?</p>
 
       <div
         style={{
@@ -304,7 +304,7 @@ export const BridgingShareScreen: React.FC<BridgingShareScreenProps> = ({
               marginBottom: '4px',
             }}
           >
-            {isGettingHaiku ? 'Thinking...' : 'Let Haiku guess'}
+            {isGettingHaiku ? 'Building...' : 'Let Haiku build'}
           </div>
           <div
             style={{
@@ -313,7 +313,7 @@ export const BridgingShareScreen: React.FC<BridgingShareScreenProps> = ({
               color: 'var(--faded)',
             }}
           >
-            See how Claude Haiku reconstructs your bridge
+            See how Claude Haiku builds the same bridge
           </div>
         </button>
       </div>

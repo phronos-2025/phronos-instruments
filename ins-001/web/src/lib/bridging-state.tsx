@@ -16,13 +16,13 @@ import type { BridgingGameResponse } from './api';
 export type BridgingSenderState =
   | { screen: 'intro' }
   | { screen: 'anchor-target'; anchor?: string; target?: string }
-  | { screen: 'clues'; gameId: string; anchor: string; target: string }
+  | { screen: 'steps'; gameId: string; anchor: string; target: string }
   | {
       screen: 'share';
       gameId: string;
       anchor: string;
       target: string;
-      clues: string[];
+      steps: string[];
       divergence: number;
       shareCode?: string;
     }
@@ -34,9 +34,9 @@ type BridgingSenderAction =
   | { type: 'ANCHOR_TARGET_SET'; anchor: string; target: string }
   | { type: 'GAME_CREATED'; gameId: string; anchor: string; target: string }
   | {
-      type: 'CLUES_SUBMITTED';
+      type: 'STEPS_SUBMITTED';
       gameId: string;
-      clues: string[];
+      steps: string[];
       divergence: number;
       shareCode?: string;
     }
@@ -52,12 +52,12 @@ function bridgingSenderReducer(
       return { screen: 'anchor-target' };
 
     case 'BACK':
-      if (state.screen === 'clues') {
+      if (state.screen === 'steps') {
         return { screen: 'anchor-target' };
       }
       if (state.screen === 'share') {
         return {
-          screen: 'clues',
+          screen: 'steps',
           gameId: state.gameId,
           anchor: state.anchor,
           target: state.target,
@@ -77,20 +77,20 @@ function bridgingSenderReducer(
 
     case 'GAME_CREATED':
       return {
-        screen: 'clues',
+        screen: 'steps',
         gameId: action.gameId,
         anchor: action.anchor,
         target: action.target,
       };
 
-    case 'CLUES_SUBMITTED':
-      if (state.screen === 'clues') {
+    case 'STEPS_SUBMITTED':
+      if (state.screen === 'steps') {
         return {
           screen: 'share',
           gameId: action.gameId,
           anchor: state.anchor,
           target: state.target,
-          clues: action.clues,
+          steps: action.steps,
           divergence: action.divergence,
           shareCode: action.shareCode,
         };
@@ -123,15 +123,15 @@ export type BridgingRecipientState =
       gameId: string;
       anchor: string;
       target: string;
-      senderClueCount: number;
+      senderStepCount: number;
     }
   | {
       screen: 'comparison';
       gameId: string;
       anchor: string;
       target: string;
-      senderClues: string[];
-      recipientClues: string[];
+      senderSteps: string[];
+      recipientSteps: string[];
       bridgeSimilarity: number;
       centroidSimilarity: number;
       pathAlignment: number;
@@ -145,13 +145,13 @@ type BridgingRecipientAction =
       gameId: string;
       anchor: string;
       target: string;
-      senderClueCount: number;
+      senderStepCount: number;
     }
   | { type: 'ERROR'; message: string }
   | {
       type: 'BRIDGE_SUBMITTED';
-      senderClues: string[];
-      recipientClues: string[];
+      senderSteps: string[];
+      recipientSteps: string[];
       bridgeSimilarity: number;
       centroidSimilarity: number;
       pathAlignment: number;
@@ -171,7 +171,7 @@ function bridgingRecipientReducer(
         gameId: action.gameId,
         anchor: action.anchor,
         target: action.target,
-        senderClueCount: action.senderClueCount,
+        senderStepCount: action.senderStepCount,
       };
 
     case 'ERROR':
@@ -187,8 +187,8 @@ function bridgingRecipientReducer(
           gameId: state.gameId,
           anchor: state.anchor,
           target: state.target,
-          senderClues: action.senderClues,
-          recipientClues: action.recipientClues,
+          senderSteps: action.senderSteps,
+          recipientSteps: action.recipientSteps,
           bridgeSimilarity: action.bridgeSimilarity,
           centroidSimilarity: action.centroidSimilarity,
           pathAlignment: action.pathAlignment,

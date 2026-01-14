@@ -9,7 +9,7 @@ import { BridgingSenderProvider, useBridgingSenderState } from '../../lib/bridgi
 import { Navigation } from '../ui/Navigation';
 import { BridgingIntroScreen } from './screens/BridgingIntroScreen';
 import { AnchorTargetScreen } from './screens/AnchorTargetScreen';
-import { BridgingCluesScreen } from './screens/BridgingCluesScreen';
+import { BridgingStepsScreen } from './screens/BridgingStepsScreen';
 import { BridgingShareScreen } from './screens/BridgingShareScreen';
 import { BridgingResultsScreen } from './screens/BridgingResultsScreen';
 
@@ -21,9 +21,9 @@ function BridgingGameRouter() {
       return <BridgingIntroScreen />;
     case 'anchor-target':
       return <AnchorTargetScreen anchor={state.anchor} target={state.target} />;
-    case 'clues':
+    case 'steps':
       return (
-        <BridgingCluesScreen
+        <BridgingStepsScreen
           gameId={state.gameId}
           anchor={state.anchor}
           target={state.target}
@@ -35,7 +35,7 @@ function BridgingGameRouter() {
           gameId={state.gameId}
           anchor={state.anchor}
           target={state.target}
-          clues={state.clues}
+          steps={state.steps}
           divergence={state.divergence}
           shareCode={state.shareCode}
         />

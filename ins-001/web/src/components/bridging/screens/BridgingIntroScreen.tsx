@@ -31,8 +31,8 @@ export const BridgingIntroScreen: React.FC = () => {
 
       <p className="description">
         This instrument measures how you construct conceptual connections between
-        two different semantic domains. Choose two words and provide clues that
-        bridge them.
+        two different semantic domains. Choose two words and build a bridge of
+        steps connecting them.
       </p>
 
       <Panel title="How It Works" meta="~5 minutes">
@@ -73,10 +73,10 @@ export const BridgingIntroScreen: React.FC = () => {
               02
             </div>
             <div style={{ color: 'var(--text-light)', marginBottom: '4px' }}>
-              Provide clues
+              Build your bridge
             </div>
             <div style={{ color: 'var(--faded)', fontSize: '0.65rem' }}>
-              1-5 words connecting them.
+              1-5 steps connecting them.
             </div>
           </div>
           <div>
@@ -115,14 +115,14 @@ export const BridgingIntroScreen: React.FC = () => {
           </strong>
           <br />
           <br />
-          <strong>Divergence</strong> — How far your clues arc from the direct
+          <strong>Divergence</strong> — How far your steps arc from the direct
           path between anchor and target. High divergence indicates creative,
           unexpected routes.
           <br />
           <br />
-          <strong>Reconstruction</strong> — How accurately others can recover
-          your anchor-target pair from your clues. High reconstruction indicates
-          effective conceptual bridging.
+          <strong>Bridge Similarity</strong> — How similarly you and others
+          navigate between the same concepts. High similarity indicates shared
+          conceptual pathways.
         </div>
       </Panel>
 

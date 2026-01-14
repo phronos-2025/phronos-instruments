@@ -1,7 +1,7 @@
 /**
- * Bridging Clues Screen - INS-001.2
+ * Bridging Steps Screen - INS-001.2
  *
- * Step 2: Enter 1-5 clues connecting anchor and target.
+ * Step 2: Enter 1-5 steps connecting anchor and target.
  */
 
 import React, { useState } from 'react';
@@ -10,50 +10,50 @@ import { api } from '../../../lib/api';
 import { Button } from '../../ui/Button';
 import { ProgressBar } from '../../ui/ProgressBar';
 
-interface BridgingCluesScreenProps {
+interface BridgingStepsScreenProps {
   gameId: string;
   anchor: string;
   target: string;
 }
 
-export const BridgingCluesScreen: React.FC<BridgingCluesScreenProps> = ({
+export const BridgingStepsScreen: React.FC<BridgingStepsScreenProps> = ({
   gameId,
   anchor,
   target,
 }) => {
   const { dispatch } = useBridgingSenderState();
-  const [clues, setClues] = useState<string[]>(['', '', '', '', '']);
+  const [steps, setSteps] = useState<string[]>(['', '', '', '', '']);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const updateClue = (index: number, value: string) => {
-    const newClues = [...clues];
-    newClues[index] = value;
-    setClues(newClues);
+  const updateStep = (index: number, value: string) => {
+    const newSteps = [...steps];
+    newSteps[index] = value;
+    setSteps(newSteps);
   };
 
-  const getFilledClues = () => {
-    return clues.filter((c) => c.trim()).map((c) => c.trim().toLowerCase());
+  const getFilledSteps = () => {
+    return steps.filter((c) => c.trim()).map((c) => c.trim().toLowerCase());
   };
 
-  const validateClues = (): string | null => {
-    const filled = getFilledClues();
+  const validateSteps = (): string | null => {
+    const filled = getFilledSteps();
 
     if (filled.length === 0) {
-      return 'Please provide at least one clue';
+      return 'Please provide at least one step';
     }
 
-    // Check for anchor/target in clues
-    for (const clue of filled) {
-      if (clue === anchor.toLowerCase() || clue === target.toLowerCase()) {
-        return `Clue "${clue}" cannot be the anchor or target word`;
+    // Check for anchor/target in steps
+    for (const step of filled) {
+      if (step === anchor.toLowerCase() || step === target.toLowerCase()) {
+        return `Step "${step}" cannot be the anchor or target word`;
       }
     }
 
     // Check for duplicates
     const unique = new Set(filled);
     if (unique.size !== filled.length) {
-      return 'Clues must be unique';
+      return 'Steps must be unique';
     }
 
     return null;
@@ -62,7 +62,7 @@ export const BridgingCluesScreen: React.FC<BridgingCluesScreenProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const validationError = validateClues();
+    const validationError = validateSteps();
     if (validationError) {
       setError(validationError);
       return;
@@ -72,8 +72,9 @@ export const BridgingCluesScreen: React.FC<BridgingCluesScreenProps> = ({
     setError(null);
 
     try {
+      // API still uses 'clues' field name for now
       const response = await api.bridging.submitClues(gameId, {
-        clues: getFilledClues(),
+        clues: getFilledSteps(),
       });
 
       // If Haiku game and completed, go to results
@@ -86,21 +87,21 @@ export const BridgingCluesScreen: React.FC<BridgingCluesScreenProps> = ({
       } else {
         // Human recipient - go to share screen
         dispatch({
-          type: 'CLUES_SUBMITTED',
+          type: 'STEPS_SUBMITTED',
           gameId,
-          clues: response.clues,
+          steps: response.clues,
           divergence: response.divergence_score,
           shareCode: response.share_code,
         });
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to submit clues');
+      setError(err instanceof Error ? err.message : 'Failed to submit steps');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const filledCount = getFilledClues().length;
+  const filledCount = getFilledSteps().length;
 
   return (
     <div>
@@ -109,10 +110,10 @@ export const BridgingCluesScreen: React.FC<BridgingCluesScreenProps> = ({
       <p className="subtitle">
         <span className="id">INS-001.2</span> · Step 2 of 3
       </p>
-      <h1 className="title">Provide your clues.</h1>
+      <h1 className="title">Build your bridge.</h1>
 
       <p className="description">
-        Enter single-word clues that connect your anchor and target.
+        Enter single-word steps that connect your anchor and target.
       </p>
 
       {/* Bridge visualization */}
@@ -134,13 +135,13 @@ export const BridgingCluesScreen: React.FC<BridgingCluesScreenProps> = ({
       <form onSubmit={handleSubmit}>
         <div className="input-group">
           <label className="input-label">
-            Your Clues{' '}
+            Your Steps{' '}
             <span style={{ color: 'var(--faded)', fontWeight: 'normal' }}>
               {filledCount}/5 words
             </span>
           </label>
 
-          {clues.map((clue, index) => (
+          {steps.map((step, index) => (
             <div
               key={index}
               style={{
@@ -163,8 +164,8 @@ export const BridgingCluesScreen: React.FC<BridgingCluesScreenProps> = ({
               <input
                 type="text"
                 className="text-input"
-                value={clue}
-                onChange={(e) => updateClue(index, e.target.value)}
+                value={step}
+                onChange={(e) => updateStep(index, e.target.value)}
                 placeholder={index === 0 ? 'morning' : ''}
                 autoComplete="off"
                 spellCheck="false"
@@ -188,7 +189,7 @@ export const BridgingCluesScreen: React.FC<BridgingCluesScreenProps> = ({
           ))}
 
           <p className="input-hint">
-            At least 1 clue required. More clues provide more signal.
+            At least 1 step required. More steps provide more signal.
           </p>
         </div>
 
@@ -217,7 +218,7 @@ export const BridgingCluesScreen: React.FC<BridgingCluesScreenProps> = ({
             variant="primary"
             disabled={filledCount === 0 || isSubmitting}
           >
-            {isSubmitting ? 'Submitting...' : 'Submit Clues →'}
+            {isSubmitting ? 'Submitting...' : 'Submit Bridge →'}
           </Button>
         </div>
       </form>

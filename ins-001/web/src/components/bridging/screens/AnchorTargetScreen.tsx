@@ -193,8 +193,7 @@ export const AnchorTargetScreen: React.FC<AnchorTargetScreenProps> = ({
       <h1 className="title">Choose your anchor and target.</h1>
 
       <p className="description">
-        Pick two words to connect. Your clues will help someone guess which two
-        concepts you're bridging.
+        Pick two words to connect. Your steps will build a bridge between them.
       </p>
 
       {!authReady ? (

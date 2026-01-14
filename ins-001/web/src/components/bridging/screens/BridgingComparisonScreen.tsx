@@ -11,8 +11,8 @@ import { Button } from '../../ui/Button';
 interface BridgingComparisonScreenProps {
   anchor: string;
   target: string;
-  senderClues: string[];
-  recipientClues: string[];
+  senderSteps: string[];
+  recipientSteps: string[];
   bridgeSimilarity: number;
   centroidSimilarity: number;
   pathAlignment: number;
@@ -75,8 +75,8 @@ function getDivergenceLabel(divergence: number): string {
 export const BridgingComparisonScreen: React.FC<BridgingComparisonScreenProps> = ({
   anchor,
   target,
-  senderClues,
-  recipientClues,
+  senderSteps,
+  recipientSteps,
   bridgeSimilarity,
   centroidSimilarity,
   pathAlignment,
@@ -163,10 +163,10 @@ export const BridgingComparisonScreen: React.FC<BridgingComparisonScreenProps> =
               lineHeight: '1.8',
             }}
           >
-            {senderClues.map((clue, i) => (
+            {senderSteps.map((step, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
                 <span style={{ color: 'var(--faded)', fontSize: '0.7rem' }}>•</span>
-                <span>{clue}</span>
+                <span>{step}</span>
               </div>
             ))}
           </div>
@@ -211,10 +211,10 @@ export const BridgingComparisonScreen: React.FC<BridgingComparisonScreenProps> =
               lineHeight: '1.8',
             }}
           >
-            {recipientClues.map((clue, i) => (
+            {recipientSteps.map((step, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
                 <span style={{ color: 'var(--gold)', fontSize: '0.7rem' }}>•</span>
-                <span>{clue}</span>
+                <span>{step}</span>
               </div>
             ))}
           </div>

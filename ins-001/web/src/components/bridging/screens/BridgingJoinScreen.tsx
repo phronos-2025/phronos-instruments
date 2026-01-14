@@ -1,7 +1,7 @@
 /**
  * Bridging Join Screen - INS-001.2 V2
  *
- * Recipient sees anchor + target and builds their own bridge (clues).
+ * Recipient sees anchor + target and builds their own bridge (steps).
  * Their bridge is then compared to the sender's bridge.
  */
 
@@ -17,7 +17,7 @@ interface BridgingJoinScreenProps {
   gameId?: string;
   anchor?: string;
   target?: string;
-  senderClueCount?: number;
+  senderStepCount?: number;
 }
 
 export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
@@ -25,16 +25,16 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
   gameId: initialGameId,
   anchor: initialAnchor,
   target: initialTarget,
-  senderClueCount: initialClueCount,
+  senderStepCount: initialStepCount,
 }) => {
   const { dispatch } = useBridgingRecipientState();
   const [gameId, setGameId] = useState(initialGameId || '');
   const [anchor, setAnchor] = useState(initialAnchor || '');
   const [target, setTarget] = useState(initialTarget || '');
-  const [senderClueCount, setSenderClueCount] = useState(initialClueCount || 0);
+  const [senderStepCount, setSenderStepCount] = useState(initialStepCount || 0);
 
-  // Clue inputs (1 required, up to 5)
-  const [clues, setClues] = useState<string[]>(['', '', '', '', '']);
+  // Step inputs (1 required, up to 5)
+  const [steps, setSteps] = useState<string[]>(['', '', '', '', '']);
 
   const [isLoading, setIsLoading] = useState(!initialGameId);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -48,7 +48,7 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
         gameId: initialGameId,
         anchor: initialAnchor,
         target: initialTarget,
-        senderClueCount: initialClueCount || 0,
+        senderStepCount: initialStepCount || 0,
       });
       return;
     }
@@ -69,7 +69,7 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
         setGameId(response.game_id);
         setAnchor(response.anchor_word);
         setTarget(response.target_word);
-        setSenderClueCount(response.sender_clue_count);
+        setSenderStepCount(response.sender_clue_count);
         setIsLoading(false);
 
         dispatch({
@@ -77,7 +77,7 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
           gameId: response.game_id,
           anchor: response.anchor_word,
           target: response.target_word,
-          senderClueCount: response.sender_clue_count,
+          senderStepCount: response.sender_clue_count,
         });
       } catch (err) {
         setIsLoading(false);
@@ -92,34 +92,34 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
     };
 
     joinGame();
-  }, [shareCode, initialGameId, initialAnchor, initialTarget, initialClueCount, dispatch]);
+  }, [shareCode, initialGameId, initialAnchor, initialTarget, initialStepCount, dispatch]);
 
-  const updateClue = (index: number, value: string) => {
-    const newClues = [...clues];
-    newClues[index] = value;
-    setClues(newClues);
+  const updateStep = (index: number, value: string) => {
+    const newSteps = [...steps];
+    newSteps[index] = value;
+    setSteps(newSteps);
   };
 
-  // Get non-empty clues
-  const getFilledClues = () => clues.filter((c) => c.trim().length > 0);
+  // Get non-empty steps
+  const getFilledSteps = () => steps.filter((c) => c.trim().length > 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const filledClues = getFilledClues();
+    const filledSteps = getFilledSteps();
 
-    if (filledClues.length === 0) {
-      setError('Please enter at least one clue');
+    if (filledSteps.length === 0) {
+      setError('Please enter at least one step');
       return;
     }
 
-    // Validate clues don't include anchor or target
+    // Validate steps don't include anchor or target
     const anchorLower = anchor.toLowerCase();
     const targetLower = target.toLowerCase();
-    for (const clue of filledClues) {
-      const clueLower = clue.trim().toLowerCase();
-      if (clueLower === anchorLower || clueLower === targetLower) {
-        setError('Clues cannot be the anchor or target words');
+    for (const step of filledSteps) {
+      const stepLower = step.trim().toLowerCase();
+      if (stepLower === anchorLower || stepLower === targetLower) {
+        setError('Steps cannot be the anchor or target words');
         return;
       }
     }
@@ -129,13 +129,13 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
 
     try {
       const response = await api.bridging.submitBridge(gameId, {
-        clues: filledClues.map((c) => c.trim().toLowerCase()),
+        clues: filledSteps.map((c) => c.trim().toLowerCase()),
       });
 
       dispatch({
         type: 'BRIDGE_SUBMITTED',
-        senderClues: response.sender_clues,
-        recipientClues: response.recipient_clues,
+        senderSteps: response.sender_clues,
+        recipientSteps: response.recipient_clues,
         bridgeSimilarity: response.bridge_similarity,
         centroidSimilarity: response.centroid_similarity,
         pathAlignment: response.path_alignment,
@@ -199,7 +199,7 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
     );
   }
 
-  const filledCount = getFilledClues().length;
+  const filledCount = getFilledSteps().length;
 
   return (
     <div>
@@ -237,7 +237,7 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
           </span>
           <span style={{ fontWeight: 600 }}>{target}</span>
         </div>
-        {senderClueCount > 0 && (
+        {senderStepCount > 0 && (
           <div
             style={{
               marginTop: 'var(--space-sm)',
@@ -246,13 +246,13 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
               fontSize: '0.75rem',
             }}
           >
-            Their bridge used {senderClueCount} clue{senderClueCount !== 1 ? 's' : ''}
+            Their bridge used {senderStepCount} step{senderStepCount !== 1 ? 's' : ''}
           </div>
         )}
       </Panel>
 
       <p className="description">
-        Enter 1-5 clues that connect <strong>{anchor}</strong> to{' '}
+        Enter 1-5 steps that connect <strong>{anchor}</strong> to{' '}
         <strong>{target}</strong>:
       </p>
 
@@ -265,7 +265,7 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
             marginBottom: 'var(--space-lg)',
           }}
         >
-          {clues.map((clue, index) => (
+          {steps.map((step, index) => (
             <div key={index} className="input-group" style={{ marginBottom: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
                 <span
@@ -282,9 +282,9 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
                 <input
                   type="text"
                   className="text-input"
-                  value={clue}
-                  onChange={(e) => updateClue(index, e.target.value)}
-                  placeholder={index === 0 ? 'first clue (required)' : 'optional clue'}
+                  value={step}
+                  onChange={(e) => updateStep(index, e.target.value)}
+                  placeholder={index === 0 ? 'first step (required)' : 'optional step'}
                   autoComplete="off"
                   spellCheck="false"
                   autoFocus={index === 0}
@@ -306,8 +306,8 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
           }}
         >
           {filledCount === 0
-            ? 'Enter at least one clue'
-            : `${filledCount} clue${filledCount !== 1 ? 's' : ''} entered`}
+            ? 'Enter at least one step'
+            : `${filledCount} step${filledCount !== 1 ? 's' : ''} entered`}
         </div>
 
         {error && (
