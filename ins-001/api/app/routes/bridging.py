@@ -34,7 +34,8 @@ from app.services.scoring_bridging import (
     calculate_semantic_distance,
     calculate_statistical_baseline,
     get_divergence_interpretation,
-    get_reconstruction_interpretation
+    get_reconstruction_interpretation,
+    find_lexical_bridge
 )
 from app.services.llm import haiku_reconstruct_bridge, haiku_build_bridge
 from app.config import SUPABASE_URL, SUPABASE_SERVICE_KEY, FRONTEND_URL
@@ -183,6 +184,14 @@ async def submit_bridging_clues(
     # Calculate divergence (perpendicular distance from anchor-target line)
     divergence_score = calculate_divergence(anchor_emb, target_emb, clue_embs)
 
+    # Calculate lexical bridge (optimal embedding-based path with same step count)
+    lexical_bridge = None
+    try:
+        lexical_bridge = await find_lexical_bridge(anchor, target, len(clues_clean), supabase)
+    except Exception as e:
+        print(f"Lexical bridge calculation failed: {e}")
+        # Non-fatal - continue without lexical bridge
+
     # Generate share code
     share_code = None
     if game["recipient_type"] == "human":
@@ -193,6 +202,7 @@ async def submit_bridging_clues(
     update_data = {
         "clues": clues_clean,
         "divergence_score": divergence_score,
+        "lexical_bridge": lexical_bridge,
         "share_code": share_code,
         "status": "pending_guess" if game["recipient_type"] == "human" else "pending_clues"
     }
@@ -239,6 +249,7 @@ async def submit_bridging_clues(
         game_id=game_id,
         clues=clues_clean,
         divergence_score=divergence_score,
+        lexical_bridge=lexical_bridge,
         status=BridgingGameStatus(update_data["status"]),
         share_code=share_code,
         # V2 fields
@@ -774,6 +785,7 @@ async def get_bridging_game(
         target_word=game["target_word"],
         clues=game.get("clues"),
         divergence_score=game.get("divergence_score"),
+        lexical_bridge=game.get("lexical_bridge"),
         guessed_anchor=game.get("guessed_anchor"),
         guessed_target=game.get("guessed_target"),
         reconstruction_score=game.get("reconstruction_score"),
@@ -888,4 +900,101 @@ async def trigger_haiku_guess(
         haiku_guessed_anchor=haiku_guessed_anchor,
         haiku_guessed_target=haiku_guessed_target,
         haiku_reconstruction_score=recon["overall"]
+    )
+
+
+# ============================================
+# HAIKU BRIDGE (V2)
+# ============================================
+
+@router.post("/{game_id}/haiku-bridge", response_model=TriggerHaikuBridgeResponse)
+async def trigger_haiku_bridge(
+    game_id: str,
+    auth = Depends(get_authenticated_client)
+):
+    """
+    Trigger Haiku to build its own bridge between anchor and target.
+
+    V2 approach: Instead of guessing the anchor/target from clues,
+    Haiku generates its own clues (matching the sender's clue count)
+    that connect anchor to target. This creates a comparable baseline.
+    """
+    supabase, user = auth
+
+    # Get game (sender only)
+    try:
+        result = supabase.table("games_bridging") \
+            .select("*") \
+            .eq("id", game_id) \
+            .eq("sender_id", user["id"]) \
+            .single() \
+            .execute()
+    except APIError:
+        raise HTTPException(status_code=404, detail={"error": "Game not found"})
+
+    if not result.data:
+        raise HTTPException(status_code=404, detail={"error": "Game not found"})
+
+    game = result.data
+
+    # Check game has clues (need to know how many steps the user took)
+    if not game.get("clues") or len(game["clues"]) == 0:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "Cannot get Haiku bridge without sender clues"}
+        )
+
+    # Check if Haiku already built a bridge
+    if game.get("haiku_clues") and len(game["haiku_clues"]) > 0:
+        return TriggerHaikuBridgeResponse(
+            game_id=game_id,
+            haiku_clues=game["haiku_clues"],
+            haiku_divergence=game["haiku_divergence"] or 0,
+            haiku_bridge_similarity=game["haiku_bridge_similarity"] or 0
+        )
+
+    anchor = game["anchor_word"]
+    target = game["target_word"]
+    num_clues = len(game["clues"])  # Match sender's step count
+
+    # Have Haiku build its own bridge
+    haiku_result = await haiku_build_bridge(anchor, target, num_clues=num_clues)
+
+    if not haiku_result.get("clues") or len(haiku_result["clues"]) == 0:
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "Haiku could not generate bridge clues"}
+        )
+
+    haiku_clues = haiku_result["clues"]
+
+    # Get embeddings for scoring
+    anchor_emb = await get_embedding(anchor)
+    target_emb = await get_embedding(target)
+    sender_clue_embs = await get_embeddings_batch(game["clues"])
+    haiku_clue_embs = await get_embeddings_batch(haiku_clues)
+
+    # Calculate Haiku's divergence (how creative its path is)
+    haiku_divergence = calculate_divergence(anchor_emb, target_emb, haiku_clue_embs)
+
+    # Calculate bridge similarity (how similar Haiku's path is to sender's)
+    similarity_result = calculate_bridge_similarity(
+        sender_clue_embeddings=sender_clue_embs,
+        recipient_clue_embeddings=haiku_clue_embs
+    )
+    haiku_bridge_similarity = similarity_result["overall"]
+
+    # Update game with Haiku's bridge
+    supabase.table("games_bridging").update({
+        "haiku_clues": haiku_clues,
+        "haiku_divergence": haiku_divergence,
+        "haiku_bridge_similarity": haiku_bridge_similarity,
+        "status": "completed"
+    }).eq("id", game_id).execute()
+
+    return TriggerHaikuBridgeResponse(
+        game_id=game_id,
+        haiku_clues=haiku_clues,
+        haiku_divergence=haiku_divergence,
+        haiku_bridge_similarity=haiku_bridge_similarity
     )

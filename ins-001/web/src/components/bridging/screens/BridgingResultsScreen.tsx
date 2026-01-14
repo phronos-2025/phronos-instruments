@@ -100,56 +100,40 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
       </p>
       <h1 className="title">Bridge Analysis</h1>
 
-      {/* Bridge display */}
-      <div
-        style={{
-          textAlign: 'center',
-          marginBottom: 'var(--space-lg)',
-        }}
-      >
-        <div
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.9rem',
-            color: 'var(--gold)',
-            marginBottom: 'var(--space-sm)',
-          }}
-        >
-          {game.anchor_word} ←――――――――――――――――→ {game.target_word}
-        </div>
-        <div
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.8rem',
-            color: 'var(--text-light)',
-          }}
-        >
-          {game.clues?.join(' · ')}
-        </div>
-      </div>
-
       {/* Your Semantic Bridge */}
       <Panel
         title="Your Semantic Bridge"
         meta={Math.round(divergence).toString()}
         style={{ marginBottom: 'var(--space-md)' }}
       >
+        {/* Bridge display */}
         <div
           style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.85rem',
-            color: 'var(--text-light)',
-            lineHeight: '1.8',
+            textAlign: 'center',
             marginBottom: 'var(--space-md)',
           }}
         >
-          {game.clues?.map((clue, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
-              <span style={{ color: 'var(--gold)', fontSize: '0.7rem' }}>•</span>
-              <span>{clue}</span>
-            </div>
-          ))}
+          <div
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.9rem',
+              color: 'var(--gold)',
+              marginBottom: 'var(--space-sm)',
+            }}
+          >
+            {game.anchor_word} ←――――――――――――――――→ {game.target_word}
+          </div>
+          <div
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.8rem',
+              color: 'var(--text-light)',
+            }}
+          >
+            {game.clues?.join(' · ')}
+          </div>
         </div>
+
         <ScoreBar
           score={divergence}
           leftLabel="predictable"
@@ -170,7 +154,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
       {/* The Lexical Bridge - embedding-based path */}
       <Panel
         title="The Lexical Bridge"
-        meta="0 steps"
+        meta={`${stepCount} steps`}
         style={{ marginBottom: 'var(--space-md)' }}
       >
         <div
@@ -181,19 +165,32 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
             marginBottom: 'var(--space-sm)',
           }}
         >
-          The shortest semantic path between anchor and target:
+          The most direct semantic path between anchor and target:
         </div>
         <div
           style={{
             fontFamily: 'var(--font-mono)',
-            fontSize: '0.85rem',
-            color: 'var(--faded)',
+            fontSize: '0.9rem',
+            color: 'var(--gold)',
+            textAlign: 'center',
+            marginBottom: 'var(--space-sm)',
+          }}
+        >
+          {game.anchor_word} ←――――――――――――――――→ {game.target_word}
+        </div>
+        <div
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.8rem',
+            color: 'var(--text-light)',
             textAlign: 'center',
             padding: 'var(--space-sm)',
             marginBottom: 'var(--space-xs)',
           }}
         >
-          (direct connection)
+          {game.lexical_bridge && game.lexical_bridge.length > 0
+            ? game.lexical_bridge.join(' · ')
+            : '(calculating...)'}
         </div>
         <div
           style={{
@@ -203,7 +200,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
             textAlign: 'center',
           }}
         >
-          Direct embedding distance (baseline)
+          Optimal path found by embedding interpolation
         </div>
       </Panel>
 

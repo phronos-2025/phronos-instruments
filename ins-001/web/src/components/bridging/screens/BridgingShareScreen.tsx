@@ -97,19 +97,19 @@ export const BridgingShareScreen: React.FC<BridgingShareScreenProps> = ({
     }
   };
 
-  const handleLetHaikuGuess = async () => {
+  const handleLetHaikuBuild = async () => {
     setIsGettingHaiku(true);
     setError(null);
 
     try {
-      await api.bridging.triggerHaikuGuess(gameId);
+      await api.bridging.triggerHaikuBridge(gameId);
       const game = await api.bridging.get(gameId);
       dispatch({
         type: 'GAME_COMPLETED',
         game,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to get Haiku guess');
+      setError(err instanceof Error ? err.message : 'Failed to get Haiku bridge');
     } finally {
       setIsGettingHaiku(false);
     }
@@ -124,46 +124,46 @@ export const BridgingShareScreen: React.FC<BridgingShareScreenProps> = ({
       </p>
       <h1 className="title">Bridge submitted.</h1>
 
-      {/* Bridge and steps display */}
-      <div
-        style={{
-          textAlign: 'center',
-          marginBottom: 'var(--space-lg)',
-        }}
-      >
-        <div
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.9rem',
-            color: 'var(--gold)',
-            marginBottom: 'var(--space-md)',
-          }}
-        >
-          {anchor} ←――――――――――――――――→ {target}
-        </div>
-        <div
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.8rem',
-            color: 'var(--text-light)',
-          }}
-        >
-          {steps.join(' · ')}
-        </div>
-      </div>
-
-      {/* Divergence Score */}
+      {/* Your Semantic Bridge */}
       <Panel
-        title="Divergence"
+        title="Your Semantic Bridge"
         meta={Math.round(divergence).toString()}
         style={{ marginBottom: 'var(--space-lg)' }}
       >
+        {/* Bridge and steps display */}
+        <div
+          style={{
+            textAlign: 'center',
+            marginBottom: 'var(--space-md)',
+          }}
+        >
+          <div
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.9rem',
+              color: 'var(--gold)',
+              marginBottom: 'var(--space-sm)',
+            }}
+          >
+            {anchor} ←――――――――――――――――→ {target}
+          </div>
+          <div
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.8rem',
+              color: 'var(--text-light)',
+            }}
+          >
+            {steps.join(' · ')}
+          </div>
+        </div>
+
+        {/* Score bar */}
         <div
           style={{
             marginBottom: 'var(--space-md)',
           }}
         >
-          {/* Score bar */}
           <div
             style={{
               background: 'var(--bg-card)',
@@ -270,7 +270,7 @@ export const BridgingShareScreen: React.FC<BridgingShareScreenProps> = ({
 
         {/* Let Haiku guess */}
         <button
-          onClick={handleLetHaikuGuess}
+          onClick={handleLetHaikuBuild}
           disabled={isGettingHaiku}
           style={{
             background: 'transparent',

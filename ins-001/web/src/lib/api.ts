@@ -146,6 +146,7 @@ export interface SubmitBridgingCluesResponse {
   game_id: string;
   clues: string[];
   divergence_score: number;
+  lexical_bridge?: string[];  // Optimal embedding-based path
   status: BridgingGameStatus;
   share_code?: string;
   // V2: Haiku builds its own bridge
@@ -202,6 +203,7 @@ export interface BridgingGameResponse {
   target_word: string;
   clues?: string[];
   divergence_score?: number;
+  lexical_bridge?: string[];  // Optimal embedding-based path
   // Human recipient guesses (legacy V1)
   guessed_anchor?: string;
   guessed_target?: string;
@@ -238,6 +240,13 @@ export interface TriggerHaikuGuessResponse {
   haiku_guessed_anchor: string;
   haiku_guessed_target: string;
   haiku_reconstruction_score: number;
+}
+
+export interface TriggerHaikuBridgeResponse {
+  game_id: string;
+  haiku_clues: string[];
+  haiku_divergence: number;
+  haiku_bridge_similarity: number;
 }
 
 // ============================================
@@ -558,6 +567,11 @@ export const api = {
 
     triggerHaikuGuess: (gameId: string): Promise<TriggerHaikuGuessResponse> =>
       apiCall(`/api/v1/bridging/${gameId}/haiku-guess`, {
+        method: 'POST',
+      }),
+
+    triggerHaikuBridge: (gameId: string): Promise<TriggerHaikuBridgeResponse> =>
+      apiCall(`/api/v1/bridging/${gameId}/haiku-bridge`, {
         method: 'POST',
       }),
 

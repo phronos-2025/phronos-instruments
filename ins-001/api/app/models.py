@@ -284,6 +284,7 @@ class SubmitBridgingCluesResponse(BaseModel):
     game_id: str
     clues: list[str]
     divergence_score: float
+    lexical_bridge: Optional[list[str]] = None  # Optimal embedding-based path
     status: BridgingGameStatus
     share_code: Optional[str] = None
     # V2: If Haiku recipient, includes Haiku's bridge (its own clues)
@@ -365,6 +366,7 @@ class BridgingGameResponse(BaseModel):
     target_word: str
     clues: Optional[list[str]]
     divergence_score: Optional[float]
+    lexical_bridge: Optional[list[str]] = None  # Optimal embedding-based path
     # Recipient guesses
     guessed_anchor: Optional[str]
     guessed_target: Optional[str]

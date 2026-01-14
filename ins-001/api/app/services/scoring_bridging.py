@@ -468,6 +468,70 @@ def get_reconstruction_interpretation(score: float) -> str:
         return "Transparent"
 
 
+async def find_lexical_bridge(
+    anchor: str,
+    target: str,
+    num_steps: int,
+    supabase
+) -> list[str]:
+    """
+    Find the optimal N-step semantic bridge between anchor and target.
+
+    Uses greedy interpolation: finds vocabulary words closest to evenly-spaced
+    points along the anchor→target embedding vector.
+
+    This serves as a baseline comparison for human-created bridges, showing
+    "the most direct semantic path an algorithm would take."
+
+    Args:
+        anchor: The starting word
+        target: The ending word
+        num_steps: Number of intermediate bridge words (1-5)
+        supabase: Authenticated Supabase client
+
+    Returns:
+        List of bridge words (may be fewer than num_steps if vocabulary sparse)
+    """
+    from .embeddings import get_embeddings_batch
+
+    # Get anchor and target embeddings
+    embeddings = await get_embeddings_batch([anchor, target])
+    anchor_emb = embeddings[0]
+    target_emb = embeddings[1]
+
+    anchor_vec = np.array(anchor_emb)
+    target_vec = np.array(target_emb)
+
+    # Compute direction vector
+    direction = target_vec - anchor_vec
+
+    # Generate interpolation points and find nearest words
+    bridge_words = []
+    used_words = [anchor.lower(), target.lower()]
+
+    for i in range(1, num_steps + 1):
+        # Evenly spaced: t = 1/(N+1), 2/(N+1), ..., N/(N+1)
+        t = i / (num_steps + 1)
+        interpolated_point = anchor_vec + t * direction
+
+        # Query pgvector for nearest vocabulary word
+        result = supabase.rpc(
+            "get_nearest_word_excluding",
+            {
+                "query_embedding": interpolated_point.tolist(),
+                "exclude_words": used_words,
+                "k": 1
+            }
+        ).execute()
+
+        if result.data and len(result.data) > 0:
+            word = result.data[0]["word"]
+            bridge_words.append(word)
+            used_words.append(word.lower())
+
+    return bridge_words
+
+
 # ============================================
 # TEST CASES - Run with pytest
 # ============================================
