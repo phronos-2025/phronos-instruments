@@ -38,6 +38,8 @@ function MetricDisplay({
   compact?: boolean;
   highlight?: string;
 }) {
+  const barHeight = compact ? '20px' : '24px';
+
   return (
     <div style={{ marginBottom: compact ? 'var(--space-sm)' : 'var(--space-md)' }}>
       <div
@@ -71,33 +73,43 @@ function MetricDisplay({
       </div>
       <div
         style={{
-          background: 'var(--bg-card)',
+          position: 'relative',
+          background: 'linear-gradient(to right, rgba(176, 141, 85, 0.15), rgba(176, 141, 85, 0.05))',
           borderRadius: '4px',
-          height: compact ? '6px' : '8px',
+          height: barHeight,
           overflow: 'hidden',
-          marginBottom: 'var(--space-xs)',
         }}
       >
+        {/* Filled portion */}
         <div
           style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
             background: 'var(--gold)',
             height: '100%',
             width: `${Math.min(100, score)}%`,
             transition: 'width 0.3s ease',
           }}
         />
-      </div>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          fontFamily: 'var(--font-mono)',
-          fontSize: '0.6rem',
-          color: 'var(--faded)',
-        }}
-      >
-        <span>{leftLabel}</span>
-        <span>{rightLabel}</span>
+        {/* Scale labels inside bar */}
+        <div
+          style={{
+            position: 'relative',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            height: '100%',
+            padding: '0 8px',
+            fontFamily: 'var(--font-mono)',
+            fontSize: compact ? '0.55rem' : '0.6rem',
+            textTransform: 'lowercase',
+            letterSpacing: '0.02em',
+          }}
+        >
+          <span style={{ color: 'var(--faded)', zIndex: 1 }}>{leftLabel}</span>
+          <span style={{ color: 'var(--faded)', zIndex: 1 }}>{rightLabel}</span>
+        </div>
       </div>
       {highlight && (
         <div
@@ -209,6 +221,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
             textTransform: 'uppercase',
             letterSpacing: '0.05em',
             marginBottom: 'var(--space-xs)',
+            textAlign: 'center',
           }}
         >
           Your Common Ground
@@ -219,6 +232,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
             fontSize: '0.85rem',
             color: 'var(--text-light)',
             marginBottom: 'var(--space-md)',
+            textAlign: 'center',
           }}
         >
           {game.clues?.join(' · ')}
@@ -267,6 +281,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
                 textTransform: 'uppercase',
                 letterSpacing: '0.05em',
                 marginBottom: 'var(--space-xs)',
+                textAlign: 'center',
               }}
             >
               Haiku
@@ -277,6 +292,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
                 fontSize: '0.85rem',
                 color: 'var(--text-light)',
                 marginBottom: 'var(--space-sm)',
+                textAlign: 'center',
               }}
             >
               {haikuClues.join(' · ')}
@@ -315,6 +331,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
                 textTransform: 'uppercase',
                 letterSpacing: '0.05em',
                 marginBottom: 'var(--space-xs)',
+                textAlign: 'center',
               }}
             >
               Statistical
@@ -325,6 +342,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
                 fontSize: '0.85rem',
                 color: 'var(--text-light)',
                 marginBottom: 'var(--space-sm)',
+                textAlign: 'center',
               }}
             >
               {lexicalUnion.join(' · ')}
@@ -363,6 +381,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
                 textTransform: 'uppercase',
                 letterSpacing: '0.05em',
                 marginBottom: 'var(--space-xs)',
+                textAlign: 'center',
               }}
             >
               Human
@@ -373,6 +392,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
                 fontSize: '0.85rem',
                 color: 'var(--text-light)',
                 marginBottom: 'var(--space-sm)',
+                textAlign: 'center',
               }}
             >
               {recipientClues.join(' · ')}
@@ -397,7 +417,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
             )}
           </>
         ) : (
-          <div>
+          <div style={{ textAlign: 'center' }}>
             <div
               style={{
                 fontFamily: 'var(--font-mono)',
