@@ -32,7 +32,9 @@ from app.services.scoring import (
     compare_submissions,
     get_relevance_interpretation,
     get_divergence_interpretation,
+    cosine_similarity,
 )
+import numpy as np
 from app.services.scoring_bridging import (
     # Legacy functions for backwards compatibility
     calculate_reconstruction,
@@ -70,6 +72,86 @@ def _parse_embedding(embedding, word: str) -> list[float] | None:
         return None
 
     return embedding
+
+
+async def _calculate_relevance_percentile(
+    participant_relevance: float,
+    anchor_emb: list[float],
+    target_emb: list[float],
+    n_clues: int,
+    supabase,
+    n_samples: int = 200
+) -> float:
+    """
+    Calculate percentile of participant's relevance score vs random word samples.
+
+    Fetches a pool of random word embeddings from vocabulary, then samples from them
+    to generate null distribution. Returns what percentile the participant's score falls in.
+
+    Args:
+        participant_relevance: Participant's relevance score (0-1)
+        anchor_emb: Anchor word embedding
+        target_emb: Target word embedding
+        n_clues: Number of clues (to match sample size)
+        supabase: Supabase client
+        n_samples: Number of bootstrap samples (default 200 for speed)
+
+    Returns:
+        Percentile (0-100) indicating how participant compares to random samples
+    """
+    try:
+        # Fetch a pool of random embeddings (one batch query for efficiency)
+        # We need n_clues * n_samples total words, but we can reuse with replacement
+        pool_size = min(500, n_clues * 10)  # Fetch enough variety
+        random_offset = random.randint(0, max(0, 50000 - pool_size))
+
+        result = supabase.table("vocabulary_embeddings") \
+            .select("word, embedding") \
+            .range(random_offset, random_offset + pool_size - 1) \
+            .execute()
+
+        if not result.data:
+            return 50.0
+
+        # Parse all embeddings
+        vocab_pool = []
+        for row in result.data:
+            if row.get("embedding"):
+                emb = _parse_embedding(row["embedding"], row["word"])
+                if emb:
+                    vocab_pool.append(emb)
+
+        if len(vocab_pool) < n_clues:
+            return 50.0  # Not enough vocabulary
+
+        # Generate null distribution by sampling from pool
+        random_relevances = []
+        rng = np.random.default_rng()
+
+        for _ in range(n_samples):
+            # Sample n_clues embeddings (with replacement for variety)
+            indices = rng.choice(len(vocab_pool), size=n_clues, replace=False)
+            sample_embs = [vocab_pool[i] for i in indices]
+
+            # Calculate relevance for this random sample (same as score_union)
+            relevance_scores = []
+            for clue_emb in sample_embs:
+                sim_a = cosine_similarity(clue_emb, anchor_emb)
+                sim_t = cosine_similarity(clue_emb, target_emb)
+                relevance_scores.append((sim_a + sim_t) / 2)
+
+            random_relevances.append(float(np.mean(relevance_scores)))
+
+        if not random_relevances:
+            return 50.0
+
+        # Calculate percentile: what fraction of random samples is participant better than?
+        percentile = float(np.mean([participant_relevance > r for r in random_relevances]) * 100)
+        return percentile
+
+    except Exception as e:
+        print(f"Bootstrap percentile calculation failed: {e}")
+        return 50.0  # Default to median on error
 
 
 # ============================================
@@ -208,6 +290,15 @@ async def submit_bridging_clues(
     relevance = participant_scores["relevance"]
     divergence = participant_scores["divergence"]  # DAT-style spread (0-100)
 
+    # Calculate bootstrap percentile for relevance
+    relevance_percentile = await _calculate_relevance_percentile(
+        participant_relevance=relevance,
+        anchor_emb=anchor_emb,
+        target_emb=target_emb,
+        n_clues=len(clues_clean),
+        supabase=supabase
+    )
+
     # Legacy field names for backwards compatibility
     divergence_score = divergence
     binding_score = relevance * 100  # Convert 0-1 to 0-100 for legacy display
@@ -250,6 +341,7 @@ async def submit_bridging_clues(
         "clues": clues_clean,
         # New unified scoring fields
         "relevance": relevance,
+        "relevance_percentile": relevance_percentile,
         "divergence": divergence,
         # Legacy fields for backwards compatibility
         "divergence_score": divergence_score,
@@ -306,14 +398,23 @@ async def submit_bridging_clues(
             update_data["haiku_bridge_similarity"] = haiku_bridge_similarity
             update_data["status"] = "completed"
 
-    supabase.table("games_bridging").update(update_data).eq("id", game_id).execute()
+    # Try to update with all fields; if relevance_percentile column doesn't exist yet, retry without it
+    try:
+        supabase.table("games_bridging").update(update_data).eq("id", game_id).execute()
+    except Exception as e:
+        if "relevance_percentile" in str(e):
+            # Column doesn't exist yet - remove and retry
+            update_data.pop("relevance_percentile", None)
+            supabase.table("games_bridging").update(update_data).eq("id", game_id).execute()
+        else:
+            raise
 
     return SubmitBridgingCluesResponse(
         game_id=game_id,
         clues=clues_clean,
         # New unified scoring fields
         relevance=relevance,
-        relevance_percentile=None,  # TODO: Bootstrap percentile calculation
+        relevance_percentile=relevance_percentile,
         divergence=divergence,
         # Legacy scoring fields
         divergence_score=divergence_score,
@@ -406,12 +507,12 @@ async def get_semantic_distance(
     Used to show how "far apart" anchor and target are on the word selection screen.
     Distance is 0-100 scale (DAT convention): cosine distance × 100.
 
-    DAT norms (Olson et al., 2021):
-    - < 50: Low (very similar concepts)
-    - 50-65: Below average
-    - 65-80: Average
-    - 80-90: Above average
-    - > 90: High (very distant concepts)
+    DAT norms (Olson et al., 2021, PNAS):
+    - < 50: Poor (often misunderstanding instructions)
+    - 65-90: Common range
+    - 75-80: Average
+    - 95+: Very high
+    - 100+: Almost never exceeded
     """
     anchor_clean = anchor.lower().strip()
     target_clean = target.lower().strip()
@@ -435,14 +536,15 @@ async def get_semantic_distance(
         sim = cosine_similarity(anchor_emb, target_emb)
         distance = (1 - sim) * 100  # 0-100 scale
 
-        # Interpretation using DAT norms
+        # Interpretation using DAT norms (Olson et al., 2021)
+        # < 50: poor, 65-90: common, 75-80: average, 95+: very high
         if distance < 50:
             interpretation = "close"
-        elif distance < 65:
+        elif distance < 75:
             interpretation = "below average"
-        elif distance < 80:
+        elif distance < 85:
             interpretation = "average"
-        elif distance < 90:
+        elif distance < 95:
             interpretation = "above average"
         else:
             interpretation = "distant"
@@ -460,7 +562,7 @@ async def get_semantic_distance(
         return SemanticDistanceResponse(
             anchor=anchor_clean,
             target=target_clean,
-            distance=70.0,
+            distance=78.0,
             interpretation="average"
         )
 

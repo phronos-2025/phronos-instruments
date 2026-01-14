@@ -26,7 +26,7 @@ interface BridgingResultsScreenProps {
 function getInterpretation(relevance: number, spread: number): { label: string; description: string } {
   // relevance is 0-100 (displayed as percentage), spread is 0-100 (DAT scale)
   const highRelevance = relevance >= 30;  // 0.30 threshold * 100
-  const highSpread = spread >= 70;        // DAT "above average"
+  const highSpread = spread >= 85;        // DAT "above average" (75-80 is average per Olson et al.)
 
   if (highRelevance && highSpread) {
     return {
@@ -51,16 +51,17 @@ function getInterpretation(relevance: number, spread: number): { label: string; 
   }
 }
 
-// Get spread interpretation using DAT norms
+// Get spread interpretation using DAT norms (Olson et al., 2021, PNAS)
+// < 50: poor, 65-90: common range, 75-80: average, 95+: very high
 function getSpreadInterpretation(spread: number): string {
   if (spread < 50) {
     return 'low · concepts are very similar';
-  } else if (spread < 65) {
-    return 'below average · DAT norm: 65-80';
-  } else if (spread < 80) {
-    return 'average · DAT norm: 65-80';
-  } else if (spread < 90) {
-    return 'above average · DAT norm: 65-80';
+  } else if (spread < 75) {
+    return 'below average · DAT avg: 75-80';
+  } else if (spread < 85) {
+    return 'average · DAT avg: 75-80';
+  } else if (spread < 95) {
+    return 'above average · DAT avg: 75-80';
   } else {
     return 'high · wide semantic coverage';
   }
@@ -371,7 +372,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
             }}
           >
             {getSpreadInterpretation(spread)}
-            {!lowRelevance && spread >= 70 && (
+            {!lowRelevance && spread >= 85 && (
               <span style={{ color: 'var(--gold)' }}> · impressive for a bridging task</span>
             )}
           </div>

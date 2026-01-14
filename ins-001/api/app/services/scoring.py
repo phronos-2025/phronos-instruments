@@ -86,11 +86,11 @@ def calculate_divergence(
 
     Returns:
         Score 0-100 (DAT convention)
-        - < 50: Low (often indicates misunderstanding, e.g., listing synonyms)
-        - 50-65: Below average
-        - 65-80: Average
-        - 80-90: Above average
-        - > 90: High (very spread out associations)
+        - < 50: Poor (often misunderstanding instructions)
+        - 65-90: Common range
+        - 75-80: Average
+        - 95+: Very high
+        - 100+: Almost never exceeded
 
     Literature: Olson et al. (2021), PNAS - "Naming unrelated words predicts creativity"
     """
@@ -451,6 +451,13 @@ def get_divergence_interpretation(score: float) -> str:
     """
     Get human-readable interpretation of divergence score (DAT-style 0-100).
 
+    Based on Olson et al. (2021) PNAS:
+    - < 50: Poor (often misunderstanding)
+    - 65-90: Common range
+    - 75-80: Average
+    - 95+: Very high
+    - 100+: Almost never exceeded
+
     Args:
         score: Divergence score (0-100)
 
@@ -459,11 +466,11 @@ def get_divergence_interpretation(score: float) -> str:
     """
     if score < 50:
         return "Low"
-    elif score < 65:
+    elif score < 75:
         return "Below Average"
-    elif score < 80:
+    elif score < 85:
         return "Average"
-    elif score < 90:
+    elif score < 95:
         return "Above Average"
     else:
         return "High"
