@@ -3,7 +3,7 @@
  *
  * Shows full results including:
  * - Your Semantic Union (user's concepts + divergence)
- * - The Lexical Union (equidistant concept set)
+ * - The Lexical Union (words with high joint similarity to both concepts)
  * - The LLM Union (Haiku's concepts)
  */
 
@@ -70,11 +70,13 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
   const { dispatch } = useBridgingSenderState();
 
   const divergence = game.divergence_score || 0;
+  const binding = game.binding_score || 0;
   const stepCount = game.clues?.length || 0;
 
   // V2 fields - check for Haiku's bridge (steps)
   const haikuSteps = game.haiku_clues;
   const haikuDivergence = game.haiku_divergence;
+  const haikuBinding = game.haiku_binding;
   const haikuBridgeSimilarity = game.haiku_bridge_similarity;
   const hasHaikuBridge = haikuSteps && haikuSteps.length > 0;
 
@@ -103,7 +105,6 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
       {/* Your Semantic Union */}
       <Panel
         title="Your Semantic Union"
-        meta={Math.round(divergence).toString()}
         style={{ marginBottom: 'var(--space-md)' }}
       >
         {/* Bridge display */}
@@ -134,24 +135,104 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
           </div>
         </div>
 
-        <ScoreBar
-          score={divergence}
-          leftLabel="predictable"
-          rightLabel="creative"
-        />
-        <div
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.75rem',
-            color: 'var(--faded)',
-            marginTop: 'var(--space-sm)',
-          }}
-        >
-          How far your concepts arc from the direct path.
+        {/* Binding metric */}
+        <div style={{ marginBottom: 'var(--space-md)' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'baseline',
+              marginBottom: 'var(--space-xs)',
+            }}
+          >
+            <span
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.7rem',
+                color: 'var(--text-light)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+              }}
+            >
+              Binding
+            </span>
+            <span
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.75rem',
+                color: 'var(--gold)',
+              }}
+            >
+              {Math.round(binding)}
+            </span>
+          </div>
+          <ScoreBar
+            score={binding}
+            leftLabel="weak"
+            rightLabel="strong"
+          />
+          <div
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.65rem',
+              color: 'var(--faded)',
+              marginTop: 'var(--space-xs)',
+            }}
+          >
+            How strongly your concepts connect to both endpoints.
+          </div>
+        </div>
+
+        {/* Divergence metric */}
+        <div>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'baseline',
+              marginBottom: 'var(--space-xs)',
+            }}
+          >
+            <span
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.7rem',
+                color: 'var(--text-light)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+              }}
+            >
+              Divergence
+            </span>
+            <span
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.75rem',
+                color: 'var(--gold)',
+              }}
+            >
+              {Math.round(divergence)}
+            </span>
+          </div>
+          <ScoreBar
+            score={divergence}
+            leftLabel="predictable"
+            rightLabel="creative"
+          />
+          <div
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.65rem',
+              color: 'var(--faded)',
+              marginTop: 'var(--space-xs)',
+            }}
+          >
+            How far your concepts arc from the direct path.
+          </div>
         </div>
       </Panel>
 
-      {/* The Lexical Union - equidistant concept set */}
+      {/* The Lexical Union - words semantically related to both concepts */}
       <Panel
         title="The Lexical Union"
         meta={`${stepCount} concepts`}
@@ -165,7 +246,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
             marginBottom: 'var(--space-sm)',
           }}
         >
-          The set of concepts equidistant to both anchor and target:
+          Concepts with high semantic relevance to both anchor and target:
         </div>
         <div
           style={{
@@ -200,7 +281,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
             textAlign: 'center',
           }}
         >
-          Concepts closest to the midpoint between anchor and target
+          Words that meaningfully relate to both concepts
         </div>
       </Panel>
 
@@ -208,7 +289,6 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
       {hasHaikuBridge && (
         <Panel
           title="The LLM Union (Haiku)"
-          meta={haikuDivergence !== undefined ? Math.round(haikuDivergence).toString() : undefined}
           style={{ marginBottom: 'var(--space-md)' }}
         >
           {/* Bridge display - same format as other panels */}
@@ -239,25 +319,86 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
             </div>
           </div>
 
+          {/* Binding metric */}
+          {haikuBinding !== undefined && (
+            <div style={{ marginBottom: 'var(--space-md)' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'baseline',
+                  marginBottom: 'var(--space-xs)',
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '0.7rem',
+                    color: 'var(--text-light)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                  }}
+                >
+                  Binding
+                </span>
+                <span
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '0.75rem',
+                    color: 'var(--text-light)',
+                  }}
+                >
+                  {Math.round(haikuBinding)}
+                </span>
+              </div>
+              <ScoreBar
+                score={haikuBinding}
+                leftLabel="weak"
+                rightLabel="strong"
+                color="var(--text-light)"
+              />
+            </div>
+          )}
+
+          {/* Divergence metric */}
           {haikuDivergence !== undefined && (
-            <>
+            <div>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'baseline',
+                  marginBottom: 'var(--space-xs)',
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '0.7rem',
+                    color: 'var(--text-light)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                  }}
+                >
+                  Divergence
+                </span>
+                <span
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '0.75rem',
+                    color: 'var(--text-light)',
+                  }}
+                >
+                  {Math.round(haikuDivergence)}
+                </span>
+              </div>
               <ScoreBar
                 score={haikuDivergence}
                 leftLabel="predictable"
                 rightLabel="creative"
                 color="var(--text-light)"
               />
-              <div
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '0.75rem',
-                  color: 'var(--faded)',
-                  marginTop: 'var(--space-sm)',
-                }}
-              >
-                How far Haiku's concepts arc from the direct path.
-              </div>
-            </>
+            </div>
           )}
         </Panel>
       )}

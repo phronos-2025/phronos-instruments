@@ -284,12 +284,14 @@ class SubmitBridgingCluesResponse(BaseModel):
     game_id: str
     clues: list[str]
     divergence_score: float
+    binding_score: float  # How well clues jointly relate to both anchor and target
     lexical_bridge: Optional[list[str]] = None  # Optimal embedding-based path
     status: BridgingGameStatus
     share_code: Optional[str] = None
     # V2: If Haiku recipient, includes Haiku's bridge (its own clues)
     haiku_clues: Optional[list[str]] = None
     haiku_divergence: Optional[float] = None
+    haiku_binding: Optional[float] = None
     haiku_bridge_similarity: Optional[float] = None
     # Legacy fields (for backwards compat with old games)
     haiku_guessed_anchor: Optional[str] = None
@@ -366,6 +368,7 @@ class BridgingGameResponse(BaseModel):
     target_word: str
     clues: Optional[list[str]]
     divergence_score: Optional[float]
+    binding_score: Optional[float] = None  # How well clues jointly relate to both endpoints
     lexical_bridge: Optional[list[str]] = None  # Equidistant concept set
     # Legacy V1: Recipient guesses
     guessed_anchor: Optional[str]
@@ -379,6 +382,7 @@ class BridgingGameResponse(BaseModel):
     # V2: Recipient's union
     recipient_clues: Optional[list[str]] = None
     recipient_divergence: Optional[float] = None
+    recipient_binding: Optional[float] = None
     bridge_similarity: Optional[float] = None
     # Legacy V1: Haiku guesses
     haiku_guessed_anchor: Optional[str]
@@ -387,6 +391,7 @@ class BridgingGameResponse(BaseModel):
     # V2: Haiku's union
     haiku_clues: Optional[list[str]] = None
     haiku_divergence: Optional[float] = None
+    haiku_binding: Optional[float] = None
     haiku_bridge_similarity: Optional[float] = None
     # Statistical baseline
     statistical_guessed_anchor: Optional[str]
@@ -473,14 +478,17 @@ class BridgingGameResponseV2(BaseModel):
     # Sender's bridge
     clues: Optional[list[str]]
     divergence_score: Optional[float]
+    binding_score: Optional[float] = None
     # Recipient's bridge (v2)
     recipient_clues: Optional[list[str]]
     recipient_divergence: Optional[float]
+    recipient_binding: Optional[float] = None
     bridge_similarity: Optional[float]
     path_alignment: Optional[float]
     # Haiku's bridge (v2)
     haiku_clues: Optional[list[str]]
     haiku_divergence: Optional[float]
+    haiku_binding: Optional[float] = None
     haiku_bridge_similarity: Optional[float]
     # Legacy fields (for old games)
     guessed_anchor: Optional[str]

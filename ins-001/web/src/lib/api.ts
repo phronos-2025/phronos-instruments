@@ -146,12 +146,14 @@ export interface SubmitBridgingCluesResponse {
   game_id: string;
   clues: string[];
   divergence_score: number;
+  binding_score: number;  // How well clues relate to both endpoints
   lexical_bridge?: string[];  // Optimal embedding-based path
   status: BridgingGameStatus;
   share_code?: string;
   // V2: Haiku builds its own bridge
   haiku_clues?: string[];
   haiku_divergence?: number;
+  haiku_binding?: number;
   haiku_bridge_similarity?: number;
   // Legacy (deprecated - for old games)
   haiku_guessed_anchor?: string;
@@ -203,6 +205,7 @@ export interface BridgingGameResponse {
   target_word: string;
   clues?: string[];
   divergence_score?: number;
+  binding_score?: number;  // How well clues relate to both endpoints
   lexical_bridge?: string[];  // Optimal embedding-based path
   // Human recipient guesses (legacy V1)
   guessed_anchor?: string;
@@ -216,6 +219,7 @@ export interface BridgingGameResponse {
   // Recipient bridge (V2)
   recipient_clues?: string[];
   recipient_divergence?: number;
+  recipient_binding?: number;
   bridge_similarity?: number;
   // Haiku guesses (legacy V1)
   haiku_guessed_anchor?: string;
@@ -224,6 +228,7 @@ export interface BridgingGameResponse {
   // Haiku bridge (V2)
   haiku_clues?: string[];
   haiku_divergence?: number;
+  haiku_binding?: number;
   haiku_bridge_similarity?: number;
   // Statistical baseline
   statistical_guessed_anchor?: string;
@@ -294,14 +299,17 @@ export interface BridgingGameResponseV2 {
   // Sender's bridge
   clues?: string[];
   divergence_score?: number;
+  binding_score?: number;
   // Recipient's bridge (V2)
   recipient_clues?: string[];
   recipient_divergence?: number;
+  recipient_binding?: number;
   bridge_similarity?: number;
   path_alignment?: number;
   // Haiku's bridge (V2)
   haiku_clues?: string[];
   haiku_divergence?: number;
+  haiku_binding?: number;
   haiku_bridge_similarity?: number;
   // Legacy fields
   guessed_anchor?: string;

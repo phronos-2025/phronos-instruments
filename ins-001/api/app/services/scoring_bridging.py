@@ -9,8 +9,8 @@ Key difference from INS-001:
   (not distance from neighborhood centroid)
 - Reconstruction measures how well recipient recovered the pair
   (not convergence to single seed)
-- Lexical Union finds words equidistant to both anchor and target
-  (not a sequential path)
+- Lexical Union finds words with high joint similarity to both anchor and target
+  (not a sequential path or geometric midpoint)
 """
 
 import numpy as np
@@ -87,6 +87,63 @@ def calculate_divergence(
     normalized_score = min(100.0, (mean_perp_distance / CALIBRATION_MAX) * 100)
 
     return float(normalized_score)
+
+
+def calculate_binding_strength(
+    anchor_embedding: list[float],
+    target_embedding: list[float],
+    clue_embeddings: list[list[float]]
+) -> float:
+    """
+    Calculate binding strength: how well clues jointly relate to BOTH anchor and target.
+
+    High score = clues genuinely unify the pair (relate to both endpoints).
+    Low score = clues are random or only relate to one endpoint.
+
+    Uses the minimum similarity approach: a clue only "binds" if it relates
+    to both endpoints, so we take the weaker of the two similarities.
+
+    Args:
+        anchor_embedding: Embedding vector for anchor word
+        target_embedding: Embedding vector for target word
+        clue_embeddings: List of embedding vectors for clues
+
+    Returns:
+        Binding strength score (0-100 scale)
+        - 0-30: Weak binding (clues don't connect both endpoints)
+        - 30-60: Moderate binding (clues relate to both, but not strongly)
+        - 60-100: Strong binding (clues genuinely unify the pair)
+    """
+    if not clue_embeddings:
+        return 0.0
+
+    anchor_vec = np.array(anchor_embedding)
+    target_vec = np.array(target_embedding)
+
+    joint_scores = []
+
+    for clue_emb in clue_embeddings:
+        clue_vec = np.array(clue_emb)
+
+        # Cosine similarity to each endpoint
+        sim_anchor = cosine_similarity(clue_vec.tolist(), anchor_vec.tolist())
+        sim_target = cosine_similarity(clue_vec.tolist(), target_vec.tolist())
+
+        # Must relate to BOTH — use minimum (bottleneck principle)
+        # A clue only binds as strongly as its weakest connection
+        joint = min(sim_anchor, sim_target)
+        joint_scores.append(joint)
+
+    # Average joint relevance across all clues
+    mean_joint = np.mean(joint_scores)
+
+    # Normalize to 0-100 scale
+    # Cosine similarity typically ranges 0-1 for meaningful word pairs
+    # Scale so that 0.3+ similarity (decent relevance) maps to good scores
+    # 0.0 -> 0, 0.3 -> 50, 0.6+ -> 100
+    normalized_score = min(100.0, (mean_joint / 0.6) * 100)
+
+    return float(max(0.0, normalized_score))
 
 
 def calculate_bridge_similarity(
@@ -641,17 +698,18 @@ async def find_lexical_union(
     supabase
 ) -> list[str]:
     """
-    Find the N vocabulary words most equidistant to both anchor and target.
+    Find vocabulary words with high semantic relevance to BOTH anchor and target.
 
-    Instead of finding a path from A to T, finds words that sit at similar
-    distances from both concepts - words in the "union" of both semantic spaces.
+    Uses joint similarity scoring: words must relate strongly to both concepts,
+    not just sit at a geometric midpoint. This produces semantically meaningful
+    unions rather than superficial pattern matches (e.g., names near names).
 
     Scoring: For each candidate word, calculate:
-    - dist_to_anchor = ||word_vec - anchor_vec||
-    - dist_to_target = ||word_vec - target_vec||
-    - equidistance_score = 1 / (1 + |dist_to_anchor - dist_to_target|)
+    - sim_anchor = cosine_similarity(word_vec, anchor_vec)
+    - sim_target = cosine_similarity(word_vec, target_vec)
+    - joint_score = min(sim_anchor, sim_target)  # Must connect to BOTH
 
-    Return the N words with highest equidistance scores.
+    Return the N words with highest joint similarity scores.
 
     Args:
         anchor: The anchor concept
@@ -669,24 +727,40 @@ async def find_lexical_union(
     anchor_vec = np.array(embeddings[0])
     target_vec = np.array(embeddings[1])
 
-    # Get candidate words near the midpoint region
-    midpoint = (anchor_vec + target_vec) / 2
-
-    # Get candidates near the midpoint region (single fast query)
-    result = supabase.rpc(
+    # Get candidates near both anchor and target regions
+    # Query from both ends to ensure we have words relevant to each concept
+    anchor_result = supabase.rpc(
         "get_noise_floor_by_embedding",
         {
-            "seed_embedding": midpoint.tolist(),
-            "seed_word": "",  # No word to exclude by name
-            "k": 200  # More candidates for better selection
+            "seed_embedding": anchor_vec.tolist(),
+            "seed_word": anchor,
+            "k": 150
         }
     ).execute()
 
-    if not result.data:
+    target_result = supabase.rpc(
+        "get_noise_floor_by_embedding",
+        {
+            "seed_embedding": target_vec.tolist(),
+            "seed_word": target,
+            "k": 150
+        }
+    ).execute()
+
+    if not anchor_result.data and not target_result.data:
         return []
 
-    # Build candidate list with their embeddings
-    candidate_words = [r["word"] for r in result.data]
+    # Combine candidates from both queries, deduplicating by word
+    candidate_words_set = set()
+    candidate_words = []
+    for r in (anchor_result.data or []) + (target_result.data or []):
+        word = r["word"]
+        if word not in candidate_words_set:
+            candidate_words_set.add(word)
+            candidate_words.append(word)
+
+    if not candidate_words:
+        return []
 
     # Get embeddings for all candidates in one batch
     candidate_embeddings = await get_embeddings_batch(candidate_words)
@@ -694,34 +768,30 @@ async def find_lexical_union(
     # Track used words for morphological variant detection
     used_words = [anchor.lower(), target.lower()]
 
-    # Score each candidate by equidistance
+    # Score each candidate by joint similarity (must relate to BOTH concepts)
     scored_candidates = []
     for word, emb in zip(candidate_words, candidate_embeddings):
         if _is_morphological_variant(word, anchor) or _is_morphological_variant(word, target):
             continue
 
         word_vec = np.array(emb)
-        dist_to_anchor = np.linalg.norm(word_vec - anchor_vec)
-        dist_to_target = np.linalg.norm(word_vec - target_vec)
 
-        # Equidistance: prefer words with similar distances to both concepts
-        # Lower |dist_to_anchor - dist_to_target| = more equidistant
-        equidistance_score = 1.0 / (1.0 + abs(dist_to_anchor - dist_to_target))
+        # Cosine similarity to both anchor and target
+        sim_anchor = cosine_similarity(word_vec.tolist(), anchor_vec.tolist())
+        sim_target = cosine_similarity(word_vec.tolist(), target_vec.tolist())
 
-        # Also factor in being reasonably close to midpoint (not too far from both)
-        avg_distance = (dist_to_anchor + dist_to_target) / 2
-        proximity_score = 1.0 / (1.0 + avg_distance)
+        # Joint relevance: word must connect meaningfully to BOTH concepts
+        # Using min() ensures we don't get words that are very close to one
+        # concept but irrelevant to the other
+        joint_score = min(sim_anchor, sim_target)
 
-        # Combined score: equidistance matters most, but proximity is a tiebreaker
-        combined_score = equidistance_score * 0.8 + proximity_score * 0.2
+        scored_candidates.append((word, joint_score, sim_anchor, sim_target))
 
-        scored_candidates.append((word, combined_score))
-
-    # Sort by score (descending) and select top N, avoiding morphological variants
+    # Sort by joint score (descending) and select top N, avoiding morphological variants
     scored_candidates.sort(key=lambda x: x[1], reverse=True)
 
     union_words = []
-    for word, score in scored_candidates:
+    for word, joint_score, sim_a, sim_t in scored_candidates:
         # Skip if morphological variant of already selected word
         is_variant = any(_is_morphological_variant(word, used) for used in used_words)
         if is_variant:

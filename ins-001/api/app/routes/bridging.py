@@ -29,6 +29,7 @@ from app.middleware.auth import get_authenticated_client
 from app.services.embeddings import get_embedding, get_embeddings_batch
 from app.services.scoring_bridging import (
     calculate_divergence,
+    calculate_binding_strength,
     calculate_reconstruction,
     calculate_bridge_similarity,
     calculate_semantic_distance,
@@ -202,6 +203,9 @@ async def submit_bridging_clues(
     # Calculate divergence (perpendicular distance from anchor-target line)
     divergence_score = calculate_divergence(anchor_emb, target_emb, clue_embs)
 
+    # Calculate binding strength (how well clues relate to BOTH endpoints)
+    binding_score = calculate_binding_strength(anchor_emb, target_emb, clue_embs)
+
     # Calculate lexical union (equidistant concepts with same count as participant)
     lexical_bridge = None
     try:
@@ -220,6 +224,7 @@ async def submit_bridging_clues(
     update_data = {
         "clues": clues_clean,
         "divergence_score": divergence_score,
+        "binding_score": binding_score,
         "lexical_bridge": lexical_bridge,
         "share_code": share_code,
         "status": "pending_guess" if game["recipient_type"] == "human" else "pending_clues"
@@ -228,6 +233,7 @@ async def submit_bridging_clues(
     # If Haiku recipient, have Haiku build its own bridge (V2 approach)
     haiku_clues = None
     haiku_divergence = None
+    haiku_binding = None
     haiku_bridge_similarity = None
     # Legacy fields for backwards compat
     haiku_guessed_anchor = None
@@ -244,8 +250,9 @@ async def submit_bridging_clues(
             # Embed Haiku's clues
             haiku_clue_embs = await get_embeddings_batch(haiku_clues)
 
-            # Calculate Haiku's divergence
+            # Calculate Haiku's divergence and binding
             haiku_divergence = calculate_divergence(anchor_emb, target_emb, haiku_clue_embs)
+            haiku_binding = calculate_binding_strength(anchor_emb, target_emb, haiku_clue_embs)
 
             # Calculate union similarity between sender and Haiku
             similarity_result = calculate_bridge_similarity(
@@ -258,6 +265,7 @@ async def submit_bridging_clues(
 
             update_data["haiku_clues"] = haiku_clues
             update_data["haiku_divergence"] = haiku_divergence
+            update_data["haiku_binding"] = haiku_binding
             update_data["haiku_bridge_similarity"] = haiku_bridge_similarity
             update_data["status"] = "completed"
 
@@ -267,12 +275,14 @@ async def submit_bridging_clues(
         game_id=game_id,
         clues=clues_clean,
         divergence_score=divergence_score,
+        binding_score=binding_score,
         lexical_bridge=lexical_bridge,
         status=BridgingGameStatus(update_data["status"]),
         share_code=share_code,
         # V2 fields
         haiku_clues=haiku_clues,
         haiku_divergence=haiku_divergence,
+        haiku_binding=haiku_binding,
         haiku_bridge_similarity=haiku_bridge_similarity,
         # Legacy fields (return None for V2 games)
         haiku_guessed_anchor=haiku_guessed_anchor,
@@ -820,6 +830,7 @@ async def get_bridging_game(
         target_word=game["target_word"],
         clues=game.get("clues"),
         divergence_score=game.get("divergence_score"),
+        binding_score=game.get("binding_score"),
         lexical_bridge=game.get("lexical_bridge"),
         # Legacy V1: Human recipient guesses
         guessed_anchor=game.get("guessed_anchor"),
@@ -833,6 +844,7 @@ async def get_bridging_game(
         # V2: Human recipient union
         recipient_clues=game.get("recipient_clues"),
         recipient_divergence=game.get("recipient_divergence"),
+        recipient_binding=game.get("recipient_binding"),
         bridge_similarity=game.get("bridge_similarity"),
         # Legacy V1: Haiku guesses
         haiku_guessed_anchor=game.get("haiku_guessed_anchor"),
@@ -841,6 +853,7 @@ async def get_bridging_game(
         # V2: Haiku union
         haiku_clues=game.get("haiku_clues"),
         haiku_divergence=game.get("haiku_divergence"),
+        haiku_binding=game.get("haiku_binding"),
         haiku_bridge_similarity=game.get("haiku_bridge_similarity"),
         # Statistical baseline
         statistical_guessed_anchor=game.get("statistical_guessed_anchor"),
