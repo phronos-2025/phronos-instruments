@@ -188,7 +188,8 @@ class EagerPrecompute:
             if recipient_type == "haiku":
                 async def generate_haiku():
                     try:
-                        haiku_clues = await haiku_build_bridge(anchor, target, num_clues=5)
+                        haiku_result = await haiku_build_bridge(anchor, target, num_clues=5)
+                        haiku_clues = haiku_result.get("clues", [])
                         result.haiku_clues = haiku_clues
                         if haiku_clues:
                             result.haiku_embeddings = await cache.get_embeddings_batch(haiku_clues)
