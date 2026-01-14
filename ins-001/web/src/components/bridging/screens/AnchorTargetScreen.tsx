@@ -175,16 +175,23 @@ export const AnchorTargetScreen: React.FC<AnchorTargetScreenProps> = ({
     }
   };
 
-  // Format distance for display
+  // Format distance for display using DAT norms
   const formatDistance = (d: SemanticDistanceResponse) => {
+    // Labels aligned with DAT norms (Olson et al., 2021)
     const labels: Record<string, string> = {
       identical: 'identical',
-      close: 'semantically close',
-      moderate: 'moderate distance',
-      distant: 'distant',
-      'very distant': 'very distant',
+      close: 'close · try more distant concepts',
+      'below average': 'below average distance',
+      average: 'average distance',
+      'above average': 'good distance',
+      distant: 'very distant',
     };
     return labels[d.interpretation] || d.interpretation;
+  };
+
+  // Check if distance is good for a challenging task
+  const isGoodDistance = (d: SemanticDistanceResponse) => {
+    return d.interpretation === 'above average' || d.interpretation === 'distant';
   };
 
   return (
@@ -301,7 +308,11 @@ export const AnchorTargetScreen: React.FC<AnchorTargetScreenProps> = ({
                 <div
                   style={{
                     fontSize: '0.7rem',
-                    color: distance.interpretation === 'identical' ? 'var(--alert)' : 'var(--faded)',
+                    color: distance.interpretation === 'identical'
+                      ? 'var(--alert)'
+                      : isGoodDistance(distance)
+                        ? 'var(--gold)'
+                        : 'var(--faded)',
                     marginBottom: 'var(--space-xs)',
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em',

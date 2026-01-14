@@ -37,7 +37,6 @@ from app.services.scoring_bridging import (
     # Legacy functions for backwards compatibility
     calculate_reconstruction,
     calculate_bridge_similarity,
-    calculate_semantic_distance,
     get_reconstruction_interpretation,
     find_lexical_bridge,
     find_lexical_union,
@@ -392,7 +391,7 @@ async def suggest_distant_word(
 
 
 # ============================================
-# SEMANTIC DISTANCE (V2)
+# SEMANTIC DISTANCE (V3 - DAT-style)
 # ============================================
 
 @router.get("/distance", response_model=SemanticDistanceResponse)
@@ -402,10 +401,17 @@ async def get_semantic_distance(
     auth = Depends(get_authenticated_client)
 ):
     """
-    Get semantic distance between two words.
+    Get semantic distance (spread) between two words using DAT-style scoring.
 
     Used to show how "far apart" anchor and target are on the word selection screen.
-    Distance is 0-100 scale: 0 = identical, 100 = maximally distant.
+    Distance is 0-100 scale (DAT convention): cosine distance × 100.
+
+    DAT norms (Olson et al., 2021):
+    - < 50: Low (very similar concepts)
+    - 50-65: Below average
+    - 65-80: Average
+    - 80-90: Above average
+    - > 90: High (very distant concepts)
     """
     anchor_clean = anchor.lower().strip()
     target_clean = target.lower().strip()
@@ -424,18 +430,22 @@ async def get_semantic_distance(
         anchor_emb = embeddings[0]
         target_emb = embeddings[1]
 
-        # Calculate distance
-        distance = calculate_semantic_distance(anchor_emb, target_emb)
+        # Calculate DAT-style distance: cosine distance × 100
+        from app.services.scoring import cosine_similarity
+        sim = cosine_similarity(anchor_emb, target_emb)
+        distance = (1 - sim) * 100  # 0-100 scale
 
-        # Interpretation
-        if distance < 15:
+        # Interpretation using DAT norms
+        if distance < 50:
             interpretation = "close"
-        elif distance < 30:
-            interpretation = "moderate"
-        elif distance < 45:
-            interpretation = "distant"
+        elif distance < 65:
+            interpretation = "below average"
+        elif distance < 80:
+            interpretation = "average"
+        elif distance < 90:
+            interpretation = "above average"
         else:
-            interpretation = "very distant"
+            interpretation = "distant"
 
         return SemanticDistanceResponse(
             anchor=anchor_clean,
@@ -446,12 +456,12 @@ async def get_semantic_distance(
 
     except Exception as e:
         print(f"get_semantic_distance error: {e}")
-        # Return a default moderate distance on error
+        # Return a default average distance on error
         return SemanticDistanceResponse(
             anchor=anchor_clean,
             target=target_clean,
-            distance=30.0,
-            interpretation="moderate"
+            distance=70.0,
+            interpretation="average"
         )
 
 

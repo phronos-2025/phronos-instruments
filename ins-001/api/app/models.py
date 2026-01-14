@@ -434,11 +434,11 @@ class TriggerHaikuGuessResponse(BaseModel):
 # ============================================
 
 class SemanticDistanceResponse(BaseModel):
-    """Response with semantic distance between two words."""
+    """Response with semantic distance between two words using DAT-style scoring."""
     anchor: str
     target: str
-    distance: float  # 0-100 scale
-    interpretation: str  # "close", "moderate", "distant", "very distant"
+    distance: float  # 0-100 scale (DAT convention: cosine distance × 100)
+    interpretation: str  # DAT norms: "identical", "close", "below average", "average", "above average", "distant"
 
 
 class JoinBridgingGameResponseV2(BaseModel):

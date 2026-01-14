@@ -283,7 +283,8 @@ export interface SemanticDistanceResponse {
   anchor: string;
   target: string;
   distance: number;
-  interpretation: 'identical' | 'close' | 'moderate' | 'distant' | 'very distant';
+  // DAT-style interpretation (v3): aligned with DAT norms (Olson et al., 2021)
+  interpretation: 'identical' | 'close' | 'below average' | 'average' | 'above average' | 'distant';
 }
 
 export interface JoinBridgingGameResponseV2 {
