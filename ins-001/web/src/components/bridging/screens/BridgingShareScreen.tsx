@@ -122,11 +122,11 @@ export const BridgingShareScreen: React.FC<BridgingShareScreenProps> = ({
       <p className="subtitle">
         <span className="id">INS-001.2</span> · Step 3 of 3
       </p>
-      <h1 className="title">Union submitted.</h1>
+      <h1 className="title">Common ground submitted.</h1>
 
-      {/* Your Semantic Union */}
+      {/* Your Common Ground */}
       <Panel
-        title="Your Semantic Union"
+        title="Your Common Ground"
         meta={Math.round(divergence).toString()}
         style={{ marginBottom: 'var(--space-lg)' }}
       >
@@ -209,7 +209,7 @@ export const BridgingShareScreen: React.FC<BridgingShareScreenProps> = ({
       </Panel>
 
       {/* Share options */}
-      <p className="description">Who should build the union?</p>
+      <p className="description">Who should find common ground?</p>
 
       <div
         style={{
@@ -304,7 +304,7 @@ export const BridgingShareScreen: React.FC<BridgingShareScreenProps> = ({
               marginBottom: '4px',
             }}
           >
-            {isGettingHaiku ? 'Building...' : 'Let Haiku build'}
+            {isGettingHaiku ? 'Finding...' : 'Let Haiku find'}
           </div>
           <div
             style={{
@@ -313,7 +313,7 @@ export const BridgingShareScreen: React.FC<BridgingShareScreenProps> = ({
               color: 'var(--faded)',
             }}
           >
-            See how Claude Haiku builds the same union
+            See how Claude Haiku finds the same common ground
           </div>
         </button>
       </div>

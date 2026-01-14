@@ -177,10 +177,10 @@ export const BridgingStepsScreen: React.FC<BridgingStepsScreenProps> = ({
       <p className="subtitle">
         <span className="id">INS-001.2</span> · Step 2 of 3
       </p>
-      <h1 className="title">Build your union.</h1>
+      <h1 className="title">Find your common ground.</h1>
 
       <p className="description">
-        Enter single-word concepts that connect your anchor and target.
+        Enter single-word concepts that belong to both your anchor and target.
       </p>
 
       {/* Bridge visualization */}
@@ -322,7 +322,7 @@ export const BridgingStepsScreen: React.FC<BridgingStepsScreenProps> = ({
             variant="primary"
             disabled={!canSubmit}
           >
-            {isSubmitting ? 'Submitting...' : 'Submit Union →'}
+            {isSubmitting ? 'Submitting...' : 'Submit'}
           </Button>
         </div>
       </form>

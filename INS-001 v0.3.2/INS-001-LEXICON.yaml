@@ -1,0 +1,401 @@
+# INS-001 Lexical Specification
+# Language, terminology, and messaging for the Semantic Cartography instrument family
+# Version: 1.0.0 | Date: 2025-01-14 | Status: draft
+
+_meta:
+  version: "1.0.0"
+  date: "2025-01-14"
+  author: "Phronos"
+  status: "draft"
+  parent_brand: "BRAND.yaml"
+  notes: "This lexicon extends BRAND.yaml with instrument-specific terminology. Defer to BRAND.yaml for voice, tone, and visual identity."
+
+# =============================================================================
+# FAMILY IDENTITY
+# INS-001: Semantic Cartography
+# =============================================================================
+
+family:
+  code: "INS-001"
+  name: "Semantic Cartography"
+  tagline: "Charting how meaning moves."
+  
+  description:
+    short: "Instruments for mapping how you navigate conceptual space."
+    expanded: "A family of assessments that measure divergent and convergent thinking through word association patterns—how you encode meaning, transmit it to others, and reconstruct it from sparse signals."
+  
+  scientific_basis:
+    primary: "Olson et al. (2021). Naming unrelated words predicts creativity. PNAS."
+    supporting:
+      - "De Deyne et al. (2019). Small World of Words English word association norms."
+      - "Kenett et al. (2018). Flexibility of thought in high creative individuals."
+      - "Abramski et al. (2025). LLM World of Words free association norms."
+  
+  core_constructs:
+    - name: "Divergence"
+      definition: "How much conceptual territory your responses cover."
+      operationalization: "Mean pairwise semantic distance (DAT methodology)."
+    
+    - name: "Relevance"
+      definition: "How connected your responses are to the prompt."
+      operationalization: "Mean cosine similarity to target concept(s)."
+    
+    - name: "Communicability"
+      definition: "Whether meaning survives transmission to another agent."
+      operationalization: "Reconstruction accuracy by partner or LLM."
+    
+    - name: "Surprisal"
+      definition: "How unexpected a semantic transition is."
+      operationalization: "Negative log-probability against reference network (SWOW/LWOW)."
+
+# =============================================================================
+# INSTRUMENTS
+# Individual assessments within the family
+# =============================================================================
+
+instruments:
+
+  INS-001.1:
+    code: "001.1"
+    name: "Signal"
+    headline: "Map a signal."
+    
+    task:
+      short: "Describe a concept divergently—can it still be reconstructed?"
+      expanded: "Given a seed concept, provide clues that are semantically diverse yet sufficient for reconstruction. Measures the tension between divergence and communicability."
+    
+    what_it_measures:
+      - "Divergence: spread of your clues from each other"
+      - "Relevance: connection of clues to the seed"
+      - "Communicability: whether LLM or human partner can reconstruct the seed"
+    
+    vocabulary:
+      prompt_word: "seed"
+      user_input: "clues"
+      success_event: "reconstruction"
+    
+    ui_copy:
+      instruction: "Name concepts that describe the seed—as many directions as you can."
+      completion: "See what emerges."
+      no_correct_answers: "There are no correct answers—only your signal."
+
+  INS-001.2:
+    code: "001.2"
+    name: "Common Ground"
+    headline: "Find common ground."
+    
+    task:
+      short: "Name concepts that belong to both anchor and target."
+      expanded: "Given two concepts, identify the fewest clues that capture both. Measures your ability to locate semantic intersection across distant concepts."
+    
+    what_it_measures:
+      - "Divergence: spread of your clues from each other"
+      - "Relevance: mean similarity to both anchor and target"
+    
+    vocabulary:
+      prompt_words: ["anchor", "target"]
+      user_input: "clues"
+      success_event: "intersection"
+    
+    ui_copy:
+      instruction: "Name concepts that belong to both."
+      completion: "See what emerges."
+      no_correct_answers: "There are no correct answers—only your connections."
+
+  INS-001.3:
+    code: "001.3"
+    name: "Triangulation"
+    headline: "Locate the source."
+    
+    task:
+      short: "Reconstruct a concept from another's clues."
+      expanded: "Given clues provided by a partner (human or LLM), identify the original seed concept. Measures convergent thinking and semantic decoding."
+    
+    what_it_measures:
+      - "Reconstruction accuracy"
+      - "Convergence efficiency: how many clues required"
+      - "Alignment: similarity of your reconstruction path to population norms"
+    
+    vocabulary:
+      prompt_word: "clues"
+      user_input: "guess"
+      success_event: "reconstruction"
+    
+    ui_copy:
+      instruction: "What concept do these clues describe?"
+      completion: "See if you found it."
+      no_correct_answers: null  # This task has a correct answer
+
+  INS-001.4:
+    code: "001.4"
+    name: "Registration"
+    headline: "Compare the maps."
+    
+    task:
+      short: "See how your path through semantic space aligns with another's."
+      expanded: "Both you and a partner (or LLM) complete the same task. Results are compared to measure semantic alignment—shared vs. idiosyncratic associative structure."
+    
+    what_it_measures:
+      - "Semantic alignment: overlap between your associations and partner's"
+      - "Idiosyncrasy: uniqueness of your path"
+      - "Human-LLM divergence: where your associations differ from machine norms"
+    
+    vocabulary:
+      comparison_target: ["partner", "population", "LLM"]
+      metric: "alignment"
+      success_event: "registration"
+    
+    ui_copy:
+      instruction: "Complete the task. Then see how your map compares."
+      completion: "Your paths through semantic space."
+      no_correct_answers: "There is no correct path—only yours."
+
+  INS-001.5:
+    code: "001.5"
+    name: "Stress Test"
+    headline: "Test the structure."
+    
+    task:
+      short: "Can meaning survive when obvious links are removed?"
+      expanded: "Your semantic network is subjected to simulated attack—high-probability associations are removed. Measures robustness and flexibility of your associative structure."
+    
+    what_it_measures:
+      - "Robustness: percolation integral under link removal"
+      - "Flexibility: reliance on secondary vs. primary associations"
+      - "Structural integrity: whether meaning survives degradation"
+    
+    vocabulary:
+      attack_type: "percolation"
+      metric: "robustness"
+      success_event: "survival"
+    
+    ui_copy:
+      instruction: "Build your network. Then watch it hold—or break."
+      completion: "See what survives."
+      no_correct_answers: "There is no correct structure—only resilient ones."
+
+  INS-001.6:
+    code: "001.6"
+    name: "Drift"
+    headline: "Chart the drift."
+    
+    task:
+      short: "The same task, across time or exposure—what shifted?"
+      expanded: "Repeat an earlier assessment after an interval or after LLM interaction. Measures stability or change in your associative patterns."
+    
+    what_it_measures:
+      - "Temporal stability: consistency across sessions"
+      - "LLM influence: change in surprisal after AI exposure"
+      - "Drift direction: toward or away from population/LLM norms"
+    
+    vocabulary:
+      comparison_type: ["temporal", "exposure-based"]
+      metric: "drift"
+      baseline: "prior session"
+    
+    ui_copy:
+      instruction: "Complete the task again."
+      completion: "See what moved."
+      no_correct_answers: "There is no correct drift—only change made visible."
+
+# =============================================================================
+# SHARED VOCABULARY
+# Terms used across all INS-001 instruments
+# =============================================================================
+
+glossary:
+
+  # User-facing terms (plain language)
+  user_facing:
+    clue:
+      definition: "A word you provide in response to the prompt."
+      usage: "Always 'clue' or 'clues', never 'response', 'answer', or 'input'."
+    
+    seed:
+      definition: "The starting concept in a single-target task (001.1)."
+      usage: "Use for INS-001.1. For 001.2, use 'anchor' and 'target'."
+    
+    anchor:
+      definition: "The first of two concepts in a dual-target task (001.2)."
+      usage: "Always paired with 'target'."
+    
+    target:
+      definition: "The second of two concepts in a dual-target task (001.2)."
+      usage: "Always paired with 'anchor'."
+    
+    reconstruction:
+      definition: "Successfully identifying the original concept from clues."
+      usage: "The goal of convergent tasks (001.1, 001.3)."
+
+  # Technical terms (methods documentation)
+  technical:
+    divergence:
+      plain: "How spread out your clues are from each other."
+      technical: "Mean pairwise cosine distance across all words, scaled 0-100 (DAT convention)."
+    
+    relevance:
+      plain: "How connected your clues are to the prompt."
+      technical: "Mean cosine similarity to prompt embedding(s)."
+    
+    surprisal:
+      plain: "How unexpected a word association is."
+      technical: "Negative log-probability of transition under reference network."
+    
+    percolation:
+      plain: "Removing links from a network to test its resilience."
+      technical: "Sequential edge removal measuring giant component survival."
+    
+    alignment:
+      plain: "How much your associations overlap with another's."
+      technical: "Jaccard similarity or embedding-space overlap between response sets."
+
+# =============================================================================
+# MESSAGING CONSTRAINTS
+# What to say and what to avoid
+# =============================================================================
+
+messaging:
+
+  principles:
+    - "The instrument reveals. Interpretation belongs to the participant."
+    - "Divergence is not creativity. Relevance is not correctness."
+    - "High scores are not better. They are different."
+    - "We measure deviation from norms, not deviation from truth."
+  
+  required_disclaimers:
+    results_page:
+      - "These results indicate deviation from population norms—not better or worse, but different."
+      - "Reference norms reflect predominantly English-speaking, internet-using populations."
+    
+    methodology_page:
+      - "Surprisal measures typicality against a reference network, not inherent creativity or value."
+  
+  forbidden_phrases:
+    value_judgments:
+      - "Your creativity score"
+      - "More creative"
+      - "Better associations"
+      - "Optimal path"
+      - "Correct answer" # except for 001.3 reconstruction
+    
+    marketing_speak:
+      - "Unlock your potential"
+      - "Boost your creativity"
+      - "Train your brain"
+      - "Cognitive enhancement"
+    
+    false_precision:
+      - "You are X% creative"
+      - "Your creativity rank is"
+      - "Top X% of thinkers"
+    
+    misleading_claims:
+      - "Survey" # implies questionnaire, not behavioral measure
+      - "Test your creativity" # implies we measure creativity directly
+      - "IQ" or "intelligence" # we don't measure this
+  
+  preferred_phrasing:
+    instead_of: "Your creativity score"
+    use: "Your divergence relative to population norms"
+    
+    instead_of: "More creative associations"
+    use: "Higher surprisal associations"
+    
+    instead_of: "Correct answer"
+    use: "Successful reconstruction" # for 001.3
+
+# =============================================================================
+# UI PATTERNS
+# Consistent language across interface elements
+# =============================================================================
+
+ui_patterns:
+
+  buttons:
+    start: "Begin Assessment"
+    submit: "Submit"
+    next: "Continue"
+    complete: "See Results"
+    retry: "Try Again"
+  
+  progress:
+    step_format: "Step {n} of {total}"
+    time_estimate: "~{n} minutes"
+  
+  results_headers:
+    divergence: "Divergence"
+    relevance: "Relevance"
+    reconstruction: "Reconstruction"
+    alignment: "Alignment"
+  
+  empty_states:
+    no_clues: "Enter at least one clue to continue."
+    loading: "Computing..."
+    error: "Something went wrong. Your responses are saved locally."
+  
+  consent:
+    checkbox_label: "I agree to the Terms of Service and Privacy Policy, and consent to the processing of my responses as described therein."
+    link_terms: "/terms"
+    link_privacy: "/privacy"
+
+# =============================================================================
+# METRIC DISPLAY
+# How to present scores to users
+# =============================================================================
+
+metric_display:
+
+  divergence:
+    scale: "0-100"
+    display_format: "numeric"
+    interpretation_bands:
+      - range: [0, 50]
+        label: "Clustered"
+        description: "Your clues occupy nearby semantic territory."
+      - range: [50, 70]
+        label: "Moderate spread"
+        description: "Your clues cover moderate semantic distance."
+      - range: [70, 90]
+        label: "Wide spread"
+        description: "Your clues span distant regions of semantic space."
+      - range: [90, 100]
+        label: "Highly dispersed"
+        description: "Your clues are maximally distant from each other."
+  
+  relevance:
+    scale: "0-1"
+    display_format: "numeric or bar"
+    interpretation_bands:
+      - range: [0, 0.15]
+        label: "Weak connection"
+        description: "Clues have limited semantic connection to prompt."
+      - range: [0.15, 0.30]
+        label: "Tangential"
+        description: "Clues are loosely connected to prompt."
+      - range: [0.30, 0.45]
+        label: "Connected"
+        description: "Clues are meaningfully connected to prompt."
+      - range: [0.45, 1.0]
+        label: "Core neighborhood"
+        description: "Clues are strongly connected to prompt."
+  
+  reconstruction:
+    scale: "binary or ranked"
+    display_format: "success/failure or rank position"
+    interpretation:
+      success: "The signal was reconstructed."
+      failure: "The signal was lost."
+
+# =============================================================================
+# CROSS-REFERENCES
+# Related documents and resources
+# =============================================================================
+
+cross_references:
+  brand: "BRAND.yaml"
+  scoring: "INS-001-scoring-metrics-v2.md"
+  methods: "Draft_-_Accessing_Your_Associative_and_Divergent_Semantic_Architecture_v5.md"
+  literature:
+    dat: "https://www.pnas.org/doi/10.1073/pnas.2022340118"
+    swow: "https://doi.org/10.3758/s13428-018-1115-7"
+    lwow: "https://doi.org/10.1038/s41597-025-05156-9"

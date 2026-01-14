@@ -65,7 +65,7 @@ export const BridgingGuessResultsScreen: React.FC<BridgingGuessResultsScreenProp
         <span className="id">INS-001.2</span> · Results
       </p>
       <h1 className="title">
-        {perfectMatch ? 'Perfect reconstruction!' : 'Union revealed.'}
+        {perfectMatch ? 'Perfect reconstruction!' : 'Common ground revealed.'}
       </h1>
 
       {/* True union reveal */}
@@ -83,7 +83,7 @@ export const BridgingGuessResultsScreen: React.FC<BridgingGuessResultsScreenProp
             marginBottom: 'var(--space-xs)',
           }}
         >
-          THE UNION WAS:
+          THE COMMON GROUND WAS:
         </div>
         <div
           style={{
@@ -325,7 +325,7 @@ export const BridgingGuessResultsScreen: React.FC<BridgingGuessResultsScreenProp
           ) : (
             <>
               <strong style={{ color: 'var(--text-light)' }}>
-                The union was opaque.
+                The common ground was opaque.
               </strong>
               <br />
               The clues took a creative route that was hard to decode.
@@ -336,7 +336,7 @@ export const BridgingGuessResultsScreen: React.FC<BridgingGuessResultsScreenProp
 
       <div className="btn-group" style={{ justifyContent: 'center' }}>
         <Button variant="primary" onClick={() => (window.location.href = '/ins-001-2')}>
-          Build Your Own Union
+          Find Your Own Common Ground
         </Button>
       </div>
     </div>

@@ -27,6 +27,9 @@ from app.models import (
 )
 from app.middleware.auth import get_authenticated_client
 from app.services.embeddings import get_embedding, get_embeddings_batch
+# Performance optimization: Use cached embeddings and precomputation
+from app.services.cache import EmbeddingCache, VocabularyPool
+from app.services.async import EagerPrecompute
 from app.services.scoring import (
     score_union,
     compare_submissions,
@@ -196,6 +199,21 @@ async def create_bridging_game(
 
     game = result.data[0]
 
+    # Start eager precomputation in background (while user types clues)
+    # This eliminates the 20+ second wait on clue submission
+    try:
+        precompute = EagerPrecompute.get_instance()
+        await precompute.start_bridging_precompute(
+            game_id=game["id"],
+            anchor=anchor,
+            target=target,
+            recipient_type=request.recipient_type.value,
+            supabase=supabase
+        )
+    except Exception as e:
+        # Non-fatal: precomputation failure just means slower clue submission
+        print(f"Eager precompute failed to start: {e}")
+
     return CreateBridgingGameResponse(
         game_id=game["id"],
         anchor_word=game["anchor_word"],
@@ -282,43 +300,70 @@ async def submit_bridging_clues(
                     detail={"error": f"Clues '{clue1}' and '{clue2}' are too similar to each other"}
                 )
 
-    # Batch embed anchor, target, and all clues
-    all_texts = [anchor, target] + clues_clean
-    all_embeddings = await get_embeddings_batch(all_texts)
+    # Try to use precomputed embeddings (from when game was created)
+    precompute = EagerPrecompute.get_instance()
+    precomputed = await precompute.get_precomputed_results(game_id, timeout_seconds=2.0)
 
-    anchor_emb = all_embeddings[0]
-    target_emb = all_embeddings[1]
-    clue_embs = all_embeddings[2:]
+    # Use cached embedding service for efficiency
+    cache = EmbeddingCache.get_instance()
+
+    if precomputed and precomputed.anchor_embedding and precomputed.target_embedding:
+        # Use precomputed anchor/target embeddings
+        anchor_emb = precomputed.anchor_embedding
+        target_emb = precomputed.target_embedding
+        # Only embed the clues (much faster)
+        clue_embs = await cache.get_embeddings_batch(clues_clean)
+    else:
+        # Fallback: embed everything (slower, but works if precompute failed)
+        all_texts = [anchor, target] + clues_clean
+        all_embeddings = await cache.get_embeddings_batch(all_texts)
+        anchor_emb = all_embeddings[0]
+        target_emb = all_embeddings[1]
+        clue_embs = all_embeddings[2:]
 
     # Calculate unified scores using new scoring system (relevance + spread)
     participant_scores = score_union(clue_embs, anchor_emb, target_emb)
     relevance = participant_scores["relevance"]
     divergence = participant_scores["divergence"]  # DAT-style spread (0-100)
 
-    # Calculate bootstrap percentile for relevance
-    relevance_percentile = await _calculate_relevance_percentile(
-        participant_relevance=relevance,
-        anchor_emb=anchor_emb,
-        target_emb=target_emb,
-        n_clues=len(clues_clean),
-        supabase=supabase
-    )
+    # Calculate bootstrap percentile for relevance (use precomputed if available)
+    if precomputed and precomputed.null_samples and len(precomputed.null_samples) > 0:
+        # Use precomputed null distribution (instant)
+        null_samples = precomputed.null_samples
+        percentile = float(np.mean([relevance > r for r in null_samples]) * 100)
+        relevance_percentile = min(99.9, max(0.1, percentile))
+    else:
+        # Fallback to live calculation (slower)
+        relevance_percentile = await _calculate_relevance_percentile(
+            participant_relevance=relevance,
+            anchor_emb=anchor_emb,
+            target_emb=target_emb,
+            n_clues=len(clues_clean),
+            supabase=supabase
+        )
 
     # Legacy field names for backwards compatibility
     divergence_score = divergence
     binding_score = relevance * 100  # Convert 0-1 to 0-100 for legacy display
 
-    # Calculate lexical union (equidistant concepts with same count as participant)
+    # Calculate lexical union (use precomputed if available)
     lexical_bridge = None
     lexical_similarity = None
     lexical_relevance = None
     lexical_divergence = None
     try:
-        lexical_bridge = await find_lexical_union(anchor, target, len(clues_clean), supabase)
+        if precomputed and precomputed.lexical_bridge and len(precomputed.lexical_bridge) > 0:
+            # Use precomputed lexical union
+            lexical_bridge = precomputed.lexical_bridge
+            lexical_embs = precomputed.lexical_embeddings or await cache.get_embeddings_batch(lexical_bridge)
+        else:
+            # Fallback: compute lexical union now
+            lexical_bridge = await find_lexical_union(anchor, target, len(clues_clean), supabase)
+            if lexical_bridge and len(lexical_bridge) > 0:
+                lexical_embs = await cache.get_embeddings_batch(lexical_bridge)
 
         # Calculate scores for lexical union
         if lexical_bridge and len(lexical_bridge) > 0:
-            lexical_embs = await get_embeddings_batch(lexical_bridge)
             lexical_scores = score_union(lexical_embs, anchor_emb, target_emb)
             lexical_relevance = lexical_scores["relevance"]
             lexical_divergence = lexical_scores["divergence"]
@@ -372,14 +417,18 @@ async def submit_bridging_clues(
     haiku_reconstruction_score = None
 
     if game["recipient_type"] == "haiku":
-        # V2: Haiku builds its own union (same number of concepts as participant)
-        haiku_result = await haiku_build_bridge(anchor, target, num_clues=len(clues_clean))
+        # Try to use precomputed Haiku results (generated while user typed clues)
+        if precomputed and precomputed.haiku_clues and len(precomputed.haiku_clues) > 0:
+            haiku_clues = precomputed.haiku_clues
+            haiku_clue_embs = precomputed.haiku_embeddings or await cache.get_embeddings_batch(haiku_clues)
+        else:
+            # Fallback: generate Haiku bridge now (slower)
+            haiku_result = await haiku_build_bridge(anchor, target, num_clues=len(clues_clean))
+            if haiku_result.get("clues") and len(haiku_result["clues"]) > 0:
+                haiku_clues = haiku_result["clues"]
+                haiku_clue_embs = await cache.get_embeddings_batch(haiku_clues)
 
-        if haiku_result.get("clues") and len(haiku_result["clues"]) > 0:
-            haiku_clues = haiku_result["clues"]
-
-            # Embed Haiku's clues
-            haiku_clue_embs = await get_embeddings_batch(haiku_clues)
+        if haiku_clues and len(haiku_clues) > 0:
 
             # Calculate Haiku's scores using new unified scoring
             haiku_scores = score_union(haiku_clue_embs, anchor_emb, target_emb)
@@ -457,7 +506,7 @@ async def suggest_distant_word(
     """
     Suggest a random word from vocabulary.
 
-    Uses fast random selection for instant response (<100ms).
+    Uses in-memory vocabulary pool for instant response (<50ms).
     Random words are usually distant enough for good gameplay.
 
     Args:
@@ -466,8 +515,17 @@ async def suggest_distant_word(
     """
     supabase, user = auth
 
-    # Get a random word from vocabulary
-    # Fast path: single row fetch at random offset
+    # Use in-memory vocabulary pool for instant response
+    pool = VocabularyPool.get_instance()
+    if pool.is_initialized and pool.size > 0:
+        word = pool.get_random()
+        if word:
+            return SuggestWordResponse(
+                suggestion=word,
+                from_word=from_word.lower().strip() if from_word else None
+            )
+
+    # Fallback: database query if pool not initialized
     try:
         random_offset = random.randint(0, 49999)
         result = supabase.table("vocabulary_embeddings") \
@@ -483,15 +541,10 @@ async def suggest_distant_word(
     except Exception as e:
         print(f"suggest_distant_word database error: {e}")
 
-    # Hardcoded fallback if database is unavailable
-    fallback_words = [
-        "universe", "cosmos", "ocean", "mountain", "algorithm",
-        "symphony", "crystal", "whisper", "thunder", "horizon",
-        "paradox", "labyrinth", "enigma", "essence", "catalyst",
-        "zenith", "nebula", "fortress", "cascade", "phantom"
-    ]
+    # Hardcoded fallback if both pool and database are unavailable
+    from app.services.cache.vocabulary_pool import get_fallback_word
     return SuggestWordResponse(
-        suggestion=random.choice(fallback_words),
+        suggestion=get_fallback_word(),
         from_word=from_word.lower().strip() if from_word else None
     )
 
@@ -509,7 +562,7 @@ async def get_semantic_distance(
     """
     Get semantic distance (spread) between two words using DAT-style scoring.
 
-    Used to show how "far apart" anchor and target are on the word selection screen.
+    Uses cached embeddings for instant response (<200ms with cache hit).
     Distance is 0-100 scale (DAT convention): cosine distance × 100.
 
     DAT norms (Olson et al., 2021, PNAS):
@@ -531,8 +584,9 @@ async def get_semantic_distance(
         )
 
     try:
-        # Batch embed both words
-        embeddings = await get_embeddings_batch([anchor_clean, target_clean])
+        # Use cached embeddings for fast response
+        cache = EmbeddingCache.get_instance()
+        embeddings = await cache.get_embeddings_batch([anchor_clean, target_clean])
         anchor_emb = embeddings[0]
         target_emb = embeddings[1]
 

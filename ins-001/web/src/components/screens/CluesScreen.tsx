@@ -117,7 +117,7 @@ export const CluesScreen: React.FC<CluesScreenProps> = ({
           onClick={handleSubmit}
           disabled={!allValid || isSubmitting}
         >
-          {isSubmitting ? 'Submitting...' : 'Submit Clues →'}
+          {isSubmitting ? 'Submitting...' : 'Submit'}
         </Button>
       </div>
     </div>

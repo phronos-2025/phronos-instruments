@@ -1,10 +1,10 @@
 ---
 /**
- * INS-001 Semantic Associations - Family Landing Page
+ * INS-001 Semantic Cartography - Family Landing Page
  *
  * Shows all instruments in the INS-001 family:
- * - INS-001.1: Semantic Radiation
- * - INS-001.2: Semantic Union
+ * - INS-001.1: Signal
+ * - INS-001.2: Common Ground
  */
 
 export const prerender = false;
@@ -18,16 +18,16 @@ import LandingFooter from '../../components/landing/LandingFooter.astro';
 
 const familyInfo = {
   id: 'INS-001',
-  title: 'Semantic Associations',
-  description: 'Measures divergence (semantic creativity) and convergence (communicability) through word association patterns.',
+  title: 'Semantic Cartography',
+  description: 'Instruments for mapping how you navigate conceptual space—how you encode meaning, transmit it to others, and reconstruct it from sparse signals.',
   status: 'live' as const,
 };
 
 const childInstruments = [
   {
     id: 'INS-001.1',
-    title: 'Semantic Radiation',
-    description: 'Measures semantic radiation around a single concept—the ability to communicate a topic with high fidelity and high divergence.',
+    title: 'Signal',
+    description: 'Describe a concept divergently—can it still be reconstructed? Measures the tension between divergence and communicability.',
     status: 'live' as const,
     duration: '~5 min',
     outputs: '2 scores',
@@ -35,8 +35,8 @@ const childInstruments = [
   },
   {
     id: 'INS-001.2',
-    title: 'Semantic Union',
-    description: 'United two concepts.',
+    title: 'Common Ground',
+    description: 'Name concepts that belong to both anchor and target. Measures your ability to locate semantic intersection across distant concepts.',
     status: 'live' as const,
     duration: '~5 min',
     outputs: '2 scores',

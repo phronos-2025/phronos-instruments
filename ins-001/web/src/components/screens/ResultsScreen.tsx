@@ -113,7 +113,7 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
         <div className="panel-content" style={{ fontFamily: 'var(--font-body)', fontSize: '0.9rem', color: 'var(--faded)', lineHeight: '1.7' }}>
           Your associations show {divergenceInterpretation.toLowerCase()} divergence ({game.divergence_score?.toFixed(2) || 'N/A'}) from the predictable semantic neighborhood, 
           {game.convergence_score !== undefined && ` indicating ${convergenceInterpretation.toLowerCase()} communication effectiveness.`}
-          {game.convergence_score === undefined && ' indicating creative, unexpected pathways.'}
+          {game.convergence_score === undefined && ' indicating unexpected pathways.'}
         </div>
       </Panel>
       

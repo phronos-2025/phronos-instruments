@@ -45,12 +45,12 @@ function ScoreBar({ score, color = 'var(--gold)' }: { score: number; color?: str
 function getSimilarityInterpretation(score: number): { text: string; description: string } {
   if (score >= 80) {
     return {
-      text: 'Highly similar unions',
+      text: 'Highly similar common ground',
       description: 'You and the sender navigated this connection almost identically.',
     };
   } else if (score >= 60) {
     return {
-      text: 'Similar unions',
+      text: 'Similar common ground',
       description: 'You took a related conceptual path between these words.',
     };
   } else if (score >= 40) {
@@ -60,14 +60,14 @@ function getSimilarityInterpretation(score: number): { text: string; description
     };
   } else {
     return {
-      text: 'Divergent unions',
+      text: 'Divergent common ground',
       description: 'You and the sender had very different ways of connecting these ideas.',
     };
   }
 }
 
 function getDivergenceLabel(divergence: number): string {
-  if (divergence >= 60) return 'creative';
+  if (divergence >= 60) return 'high spread';
   if (divergence >= 40) return 'moderate';
   return 'direct';
 }
@@ -89,7 +89,7 @@ export const BridgingComparisonScreen: React.FC<BridgingComparisonScreenProps> =
   return (
     <div>
       <p className="subtitle">
-        <span className="id">INS-001.2</span> · Union Comparison
+        <span className="id">INS-001.2</span> · Common Ground Comparison
       </p>
       <h1 className="title">{interpretation.text}</h1>
 
@@ -153,7 +153,7 @@ export const BridgingComparisonScreen: React.FC<BridgingComparisonScreenProps> =
               letterSpacing: '0.05em',
             }}
           >
-            Their Union
+            Their Common Ground
           </div>
           <div
             style={{
@@ -201,7 +201,7 @@ export const BridgingComparisonScreen: React.FC<BridgingComparisonScreenProps> =
               letterSpacing: '0.05em',
             }}
           >
-            Your Union
+            Your Common Ground
           </div>
           <div
             style={{
@@ -231,9 +231,9 @@ export const BridgingComparisonScreen: React.FC<BridgingComparisonScreenProps> =
         </div>
       </div>
 
-      {/* Union Similarity Score */}
+      {/* Common Ground Similarity Score */}
       <Panel
-        title="Union Similarity"
+        title="Common Ground Similarity"
         meta={`${Math.round(bridgeSimilarity)}%`}
         style={{ marginBottom: 'var(--space-md)' }}
       >
@@ -361,17 +361,17 @@ export const BridgingComparisonScreen: React.FC<BridgingComparisonScreenProps> =
           <br />
           {senderMoreCreative ? (
             <>
-              The sender took a more creative route ({Math.round(senderDivergence)}% divergence)
+              The sender took a higher divergence route ({Math.round(senderDivergence)}% spread)
               while you stayed closer to the direct path ({Math.round(recipientDivergence)}%).
             </>
           ) : senderDivergence < recipientDivergence ? (
             <>
-              You took a more creative route ({Math.round(recipientDivergence)}% divergence)
+              You took a higher divergence route ({Math.round(recipientDivergence)}% spread)
               while they stayed closer to the direct path ({Math.round(senderDivergence)}%).
             </>
           ) : (
             <>
-              Both unions had similar levels of creativity (~{Math.round(senderDivergence)}% divergence).
+              Both common grounds had similar levels of spread (~{Math.round(senderDivergence)}% divergence).
             </>
           )}
         </div>
@@ -379,7 +379,7 @@ export const BridgingComparisonScreen: React.FC<BridgingComparisonScreenProps> =
 
       <div className="btn-group" style={{ justifyContent: 'center' }}>
         <Button variant="primary" onClick={() => (window.location.href = '/ins-001-2')}>
-          Build Your Own Union
+          Find Your Own Common Ground
         </Button>
       </div>
     </div>

@@ -25,14 +25,14 @@ export const BridgingIntroScreen: React.FC = () => {
       <ProgressBar currentStep={1} />
 
       <p className="subtitle">
-        <span className="id">INS-001.2</span> · Semantic Union
+        <span className="id">INS-001.2</span> · Common Ground
       </p>
-      <h1 className="title">Build a union.</h1>
+      <h1 className="title">Find common ground.</h1>
 
       <p className="description">
-        This instrument measures how you construct conceptual connections between
-        two different semantic domains. Choose two words and build a union of
-        concepts connecting them.
+        This instrument measures how you locate semantic intersection between
+        two different conceptual domains. Choose two words and find concepts
+        that belong to both.
       </p>
 
       <Panel title="How It Works" meta="~5 minutes">
@@ -73,10 +73,10 @@ export const BridgingIntroScreen: React.FC = () => {
               02
             </div>
             <div style={{ color: 'var(--text-light)', marginBottom: '4px' }}>
-              Build your union
+              Find common ground
             </div>
             <div style={{ color: 'var(--faded)', fontSize: '0.65rem' }}>
-              1-5 concepts connecting them.
+              1-5 concepts that belong to both.
             </div>
           </div>
           <div>
@@ -116,11 +116,11 @@ export const BridgingIntroScreen: React.FC = () => {
           <br />
           <br />
           <strong>Divergence</strong> — How far your concepts arc from the direct
-          path between anchor and target. High divergence indicates creative,
-          unexpected routes.
+          path between anchor and target. High divergence indicates unexpected
+          routes.
           <br />
           <br />
-          <strong>Union Similarity</strong> — How similarly you and others
+          <strong>Common Ground Similarity</strong> — How similarly you and others
           navigate between the same concepts. High similarity indicates shared
           conceptual pathways.
         </div>

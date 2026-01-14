@@ -163,7 +163,7 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
             fontSize: '0.85rem',
           }}
         >
-          Preparing the union...
+          Preparing...
         </div>
       </div>
     );
@@ -193,7 +193,7 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
             fontFamily: 'var(--font-mono)',
           }}
         >
-          Create your own union →
+          Find your own common ground →
         </a>
       </div>
     );
@@ -204,12 +204,12 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
   return (
     <div>
       <p className="subtitle">
-        <span className="id">INS-001.2</span> · Build Your Union
+        <span className="id">INS-001.2</span> · Find Common Ground
       </p>
       <h1 className="title">Connect these concepts.</h1>
 
       <p className="description">
-        Someone built a union between these two words. Now build your own.
+        Someone found common ground between these two words. Now find your own.
       </p>
 
       {/* Anchor ←→ Target display */}
@@ -246,7 +246,7 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
               fontSize: '0.75rem',
             }}
           >
-            Their union used {senderStepCount} concept{senderStepCount !== 1 ? 's' : ''}
+            Their common ground used {senderStepCount} concept{senderStepCount !== 1 ? 's' : ''}
           </div>
         )}
       </Panel>
@@ -329,7 +329,7 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
             variant="primary"
             disabled={filledCount === 0 || isSubmitting}
           >
-            {isSubmitting ? 'Comparing unions...' : 'Compare Unions →'}
+            {isSubmitting ? 'Comparing...' : 'Compare'}
           </Button>
         </div>
       </form>

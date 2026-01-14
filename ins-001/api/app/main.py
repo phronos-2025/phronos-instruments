@@ -26,7 +26,7 @@ async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
     # Startup
     print("Starting INS-001 API...")
-    
+
     # Initialize Sentry if configured
     sentry_dsn = os.environ.get("SENTRY_DSN")
     if sentry_dsn:
@@ -36,9 +36,28 @@ async def lifespan(app: FastAPI):
             traces_sample_rate=0.1,
         )
         print("Sentry initialized")
-    
+
+    # Initialize performance cache components
+    try:
+        from app.services.cache import VocabularyPool
+        from app.config import SUPABASE_URL, SUPABASE_SERVICE_KEY
+        from supabase import create_client
+
+        # Use service key for startup initialization (no user context)
+        if SUPABASE_SERVICE_KEY:
+            service_client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+            pool = VocabularyPool.get_instance()
+            # Load vocabulary in background (non-blocking)
+            import asyncio
+            asyncio.create_task(pool.initialize(service_client, load_embeddings=True))
+            print("VocabularyPool initialization started (background)")
+        else:
+            print("VocabularyPool: No service key, will use DB fallback")
+    except Exception as e:
+        print(f"VocabularyPool initialization failed: {e}")
+
     yield
-    
+
     # Shutdown
     print("Shutting down INS-001 API...")
 

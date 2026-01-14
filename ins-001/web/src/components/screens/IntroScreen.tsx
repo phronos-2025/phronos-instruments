@@ -26,12 +26,12 @@ export const IntroScreen: React.FC = () => {
       <ProgressBar currentStep={1} />
       
       <p className="subtitle">
-        <span className="id">INS-001.1</span> · Semantic Radiation
+        <span className="id">INS-001.1</span> · Signal
       </p>
-      <h1 className="title">Radiate from a concept.</h1>
-      
+      <h1 className="title">Map a signal.</h1>
+
       <p className="description">
-        This instrument measures two dimensions of cognition: how creatively you associate concepts, 
+        This instrument measures two dimensions of cognition: how divergently you associate concepts,
         and how effectively you communicate those associations to others.
       </p>
       
@@ -64,7 +64,7 @@ export const IntroScreen: React.FC = () => {
       <Panel className="" style={{ background: 'transparent', borderColor: 'var(--gold-dim)' }}>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--faded)' }}>
           <strong style={{ color: 'var(--text-light)' }}>What this measures:</strong><br /><br />
-          <strong>Divergence</strong> — How far your associations venture from the predictable. High divergence indicates creative, unexpected semantic paths.<br /><br />
+          <strong>Divergence</strong> — How far your associations venture from the predictable. High divergence indicates unexpected semantic paths.<br /><br />
           <strong>Convergence</strong> — How accurately others can decode your associations. High convergence indicates effective communication of meaning.
         </div>
       </Panel>
@@ -112,7 +112,7 @@ export const IntroScreen: React.FC = () => {
       </div>
       
       <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'var(--faded)', marginTop: 'var(--space-lg)' }}>
-        There are no correct answers—only your responses.
+        There are no correct answers—only your signal.
       </p>
     </div>
   );

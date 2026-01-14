@@ -23,6 +23,8 @@ from app.services.embeddings import (
     get_embeddings_batch,
     get_contextual_embedding,
 )
+# Performance optimization: Use cached embeddings
+from app.services.cache import EmbeddingCache
 from app.services.scoring import compute_divergence, compute_convergence
 from app.services.llm import llm_guess
 from app.services.profiles import update_user_profile
@@ -148,11 +150,11 @@ async def get_game(
     guess_similarities = game.get("guess_similarities")
     
     if not guess_similarities and game.get("guesses") and game.get("clues") and game.get("convergence_score") is not None:
-        # Recalculate similarities for display (requires re-embedding)
-        # This is expensive, so we only do it if needed
+        # Recalculate similarities for display (uses cached embeddings)
         try:
-            seed_emb = await get_contextual_embedding(game["seed_word"], game["clues"])
-            guess_embs = [await get_contextual_embedding(g, game["clues"]) for g in game["guesses"]]
+            cache = EmbeddingCache.get_instance()
+            seed_emb = await cache.get_contextual_embedding(game["seed_word"], game["clues"])
+            guess_embs = [await cache.get_contextual_embedding(g, game["clues"]) for g in game["guesses"]]
             _, _, guess_similarities = compute_convergence(
                 seed_emb, guess_embs, game["seed_word"], game["guesses"]
             )
@@ -243,10 +245,10 @@ async def submit_clues(
 
     game = result.data
 
-    # OPTIMIZATION: Batch embed all clues in a single API call
-    # Instead of 5 sequential calls, use batch embedding
+    # OPTIMIZATION: Use cached embeddings for faster response
+    cache = EmbeddingCache.get_instance()
     clue_texts = [f"{clue} (in context: {game['seed_word']})" for clue in clues_clean]
-    clue_embeddings = await get_embeddings_batch(clue_texts)
+    clue_embeddings = await cache.get_embeddings_batch(clue_texts)
 
     # OPTIMIZATION: Batch fetch all floor embeddings in a single query
     floor_words = [fw["word"] for fw in game["noise_floor"]]
@@ -277,14 +279,13 @@ async def submit_clues(
     if game["recipient_type"] == "llm":
         llm_guesses = await llm_guess(clues_clean, num_guesses=3)
 
-        # OPTIMIZATION: Batch embed seed + all guesses together
-        # Instead of 4 sequential calls, use single batch
+        # OPTIMIZATION: Use cached embeddings for convergence calculation
         convergence_texts = [
             f"{game['seed_word']} (in context: {', '.join(clues_clean)})"
         ] + [
             f"{g} (in context: {', '.join(clues_clean)})" for g in llm_guesses
         ]
-        convergence_embeddings = await get_embeddings_batch(convergence_texts)
+        convergence_embeddings = await cache.get_embeddings_batch(convergence_texts)
 
         seed_emb = convergence_embeddings[0]
         guess_embs = convergence_embeddings[1:]

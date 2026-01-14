@@ -30,12 +30,12 @@ function getInterpretation(relevance: number, spread: number): { label: string; 
 
   if (highRelevance && highSpread) {
     return {
-      label: 'Creative union',
+      label: 'Expansive common ground',
       description: 'Your concepts cover wide semantic territory while staying connected to both endpoints.',
     };
   } else if (highRelevance && !highSpread) {
     return {
-      label: 'Focused union',
+      label: 'Focused common ground',
       description: 'Your concepts form a tight, coherent cluster connecting the endpoints.',
     };
   } else if (!highRelevance && highSpread) {
@@ -45,7 +45,7 @@ function getInterpretation(relevance: number, spread: number): { label: string; 
     };
   } else {
     return {
-      label: 'Weak union',
+      label: 'Weak common ground',
       description: "Your concepts cluster together but don't connect strongly to either endpoint.",
     };
   }
@@ -223,7 +223,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
       <p className="subtitle">
         <span className="id">INS-001.2</span> · Your Results
       </p>
-      <h1 className="title">Union Analysis</h1>
+      <h1 className="title">Common Ground Analysis</h1>
 
       {/* Panel 1: Your Union */}
       <Panel style={{ marginBottom: 'var(--space-md)' }}>
@@ -251,7 +251,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
             marginBottom: 'var(--space-xs)',
           }}
         >
-          Your Union
+          Your Common Ground
         </div>
         <div
           style={{
@@ -395,7 +395,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
             marginBottom: 'var(--space-md)',
           }}
         >
-          How Others See This Union
+          How Others See This Common Ground
         </div>
 
         {/* Haiku */}
@@ -437,7 +437,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
                 <span> · spread: {Math.round(haikuSpread)}</span>
               )}
               {moreCreativeThanHaiku && (
-                <span style={{ color: 'var(--gold)' }}> · you're more creative</span>
+                <span style={{ color: 'var(--gold)' }}> · your spread is higher</span>
               )}
             </div>
             <Divider />
@@ -483,7 +483,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
                 <span>{lexicalRelevance != null ? ' · ' : ''}spread: {Math.round(lexicalSpread)}</span>
               )}
               {moreCreativeThanLexical && (
-                <span style={{ color: 'var(--gold)' }}> · you're more creative</span>
+                <span style={{ color: 'var(--gold)' }}> · your spread is higher</span>
               )}
             </div>
             <Divider />
@@ -552,7 +552,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
                 marginBottom: 'var(--space-sm)',
               }}
             >
-              Share with a friend to compare unions
+              Share with a friend to compare common ground
             </div>
 
             {shareUrl ? (
@@ -589,7 +589,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
 
       <div className="btn-group">
         <Button variant="primary" onClick={() => dispatch({ type: 'RESET' })}>
-          Build Another Union
+          Find More Common Ground
         </Button>
       </div>
     </div>
