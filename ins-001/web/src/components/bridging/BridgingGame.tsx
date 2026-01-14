@@ -50,7 +50,7 @@ function BridgingGameRouter() {
 export default function BridgingGame() {
   return (
     <BridgingSenderProvider>
-      <Navigation instrumentId="INS-001.2" instrumentTitle="BRIDGING" />
+      <Navigation instrumentId="INS-001.2" instrumentTitle="COMMON GROUND" />
       <BridgingGameRouter />
     </BridgingSenderProvider>
   );

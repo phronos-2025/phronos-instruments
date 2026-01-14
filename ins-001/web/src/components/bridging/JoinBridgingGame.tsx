@@ -89,7 +89,7 @@ function BridgingRecipientRouter({ shareCode }: { shareCode: string }) {
 export default function JoinBridgingGame({ shareCode }: JoinBridgingGameProps) {
   return (
     <BridgingRecipientProvider>
-      <Navigation instrumentId="INS-001.2" instrumentTitle="BRIDGING" />
+      <Navigation instrumentId="INS-001.2" instrumentTitle="COMMON GROUND" />
       <BridgingRecipientRouter shareCode={shareCode} />
     </BridgingRecipientProvider>
   );

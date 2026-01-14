@@ -22,111 +22,65 @@ interface BridgingResultsScreenProps {
   game: BridgingGameResponse;
 }
 
-// 2x2 interpretation based on relevance and spread
-function getInterpretation(relevance: number, spread: number): { label: string; description: string } {
-  // relevance is 0-100 (displayed as percentage), spread is 0-100 (DAT scale)
-  const highRelevance = relevance >= 30;  // 0.30 threshold * 100
-  const highSpread = spread >= 85;        // DAT "above average" (75-80 is average per Olson et al.)
-
-  if (highRelevance && highSpread) {
-    return {
-      label: 'Expansive common ground',
-      description: 'Your concepts cover wide semantic territory while staying connected to both endpoints.',
-    };
-  } else if (highRelevance && !highSpread) {
-    return {
-      label: 'Focused common ground',
-      description: 'Your concepts form a tight, coherent cluster connecting the endpoints.',
-    };
-  } else if (!highRelevance && highSpread) {
-    return {
-      label: 'Drifting',
-      description: 'Your concepts spread widely but connect weakly to the endpoints.',
-    };
-  } else {
-    return {
-      label: 'Weak common ground',
-      description: "Your concepts cluster together but don't connect strongly to either endpoint.",
-    };
-  }
-}
-
-// Get spread interpretation using DAT norms (Olson et al., 2021, PNAS)
-// < 50: poor, 65-90: common range, 75-80: average, 95+: very high
-function getSpreadInterpretation(spread: number): string {
-  if (spread < 50) {
-    return 'low · concepts are very similar';
-  } else if (spread < 75) {
-    return 'below average · DAT avg: 75-80';
-  } else if (spread < 85) {
-    return 'average · DAT avg: 75-80';
-  } else if (spread < 95) {
-    return 'above average · DAT avg: 75-80';
-  } else {
-    return 'high · wide semantic coverage';
-  }
-}
-
-// Get relevance interpretation based on percentile (if available) or raw score
-function getRelevanceInterpretation(relevance: number, percentile?: number): string {
-  if (percentile != null) {
-    // Format percentile with proper suffix
-    const pct = Math.round(percentile);
-    const suffix = pct === 1 ? 'st' : pct === 2 ? 'nd' : pct === 3 ? 'rd' : 'th';
-
-    if (percentile >= 90) {
-      return `${pct}${suffix} percentile vs random · exceptional`;
-    } else if (percentile >= 75) {
-      return `${pct}${suffix} percentile vs random · strong`;
-    } else if (percentile >= 50) {
-      return `${pct}${suffix} percentile vs random · above average`;
-    } else if (percentile >= 25) {
-      return `${pct}${suffix} percentile vs random · below average`;
-    } else {
-      return `${pct}${suffix} percentile vs random · weak`;
-    }
-  }
-
-  // Fallback to raw score interpretation (when percentile not available)
-  if (relevance < 15) {
-    return 'noise · not connected to endpoints';
-  } else if (relevance < 30) {
-    return 'weak · tangential connection';
-  } else if (relevance < 45) {
-    return 'moderate · connected to endpoints';
-  } else {
-    return 'strong · core semantic neighborhood';
-  }
-}
-
-function ScoreBar({
+// Unified metric display component for consistent visualization
+function MetricDisplay({
+  label,
   score,
   leftLabel,
   rightLabel,
-  color = 'var(--gold)',
-  dimmed = false,
+  compact = false,
+  highlight,
 }: {
+  label: string;
   score: number;
   leftLabel: string;
   rightLabel: string;
-  color?: string;
-  dimmed?: boolean;
+  compact?: boolean;
+  highlight?: string;
 }) {
-  const opacity = dimmed ? 0.4 : 1;
   return (
-    <div style={{ opacity }}>
+    <div style={{ marginBottom: compact ? 'var(--space-sm)' : 'var(--space-md)' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'baseline',
+          marginBottom: 'var(--space-xs)',
+        }}
+      >
+        <span
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: compact ? '0.65rem' : '0.7rem',
+            color: 'var(--text-light)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+          }}
+        >
+          {label}
+        </span>
+        <span
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: compact ? '0.7rem' : '0.75rem',
+            color: 'var(--gold)',
+          }}
+        >
+          {Math.round(score)}
+        </span>
+      </div>
       <div
         style={{
           background: 'var(--bg-card)',
           borderRadius: '4px',
-          height: '8px',
+          height: compact ? '6px' : '8px',
           overflow: 'hidden',
           marginBottom: 'var(--space-xs)',
         }}
       >
         <div
           style={{
-            background: color,
+            background: 'var(--gold)',
             height: '100%',
             width: `${Math.min(100, score)}%`,
             transition: 'width 0.3s ease',
@@ -138,13 +92,25 @@ function ScoreBar({
           display: 'flex',
           justifyContent: 'space-between',
           fontFamily: 'var(--font-mono)',
-          fontSize: '0.65rem',
+          fontSize: '0.6rem',
           color: 'var(--faded)',
         }}
       >
         <span>{leftLabel}</span>
         <span>{rightLabel}</span>
       </div>
+      {highlight && (
+        <div
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.6rem',
+            color: 'var(--gold)',
+            marginTop: 'var(--space-xs)',
+          }}
+        >
+          {highlight}
+        </div>
+      )}
     </div>
   );
 }
@@ -172,16 +138,10 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
 
   // New metrics (with fallback to old field names for backwards compatibility)
   const relevance = game.relevance ?? game.binding_score ?? 0;
-  const relevancePercentile = game.relevance_percentile;
   const spread = game.divergence ?? game.divergence_score ?? 0;
 
   // Convert relevance from 0-1 to 0-100 for display if it's in the new format
   const relevanceDisplay = relevance <= 1 ? relevance * 100 : relevance;
-
-  const interpretation = getInterpretation(relevanceDisplay, spread);
-
-  // Dim spread when relevance is below threshold (spread is meaningless without relevance)
-  const lowRelevance = relevanceDisplay < 15;
 
   // V2 fields - check for Haiku's union
   const haikuClues = game.haiku_clues;
@@ -264,123 +224,21 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
           {game.clues?.join(' · ')}
         </div>
 
-        {/* Interpretation */}
-        <div
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.7rem',
-            color: 'var(--gold)',
-            marginBottom: 'var(--space-xs)',
-          }}
-        >
-          {interpretation.label}
-        </div>
-        <div
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.65rem',
-            color: 'var(--faded)',
-            marginBottom: 'var(--space-md)',
-          }}
-        >
-          {interpretation.description}
-        </div>
-
         {/* Relevance metric */}
-        <div style={{ marginBottom: 'var(--space-md)' }}>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'baseline',
-              marginBottom: 'var(--space-xs)',
-            }}
-          >
-            <span
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.7rem',
-                color: 'var(--text-light)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-              }}
-            >
-              Relevance
-            </span>
-            <span
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.75rem',
-                color: 'var(--gold)',
-              }}
-            >
-              {Math.round(relevanceDisplay)}
-            </span>
-          </div>
-          <ScoreBar score={relevanceDisplay} leftLabel="noise" rightLabel="strong" />
-          <div
-            style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: '0.6rem',
-              color: 'var(--faded)',
-              marginTop: 'var(--space-xs)',
-            }}
-          >
-            {getRelevanceInterpretation(relevanceDisplay, relevancePercentile)}
-          </div>
-        </div>
+        <MetricDisplay
+          label="Relevance"
+          score={relevanceDisplay}
+          leftLabel="noise"
+          rightLabel="strong"
+        />
 
-        {/* Spread metric - dimmed when relevance is low */}
-        <div style={{ opacity: lowRelevance ? 0.4 : 1 }}>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'baseline',
-              marginBottom: 'var(--space-xs)',
-            }}
-          >
-            <span
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.7rem',
-                color: 'var(--text-light)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-              }}
-            >
-              Spread
-              {lowRelevance && (
-                <span style={{ color: 'var(--faded)', marginLeft: 'var(--space-xs)', textTransform: 'none' }}>
-                  (relevance too low)
-                </span>
-              )}
-            </span>
-            <span
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.75rem',
-                color: 'var(--gold)',
-              }}
-            >
-              {Math.round(spread)}
-            </span>
-          </div>
-          <ScoreBar score={spread} leftLabel="clustered" rightLabel="spread" />
-          <div
-            style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: '0.6rem',
-              color: 'var(--faded)',
-              marginTop: 'var(--space-xs)',
-            }}
-          >
-            {getSpreadInterpretation(spread)}
-            {!lowRelevance && spread >= 85 && (
-              <span style={{ color: 'var(--gold)' }}> · impressive for a bridging task</span>
-            )}
-          </div>
-        </div>
+        {/* Spread metric */}
+        <MetricDisplay
+          label="Spread"
+          score={spread}
+          leftLabel="clustered"
+          rightLabel="spread"
+        />
       </Panel>
 
       {/* Panel 2: How Others See This Union */}
@@ -418,28 +276,30 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
                 fontFamily: 'var(--font-mono)',
                 fontSize: '0.85rem',
                 color: 'var(--text-light)',
-                marginBottom: 'var(--space-xs)',
+                marginBottom: 'var(--space-sm)',
               }}
             >
               {haikuClues.join(' · ')}
             </div>
-            <div
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.65rem',
-                color: 'var(--faded)',
-              }}
-            >
-              {haikuRelevance !== undefined && (
-                <span>relevance: {Math.round(haikuRelevance <= 1 ? haikuRelevance * 100 : haikuRelevance)}</span>
-              )}
-              {haikuSpread !== undefined && (
-                <span> · spread: {Math.round(haikuSpread)}</span>
-              )}
-              {moreCreativeThanHaiku && (
-                <span style={{ color: 'var(--gold)' }}> · your spread is higher</span>
-              )}
-            </div>
+            {haikuRelevance !== undefined && (
+              <MetricDisplay
+                label="Relevance"
+                score={haikuRelevance <= 1 ? haikuRelevance * 100 : haikuRelevance}
+                leftLabel="noise"
+                rightLabel="strong"
+                compact
+              />
+            )}
+            {haikuSpread !== undefined && (
+              <MetricDisplay
+                label="Spread"
+                score={haikuSpread}
+                leftLabel="clustered"
+                rightLabel="spread"
+                compact
+                highlight={moreCreativeThanHaiku ? 'your spread is higher' : undefined}
+              />
+            )}
             <Divider />
           </>
         )}
@@ -464,28 +324,30 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
                 fontFamily: 'var(--font-mono)',
                 fontSize: '0.85rem',
                 color: 'var(--text-light)',
-                marginBottom: 'var(--space-xs)',
+                marginBottom: 'var(--space-sm)',
               }}
             >
               {lexicalUnion.join(' · ')}
             </div>
-            <div
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.65rem',
-                color: 'var(--faded)',
-              }}
-            >
-              {lexicalRelevance != null && (
-                <span>relevance: {Math.round(lexicalRelevance <= 1 ? lexicalRelevance * 100 : lexicalRelevance)}</span>
-              )}
-              {lexicalSpread != null && (
-                <span>{lexicalRelevance != null ? ' · ' : ''}spread: {Math.round(lexicalSpread)}</span>
-              )}
-              {moreCreativeThanLexical && (
-                <span style={{ color: 'var(--gold)' }}> · your spread is higher</span>
-              )}
-            </div>
+            {lexicalRelevance != null && (
+              <MetricDisplay
+                label="Relevance"
+                score={lexicalRelevance <= 1 ? lexicalRelevance * 100 : lexicalRelevance}
+                leftLabel="noise"
+                rightLabel="strong"
+                compact
+              />
+            )}
+            {lexicalSpread != null && (
+              <MetricDisplay
+                label="Spread"
+                score={lexicalSpread}
+                leftLabel="clustered"
+                rightLabel="spread"
+                compact
+                highlight={moreCreativeThanLexical ? 'your spread is higher' : undefined}
+              />
+            )}
             <Divider />
           </>
         )}
@@ -510,25 +372,29 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
                 fontFamily: 'var(--font-mono)',
                 fontSize: '0.85rem',
                 color: 'var(--text-light)',
-                marginBottom: 'var(--space-xs)',
+                marginBottom: 'var(--space-sm)',
               }}
             >
               {recipientClues.join(' · ')}
             </div>
-            <div
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.65rem',
-                color: 'var(--faded)',
-              }}
-            >
-              {recipientRelevance !== undefined && (
-                <span>relevance: {Math.round(recipientRelevance <= 1 ? recipientRelevance * 100 : recipientRelevance)}</span>
-              )}
-              {recipientSpread !== undefined && (
-                <span> · spread: {Math.round(recipientSpread)}</span>
-              )}
-            </div>
+            {recipientRelevance !== undefined && (
+              <MetricDisplay
+                label="Relevance"
+                score={recipientRelevance <= 1 ? recipientRelevance * 100 : recipientRelevance}
+                leftLabel="noise"
+                rightLabel="strong"
+                compact
+              />
+            )}
+            {recipientSpread !== undefined && (
+              <MetricDisplay
+                label="Spread"
+                score={recipientSpread}
+                leftLabel="clustered"
+                rightLabel="spread"
+                compact
+              />
+            )}
           </>
         ) : (
           <div>
