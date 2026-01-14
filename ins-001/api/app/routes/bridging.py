@@ -29,7 +29,7 @@ from app.middleware.auth import get_authenticated_client
 from app.services.embeddings import get_embedding, get_embeddings_batch
 # Performance optimization: Use cached embeddings and precomputation
 from app.services.cache import EmbeddingCache, VocabularyPool
-from app.services.async import EagerPrecompute
+from app.services.async_services import EagerPrecompute
 from app.services.scoring import (
     score_union,
     compare_submissions,

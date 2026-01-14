@@ -16,7 +16,7 @@ Triggers heavy computation when a task starts, so results are ready before they'
 
 **Usage:**
 ```python
-from app.services.async import EagerPrecompute
+from app.services.async_services import EagerPrecompute
 
 precompute = EagerPrecompute.get_instance()
 

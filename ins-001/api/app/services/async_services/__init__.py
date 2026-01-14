@@ -8,7 +8,7 @@ Components:
   so results are ready before they need them.
 
 Usage:
-    from app.services.async import EagerPrecompute
+    from app.services.async_services import EagerPrecompute
 
     # On game creation, start precomputation
     precompute = EagerPrecompute.get_instance()
@@ -24,6 +24,6 @@ Usage:
     results = await precompute.get_precomputed_results(game_id)
 """
 
-from app.services.async.eager_precompute import EagerPrecompute
+from app.services.async_services.eager_precompute import EagerPrecompute
 
 __all__ = ["EagerPrecompute"]
