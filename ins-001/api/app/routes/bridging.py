@@ -263,101 +263,45 @@ async def suggest_distant_word(
     auth = Depends(get_authenticated_client)
 ):
     """
-    Suggest a word distant from the input word.
+    Suggest a random word from vocabulary.
 
-    Uses fast random selection by default. After 3+ attempts,
-    uses embedding-based distant word search for better results.
+    Uses fast random selection for instant response (<100ms).
+    Random words are usually distant enough for good gameplay.
 
     Args:
-        from_word: Word to find distant suggestions from
-        attempt: Which attempt this is (1-indexed). After 3, uses embeddings.
+        from_word: Word to find suggestions from (currently unused for performance)
+        attempt: Which attempt this is (1-indexed, currently unused)
     """
     supabase, user = auth
 
-    # Helper to get a random word from vocabulary
-    async def get_random_word() -> str:
-        try:
-            random_offset = random.randint(0, 49999)
-            result = supabase.table("vocabulary_embeddings") \
-                .select("word") \
-                .range(random_offset, random_offset) \
-                .execute()
-            if result.data:
-                return result.data[0]["word"]
-        except Exception:
-            pass
-        # Hardcoded fallback list of diverse words
-        fallback_words = [
-            "universe", "cosmos", "ocean", "mountain", "algorithm",
-            "symphony", "crystal", "whisper", "thunder", "horizon",
-            "paradox", "labyrinth", "enigma", "essence", "catalyst"
-        ]
-        return random.choice(fallback_words)
-
-    # No from_word - just return random
-    if not from_word:
-        suggestion = await get_random_word()
-        return SuggestWordResponse(suggestion=suggestion, from_word=None)
-
-    from_word_clean = from_word.lower().strip()
-
-    # Fast path: first few attempts just return random words
-    # This is instant and usually good enough
-    if attempt < 3:
-        suggestion = await get_random_word()
-        return SuggestWordResponse(suggestion=suggestion, from_word=from_word_clean)
-
-    # Slow path: after 3+ attempts, use embedding-based distant word search
-    # This ensures truly distant words for users who keep clicking
+    # Get a random word from vocabulary
+    # Fast path: single row fetch at random offset
     try:
-        # First try to get embedding from vocabulary table (fast)
-        vocab_result = supabase.table("vocabulary_embeddings") \
-            .select("embedding") \
-            .eq("word", from_word_clean) \
-            .limit(1) \
+        random_offset = random.randint(0, 49999)
+        result = supabase.table("vocabulary_embeddings") \
+            .select("word") \
+            .range(random_offset, random_offset) \
             .execute()
-
-        if vocab_result.data and vocab_result.data[0].get("embedding"):
-            from_emb = vocab_result.data[0]["embedding"]
-        else:
-            # Word not in vocabulary - fetch from OpenAI
-            from_emb = await get_embedding(from_word_clean)
-
-        # Try the RPC function for distant words
-        try:
-            # Format embedding as a string for pgvector
-            emb_str = "[" + ",".join(str(x) for x in from_emb) + "]"
-
-            result = supabase.rpc(
-                "get_distant_words",
-                {"query_embedding": emb_str, "k": 100}
-            ).execute()
-
-            if result.data and len(result.data) > 0:
-                # Pick random from the most distant 10%
-                distant_candidates = result.data[:10]
-                chosen = random.choice(distant_candidates)
-                return SuggestWordResponse(
-                    suggestion=chosen["word"],
-                    from_word=from_word_clean
-                )
-        except Exception as rpc_error:
-            print(f"get_distant_words RPC failed: {rpc_error}")
-
-        # Fallback to random
-        suggestion = await get_random_word()
-        return SuggestWordResponse(suggestion=suggestion, from_word=from_word_clean)
-
+        if result.data:
+            word = result.data[0]["word"]
+            return SuggestWordResponse(
+                suggestion=word,
+                from_word=from_word.lower().strip() if from_word else None
+            )
     except Exception as e:
-        print(f"suggest_distant_word error: {e}")
-        fallback_words = [
-            "universe", "cosmos", "ocean", "mountain", "algorithm",
-            "symphony", "crystal", "whisper", "thunder", "horizon"
-        ]
-        return SuggestWordResponse(
-            suggestion=random.choice(fallback_words),
-            from_word=from_word_clean
-        )
+        print(f"suggest_distant_word database error: {e}")
+
+    # Hardcoded fallback if database is unavailable
+    fallback_words = [
+        "universe", "cosmos", "ocean", "mountain", "algorithm",
+        "symphony", "crystal", "whisper", "thunder", "horizon",
+        "paradox", "labyrinth", "enigma", "essence", "catalyst",
+        "zenith", "nebula", "fortress", "cascade", "phantom"
+    ]
+    return SuggestWordResponse(
+        suggestion=random.choice(fallback_words),
+        from_word=from_word.lower().strip() if from_word else None
+    )
 
 
 # ============================================
