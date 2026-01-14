@@ -358,7 +358,7 @@ async def get_noise_floor(
 
     # Find nearest neighbors in vocabulary
     # Fetch more than k to allow for filtering phonetic/orthographic matches
-    fetch_k = k * 3
+    fetch_k = k * 2
 
     result = supabase.rpc(
         "get_noise_floor_by_embedding",
@@ -381,9 +381,12 @@ async def get_noise_floor(
     best_similarity = vocab_results[0]["similarity"] if vocab_results else 0
     good_matches = sum(1 for r in vocab_results if r["similarity"] >= MIN_SIMILARITY_THRESHOLD)
 
+    # Only trigger expensive LLM fallback if coverage is truly sparse
+    # (less than half of requested results with good similarity)
+    min_required = max(k // 2, 3)
     needs_fallback = (
         best_similarity < MIN_SIMILARITY_THRESHOLD or
-        good_matches < MIN_GOOD_MATCHES
+        good_matches < min_required
     )
 
     # Use LLM fallback for sparse coverage (domain-specific seeds)

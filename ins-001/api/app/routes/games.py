@@ -4,6 +4,7 @@ Games Routes - INS-001 Semantic Associations
 Handles game CRUD operations.
 """
 
+import asyncio
 import json
 from fastapi import APIRouter, HTTPException, Depends
 from postgrest.exceptions import APIError
@@ -78,19 +79,21 @@ async def create_game(
             sense_options=sense_options
         )
     
-    # 3. Track whether seed is in vocabulary (for analytics, NOT blocking)
-    seed_in_vocabulary = await check_word_in_vocabulary(supabase, seed_word)
-    
-    # 4. Generate noise floor (works for ANY word now)
+    # 3. Generate noise floor and check vocabulary in parallel
     sense_context = None
     if request.seed_word_sense:
         sense_context = request.seed_word_sense.split()
-    
-    noise_floor_data = await get_noise_floor(
+
+    noise_floor_task = get_noise_floor(
         supabase,
         seed_word,
         sense_context=sense_context,
-        k=20
+        k=10  # Top 10 predictable associations
+    )
+    vocab_check_task = check_word_in_vocabulary(supabase, seed_word)
+
+    noise_floor_data, seed_in_vocabulary = await asyncio.gather(
+        noise_floor_task, vocab_check_task
     )
     
     # 5. Create game record
@@ -244,25 +247,52 @@ async def submit_clues(
         raise HTTPException(status_code=404, detail={"error": "Game not found or not in correct state"})
 
     game = result.data
-
-    # OPTIMIZATION: Use cached embeddings for faster response
     cache = EmbeddingCache.get_instance()
-    clue_texts = [f"{clue} (in context: {game['seed_word']})" for clue in clues_clean]
-    clue_embeddings = await cache.get_embeddings_batch(clue_texts)
+    is_llm_game = game["recipient_type"] == "llm"
+    seed_word = game["seed_word"]
+    clue_context = ', '.join(clues_clean)
 
-    # OPTIMIZATION: Batch fetch all floor embeddings in a single query
-    floor_words = [fw["word"] for fw in game["noise_floor"]]
-    floor_result = supabase.table("vocabulary_embeddings") \
-        .select("word, embedding") \
-        .in_("word", floor_words) \
-        .execute()
+    # OPTIMIZATION: Batch ALL embeddings we'll need upfront
+    # For LLM games, include seed embedding (we know it before LLM responds)
+    async def get_all_embeddings():
+        texts = [f"{clue} (in context: {seed_word})" for clue in clues_clean]
+        if is_llm_game:
+            # Pre-embed seed word for convergence calculation
+            texts.append(f"{seed_word} (in context: {clue_context})")
+        return await cache.get_embeddings_batch(texts)
 
-    floor_embeddings = []
-    if floor_result.data:
-        for row in floor_result.data:
-            parsed = _parse_embedding(row["embedding"], row["word"])
-            if parsed:
-                floor_embeddings.append(parsed)
+    async def get_floor_embeddings():
+        floor_words = [fw["word"] for fw in game["noise_floor"]]
+        floor_result = supabase.table("vocabulary_embeddings") \
+            .select("word, embedding") \
+            .in_("word", floor_words) \
+            .execute()
+        embeddings = []
+        if floor_result.data:
+            for row in floor_result.data:
+                parsed = _parse_embedding(row["embedding"], row["word"])
+                if parsed:
+                    embeddings.append(parsed)
+        return embeddings
+
+    # Run everything we can in parallel
+    if is_llm_game:
+        # All three in parallel: embeddings (clues + seed), floor fetch, LLM guesses
+        all_embeddings, floor_embeddings, llm_guesses = await asyncio.gather(
+            get_all_embeddings(),
+            get_floor_embeddings(),
+            llm_guess(clues_clean, num_guesses=3)
+        )
+        clue_embeddings = all_embeddings[:len(clues_clean)]
+        seed_emb = all_embeddings[len(clues_clean)]
+    else:
+        # Just embeddings and floor fetch in parallel
+        all_embeddings, floor_embeddings = await asyncio.gather(
+            get_all_embeddings(),
+            get_floor_embeddings()
+        )
+        clue_embeddings = all_embeddings
+        llm_guesses = None
 
     divergence_score = compute_divergence(clue_embeddings, floor_embeddings)
 
@@ -272,42 +302,35 @@ async def submit_clues(
         "status": "pending_guess"
     }
 
-    # If LLM recipient, get LLM guesses immediately
-    llm_guesses = None
+    # If LLM recipient, compute convergence score
     convergence_score = None
+    guess_similarities = None
 
-    if game["recipient_type"] == "llm":
-        llm_guesses = await llm_guess(clues_clean, num_guesses=3)
-
-        # OPTIMIZATION: Use cached embeddings for convergence calculation
-        convergence_texts = [
-            f"{game['seed_word']} (in context: {', '.join(clues_clean)})"
-        ] + [
-            f"{g} (in context: {', '.join(clues_clean)})" for g in llm_guesses
-        ]
-        convergence_embeddings = await cache.get_embeddings_batch(convergence_texts)
-
-        seed_emb = convergence_embeddings[0]
-        guess_embs = convergence_embeddings[1:]
+    if is_llm_game:
+        # Only need to embed the guesses now (seed already embedded)
+        guess_texts = [f"{g} (in context: {clue_context})" for g in llm_guesses]
+        guess_embs = await cache.get_embeddings_batch(guess_texts)
 
         convergence_score, exact_match, guess_similarities = compute_convergence(
-            seed_emb, guess_embs, game["seed_word"], llm_guesses
+            seed_emb, guess_embs, seed_word, llm_guesses
         )
 
         update_data["guesses"] = llm_guesses
         update_data["convergence_score"] = convergence_score
         update_data["status"] = "completed"
-    else:
-        guess_similarities = None
 
     supabase.table("games").update(update_data).eq("id", game_id).execute()
 
-    # Update profile for sender if game completed (LLM games complete immediately)
-    if game["recipient_type"] == "llm":
-        if SUPABASE_SERVICE_KEY:
-            service_supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-            await update_user_profile(service_supabase, user["id"])
-    
+    # Update profile for sender if game completed (fire-and-forget, don't block response)
+    if is_llm_game and SUPABASE_SERVICE_KEY:
+        async def update_profile_background():
+            try:
+                service_supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+                await update_user_profile(service_supabase, user["id"])
+            except Exception:
+                pass  # Profile update is non-critical
+        asyncio.create_task(update_profile_background())
+
     return SubmitCluesResponse(
         game_id=game_id,
         clues=clues_clean,
