@@ -5,6 +5,7 @@ Handles bridging game operations where users create conceptual bridges
 between two words (anchor and target).
 """
 
+import asyncio
 import json
 import random
 from fastapi import APIRouter, HTTPException, Depends, Query
@@ -104,24 +105,32 @@ async def _calculate_relevance_percentile(
     """
     try:
         # Fetch random embeddings from multiple locations in the table
-        # This ensures we get truly random samples, not consecutive rows
-        vocab_pool = []
-        num_fetches = 10  # Fetch from 10 different random locations
-        rows_per_fetch = 50
+        # OPTIMIZATION: Fetch all in parallel instead of sequentially
+        num_fetches = 5  # Reduced from 10 since we're fetching more per batch
+        rows_per_fetch = 100
 
-        for _ in range(num_fetches):
-            random_offset = random.randint(0, max(0, 50000 - rows_per_fetch))
+        async def fetch_batch(offset: int):
+            """Fetch a batch of embeddings from a random offset."""
             result = supabase.table("vocabulary_embeddings") \
                 .select("word, embedding") \
-                .range(random_offset, random_offset + rows_per_fetch - 1) \
+                .range(offset, offset + rows_per_fetch - 1) \
                 .execute()
-
+            embeddings = []
             if result.data:
                 for row in result.data:
                     if row.get("embedding"):
                         emb = _parse_embedding(row["embedding"], row["word"])
                         if emb:
-                            vocab_pool.append(emb)
+                            embeddings.append(emb)
+            return embeddings
+
+        # Generate random offsets and fetch all in parallel
+        offsets = [random.randint(0, max(0, 50000 - rows_per_fetch)) for _ in range(num_fetches)]
+        batch_results = await asyncio.gather(*[fetch_batch(offset) for offset in offsets])
+
+        vocab_pool = []
+        for batch in batch_results:
+            vocab_pool.extend(batch)
 
         if len(vocab_pool) < n_clues:
             return 50.0  # Not enough vocabulary
@@ -306,7 +315,9 @@ async def submit_bridging_clues(
 
     # Use cached embedding service for efficiency
     cache = EmbeddingCache.get_instance()
+    is_haiku_game = game["recipient_type"] == "haiku"
 
+    # OPTIMIZATION: Parallelize all expensive operations when precompute unavailable
     if precomputed and precomputed.anchor_embedding and precomputed.target_embedding:
         # Use precomputed anchor/target embeddings
         anchor_emb = precomputed.anchor_embedding
@@ -326,59 +337,86 @@ async def submit_bridging_clues(
     relevance = participant_scores["relevance"]
     divergence = participant_scores["divergence"]  # DAT-style spread (0-100)
 
-    # Calculate bootstrap percentile for relevance (use precomputed if available)
-    if precomputed and precomputed.null_samples and len(precomputed.null_samples) > 0:
-        # Use precomputed null distribution (instant)
-        null_samples = precomputed.null_samples
-        percentile = float(np.mean([relevance > r for r in null_samples]) * 100)
-        relevance_percentile = min(99.9, max(0.1, percentile))
-    else:
-        # Fallback to live calculation (slower)
-        relevance_percentile = await _calculate_relevance_percentile(
-            participant_relevance=relevance,
-            anchor_emb=anchor_emb,
-            target_emb=target_emb,
-            n_clues=len(clues_clean),
-            supabase=supabase
-        )
+    # OPTIMIZATION: Run percentile calculation, lexical union, and haiku bridge in parallel
+    # when precomputed values aren't available
+
+    async def get_relevance_percentile():
+        if precomputed and precomputed.null_samples and len(precomputed.null_samples) > 0:
+            null_samples = precomputed.null_samples
+            percentile = float(np.mean([relevance > r for r in null_samples]) * 100)
+            return min(99.9, max(0.1, percentile))
+        else:
+            return await _calculate_relevance_percentile(
+                participant_relevance=relevance,
+                anchor_emb=anchor_emb,
+                target_emb=target_emb,
+                n_clues=len(clues_clean),
+                supabase=supabase
+            )
+
+    async def get_lexical_union():
+        try:
+            if precomputed and precomputed.lexical_bridge and len(precomputed.lexical_bridge) > 0:
+                bridge = precomputed.lexical_bridge
+                embs = precomputed.lexical_embeddings or await cache.get_embeddings_batch(bridge)
+                return bridge, embs
+            else:
+                bridge = await find_lexical_union(anchor, target, len(clues_clean), supabase)
+                if bridge and len(bridge) > 0:
+                    embs = await cache.get_embeddings_batch(bridge)
+                    return bridge, embs
+                return None, None
+        except Exception as e:
+            print(f"Lexical union calculation failed: {e}")
+            return None, None
+
+    async def get_haiku_bridge():
+        if not is_haiku_game:
+            return None, None
+        try:
+            if precomputed and precomputed.haiku_clues and len(precomputed.haiku_clues) > 0:
+                clues = precomputed.haiku_clues
+                embs = precomputed.haiku_embeddings or await cache.get_embeddings_batch(clues)
+                return clues, embs
+            else:
+                haiku_result = await haiku_build_bridge(anchor, target, num_clues=len(clues_clean))
+                if haiku_result.get("clues") and len(haiku_result["clues"]) > 0:
+                    clues = haiku_result["clues"]
+                    embs = await cache.get_embeddings_batch(clues)
+                    return clues, embs
+                return None, None
+        except Exception as e:
+            print(f"Haiku bridge generation failed: {e}")
+            return None, None
+
+    # Run all three in parallel
+    relevance_percentile, (lexical_bridge, lexical_embs), (haiku_clues_result, haiku_clue_embs_result) = await asyncio.gather(
+        get_relevance_percentile(),
+        get_lexical_union(),
+        get_haiku_bridge()
+    )
 
     # Legacy field names for backwards compatibility
     divergence_score = divergence
     binding_score = relevance * 100  # Convert 0-1 to 0-100 for legacy display
 
-    # Calculate lexical union (use precomputed if available)
-    lexical_bridge = None
+    # Calculate lexical union scores
     lexical_similarity = None
     lexical_relevance = None
     lexical_divergence = None
-    try:
-        if precomputed and precomputed.lexical_bridge and len(precomputed.lexical_bridge) > 0:
-            # Use precomputed lexical union
-            lexical_bridge = precomputed.lexical_bridge
-            lexical_embs = precomputed.lexical_embeddings or await cache.get_embeddings_batch(lexical_bridge)
-        else:
-            # Fallback: compute lexical union now
-            lexical_bridge = await find_lexical_union(anchor, target, len(clues_clean), supabase)
-            if lexical_bridge and len(lexical_bridge) > 0:
-                lexical_embs = await cache.get_embeddings_batch(lexical_bridge)
+    if lexical_bridge and lexical_embs:
+        lexical_scores = score_union(lexical_embs, anchor_emb, target_emb)
+        lexical_relevance = lexical_scores["relevance"]
+        lexical_divergence = lexical_scores["divergence"]
 
-        # Calculate scores for lexical union
-        if lexical_bridge and len(lexical_bridge) > 0:
-            lexical_scores = score_union(lexical_embs, anchor_emb, target_emb)
-            lexical_relevance = lexical_scores["relevance"]
-            lexical_divergence = lexical_scores["divergence"]
-
-            # Legacy: Calculate similarity between user's clues and lexical union
-            lexical_sim_result = calculate_bridge_similarity(
-                sender_clue_embeddings=clue_embs,
-                recipient_clue_embeddings=lexical_embs,
-                anchor_embedding=anchor_emb,
-                target_embedding=target_emb
-            )
-            lexical_similarity = lexical_sim_result["overall"]
-    except Exception as e:
-        print(f"Lexical union calculation failed: {e}")
-        # Non-fatal - continue without lexical union
+        # Legacy: Calculate similarity between user's clues and lexical union
+        lexical_sim_result = calculate_bridge_similarity(
+            sender_clue_embeddings=clue_embs,
+            recipient_clue_embeddings=lexical_embs,
+            anchor_embedding=anchor_emb,
+            target_embedding=target_emb
+        )
+        lexical_similarity = lexical_sim_result["overall"]
 
     # Generate share code
     share_code = None
@@ -405,8 +443,9 @@ async def submit_bridging_clues(
         "status": "pending_guess" if game["recipient_type"] == "human" else "pending_clues"
     }
 
-    # If Haiku recipient, have Haiku build its own bridge (V2 approach)
-    haiku_clues = None
+    # Use Haiku results from parallel computation (already fetched above)
+    haiku_clues = haiku_clues_result
+    haiku_clue_embs = haiku_clue_embs_result
     haiku_relevance = None
     haiku_divergence = None
     haiku_binding = None
@@ -416,41 +455,28 @@ async def submit_bridging_clues(
     haiku_guessed_target = None
     haiku_reconstruction_score = None
 
-    if game["recipient_type"] == "haiku":
-        # Try to use precomputed Haiku results (generated while user typed clues)
-        if precomputed and precomputed.haiku_clues and len(precomputed.haiku_clues) > 0:
-            haiku_clues = precomputed.haiku_clues
-            haiku_clue_embs = precomputed.haiku_embeddings or await cache.get_embeddings_batch(haiku_clues)
-        else:
-            # Fallback: generate Haiku bridge now (slower)
-            haiku_result = await haiku_build_bridge(anchor, target, num_clues=len(clues_clean))
-            if haiku_result.get("clues") and len(haiku_result["clues"]) > 0:
-                haiku_clues = haiku_result["clues"]
-                haiku_clue_embs = await cache.get_embeddings_batch(haiku_clues)
+    if is_haiku_game and haiku_clues and haiku_clue_embs:
+        # Calculate Haiku's scores using new unified scoring
+        haiku_scores = score_union(haiku_clue_embs, anchor_emb, target_emb)
+        haiku_relevance = haiku_scores["relevance"]
+        haiku_divergence = haiku_scores["divergence"]  # DAT-style spread
+        haiku_binding = haiku_relevance * 100  # Legacy: convert to 0-100
 
-        if haiku_clues and len(haiku_clues) > 0:
+        # Calculate union similarity between sender and Haiku (legacy)
+        similarity_result = calculate_bridge_similarity(
+            sender_clue_embeddings=clue_embs,
+            recipient_clue_embeddings=haiku_clue_embs,
+            anchor_embedding=anchor_emb,
+            target_embedding=target_emb
+        )
+        haiku_bridge_similarity = similarity_result["overall"]
 
-            # Calculate Haiku's scores using new unified scoring
-            haiku_scores = score_union(haiku_clue_embs, anchor_emb, target_emb)
-            haiku_relevance = haiku_scores["relevance"]
-            haiku_divergence = haiku_scores["divergence"]  # DAT-style spread
-            haiku_binding = haiku_relevance * 100  # Legacy: convert to 0-100
-
-            # Calculate union similarity between sender and Haiku (legacy)
-            similarity_result = calculate_bridge_similarity(
-                sender_clue_embeddings=clue_embs,
-                recipient_clue_embeddings=haiku_clue_embs,
-                anchor_embedding=anchor_emb,
-                target_embedding=target_emb
-            )
-            haiku_bridge_similarity = similarity_result["overall"]
-
-            update_data["haiku_clues"] = haiku_clues
-            update_data["haiku_relevance"] = haiku_relevance
-            update_data["haiku_divergence"] = haiku_divergence
-            update_data["haiku_binding"] = haiku_binding  # Legacy
-            update_data["haiku_bridge_similarity"] = haiku_bridge_similarity
-            update_data["status"] = "completed"
+        update_data["haiku_clues"] = haiku_clues
+        update_data["haiku_relevance"] = haiku_relevance
+        update_data["haiku_divergence"] = haiku_divergence
+        update_data["haiku_binding"] = haiku_binding  # Legacy
+        update_data["haiku_bridge_similarity"] = haiku_bridge_similarity
+        update_data["status"] = "completed"
 
     # Try to update with all fields; if relevance_percentile column doesn't exist yet, retry without it
     try:
