@@ -208,8 +208,20 @@ async def submit_bridging_clues(
 
     # Calculate lexical union (equidistant concepts with same count as participant)
     lexical_bridge = None
+    lexical_similarity = None
     try:
         lexical_bridge = await find_lexical_bridge(anchor, target, len(clues_clean), supabase)
+
+        # Calculate similarity between user's clues and lexical union
+        if lexical_bridge and len(lexical_bridge) > 0:
+            lexical_embs = await get_embeddings_batch(lexical_bridge)
+            lexical_sim_result = calculate_bridge_similarity(
+                sender_clue_embeddings=clue_embs,
+                recipient_clue_embeddings=lexical_embs,
+                anchor_embedding=anchor_emb,
+                target_embedding=target_emb
+            )
+            lexical_similarity = lexical_sim_result["overall"]
     except Exception as e:
         print(f"Lexical union calculation failed: {e}")
         # Non-fatal - continue without lexical union
@@ -226,6 +238,7 @@ async def submit_bridging_clues(
         "divergence_score": divergence_score,
         "binding_score": binding_score,
         "lexical_bridge": lexical_bridge,
+        "lexical_similarity": lexical_similarity,
         "share_code": share_code,
         "status": "pending_guess" if game["recipient_type"] == "human" else "pending_clues"
     }
@@ -277,6 +290,7 @@ async def submit_bridging_clues(
         divergence_score=divergence_score,
         binding_score=binding_score,
         lexical_bridge=lexical_bridge,
+        lexical_similarity=lexical_similarity,
         status=BridgingGameStatus(update_data["status"]),
         share_code=share_code,
         # V2 fields
@@ -832,6 +846,7 @@ async def get_bridging_game(
         divergence_score=game.get("divergence_score"),
         binding_score=game.get("binding_score"),
         lexical_bridge=game.get("lexical_bridge"),
+        lexical_similarity=game.get("lexical_similarity"),
         # Legacy V1: Human recipient guesses
         guessed_anchor=game.get("guessed_anchor"),
         guessed_target=game.get("guessed_target"),

@@ -148,6 +148,7 @@ export interface SubmitBridgingCluesResponse {
   divergence_score: number;
   binding_score: number;  // How well clues relate to both endpoints
   lexical_bridge?: string[];  // Optimal embedding-based path
+  lexical_similarity?: number;  // Similarity between user clues and lexical union
   status: BridgingGameStatus;
   share_code?: string;
   // V2: Haiku builds its own bridge
@@ -207,6 +208,7 @@ export interface BridgingGameResponse {
   divergence_score?: number;
   binding_score?: number;  // How well clues relate to both endpoints
   lexical_bridge?: string[];  // Optimal embedding-based path
+  lexical_similarity?: number;  // Similarity between user clues and lexical union
   // Human recipient guesses (legacy V1)
   guessed_anchor?: string;
   guessed_target?: string;

@@ -286,6 +286,7 @@ class SubmitBridgingCluesResponse(BaseModel):
     divergence_score: float
     binding_score: float  # How well clues jointly relate to both anchor and target
     lexical_bridge: Optional[list[str]] = None  # Optimal embedding-based path
+    lexical_similarity: Optional[float] = None  # Similarity between user clues and lexical union
     status: BridgingGameStatus
     share_code: Optional[str] = None
     # V2: If Haiku recipient, includes Haiku's bridge (its own clues)
@@ -370,6 +371,7 @@ class BridgingGameResponse(BaseModel):
     divergence_score: Optional[float]
     binding_score: Optional[float] = None  # How well clues jointly relate to both endpoints
     lexical_bridge: Optional[list[str]] = None  # Equidistant concept set
+    lexical_similarity: Optional[float] = None  # Similarity between user clues and lexical union
     # Legacy V1: Recipient guesses
     guessed_anchor: Optional[str]
     guessed_target: Optional[str]
