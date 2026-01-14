@@ -16,6 +16,9 @@ COMMENT ON COLUMN games_bridging.lexical_bridge IS 'Optimal embedding-based path
 -- LEXICAL BRIDGE FUNCTION
 -- =============================================================================
 
+-- Drop existing function if it has different signature
+DROP FUNCTION IF EXISTS get_nearest_word_excluding(halfvec(1536), TEXT[], INT);
+
 -- Find the nearest vocabulary word to an interpolated embedding point
 -- Used for computing the "lexical bridge" - the algorithmically optimal path
 CREATE OR REPLACE FUNCTION get_nearest_word_excluding(
@@ -23,12 +26,11 @@ CREATE OR REPLACE FUNCTION get_nearest_word_excluding(
     exclude_words TEXT[],
     k INT DEFAULT 1
 )
-RETURNS TABLE(word TEXT, embedding halfvec(1536), similarity FLOAT) AS $$
+RETURNS TABLE(word TEXT, similarity FLOAT) AS $$
 BEGIN
     RETURN QUERY
     SELECT
         v.word,
-        v.embedding,
         (1 - (v.embedding <=> query_embedding))::FLOAT as similarity
     FROM vocabulary_embeddings v
     WHERE v.word != ALL(exclude_words)

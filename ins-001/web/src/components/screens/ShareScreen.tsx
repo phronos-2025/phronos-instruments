@@ -77,7 +77,7 @@ export const ShareScreen: React.FC<ShareScreenProps> = ({
       <ProgressBar currentStep={3} />
       
       <p className="subtitle">
-        <span className="id">INS-001</span> · Step 3 of 3
+        <span className="id">INS-001.1</span> · Step 3 of 3
       </p>
       <h1 className="title">Who will guess?</h1>
       

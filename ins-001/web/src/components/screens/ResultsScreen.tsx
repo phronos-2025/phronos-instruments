@@ -71,7 +71,7 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
   return (
     <div>
       <p className="subtitle">
-        <span className="id">INS-001</span> · Complete
+        <span className="id">INS-001.1</span> · Complete
       </p>
       <h1 className="title">Results.</h1>
       

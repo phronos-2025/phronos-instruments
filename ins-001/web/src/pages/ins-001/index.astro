@@ -1,12 +1,255 @@
 ---
 /**
- * Main Game Entry Page
+ * INS-001 Semantic Associations - Family Landing Page
+ *
+ * Shows all instruments in the INS-001 family:
+ * - INS-001.1: Semantic Radiation
+ * - INS-001.2: Semantic Bridging
  */
 
-import InstrumentLayout from '../../layouts/InstrumentLayout.astro';
-import Game from '../../components/Game';
+export const prerender = false;
+
+import '../../styles/global.css';
+import '../../styles/components.css';
+import LandingNav from '../../components/landing/LandingNav.astro';
+import InstrumentCard from '../../components/landing/InstrumentCard.astro';
+import SectionHeader from '../../components/landing/SectionHeader.astro';
+import LandingFooter from '../../components/landing/LandingFooter.astro';
+
+const familyInfo = {
+  id: 'INS-001',
+  title: 'Semantic Associations',
+  description: 'Measures divergence (semantic creativity) and convergence (communicability) through word association patterns.',
+  status: 'live' as const,
+};
+
+const childInstruments = [
+  {
+    id: 'INS-001.1',
+    title: 'Semantic Radiation',
+    description: 'Measures semantic radiation around a single concept—the ability to communicate a topic with high fidelity and high divergence.',
+    status: 'live' as const,
+    duration: '~5 min',
+    outputs: '2 scores',
+    href: '/ins-001/ins-001-1/',
+  },
+  {
+    id: 'INS-001.2',
+    title: 'Semantic Bridging',
+    description: 'Measures the ability to create semantic bridges between disparate concepts through shared associations.',
+    status: 'live' as const,
+    duration: '~5 min',
+    outputs: '2 scores',
+    href: '/ins-001/ins-001-2/',
+  },
+];
 ---
 
-<InstrumentLayout id="INS-001" title="SEMANTIC ASSOCIATIONS" version="0.1" status="live">
-  <Game client:load />
-</InstrumentLayout>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="description" content={`${familyInfo.id} ${familyInfo.title} - ${familyInfo.description}`} />
+    <title>{familyInfo.title} | Phronos Instruments</title>
+    <meta name="page-version" content="family-v1.0" />
+  </head>
+  <body>
+    <LandingNav />
+
+    <main class="family-container">
+      <!-- Breadcrumb -->
+      <nav class="breadcrumb">
+        <a href="/" class="breadcrumb-link">Instruments</a>
+        <span class="breadcrumb-separator">/</span>
+        <span class="breadcrumb-current">{familyInfo.id}</span>
+      </nav>
+
+      <!-- Family Header -->
+      <section class="family-header">
+        <div class="family-meta">
+          <span class="family-id">{familyInfo.id}</span>
+          <span class="family-status">{familyInfo.status}</span>
+        </div>
+        <h1 class="family-title">{familyInfo.title}</h1>
+        <p class="family-description">{familyInfo.description}</p>
+        <div class="family-stats">
+          <span class="stat">{childInstruments.length} instruments</span>
+          <span class="stat-separator">·</span>
+          <span class="stat">{childInstruments.filter(i => i.status === 'live').length} live</span>
+        </div>
+      </section>
+
+      <!-- Child Instruments -->
+      <section class="instruments-section">
+        <SectionHeader id="01" title="Instruments in This Family" />
+
+        <div class="instruments-grid">
+          {childInstruments.map((instrument) => (
+            <InstrumentCard
+              id={instrument.id}
+              title={instrument.title}
+              description={instrument.description}
+              status={instrument.status}
+              duration={instrument.duration}
+              outputs={instrument.outputs}
+              href={instrument.href}
+            />
+          ))}
+        </div>
+      </section>
+
+      <div class="diamond">◈</div>
+
+      <LandingFooter />
+    </main>
+  </body>
+</html>
+
+<style>
+  body {
+    min-height: 100vh;
+    background: var(--bg-deep);
+    position: relative;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image:
+      linear-gradient(var(--grid-color) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+    background-size: var(--grid-size) var(--grid-size);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .family-container {
+    position: relative;
+    z-index: 1;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 144px var(--space-lg) var(--space-xl);
+    min-height: 100vh;
+  }
+
+  /* Breadcrumb */
+  .breadcrumb {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--faded);
+    margin-bottom: var(--space-lg);
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+  }
+
+  .breadcrumb-link {
+    color: var(--faded);
+    text-decoration: none;
+    transition: color var(--transition-fast);
+  }
+
+  .breadcrumb-link:hover {
+    color: var(--gold);
+  }
+
+  .breadcrumb-separator {
+    color: var(--faded-light);
+  }
+
+  .breadcrumb-current {
+    color: var(--gold);
+  }
+
+  /* Family Header */
+  .family-header {
+    margin-bottom: var(--space-2xl);
+  }
+
+  .family-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    margin-bottom: var(--space-sm);
+  }
+
+  .family-id {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--gold);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .family-status {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 4px 8px;
+    border: 1px solid var(--active);
+    color: var(--active);
+  }
+
+  .family-title {
+    font-family: var(--font-serif);
+    font-weight: 300;
+    font-size: clamp(2rem, 5vw, 3rem);
+    letter-spacing: -0.02em;
+    color: var(--text-light);
+    margin-bottom: var(--space-sm);
+  }
+
+  .family-description {
+    font-family: var(--font-body);
+    font-size: 1.125rem;
+    color: var(--faded);
+    max-width: 600px;
+    line-height: 1.7;
+    margin-bottom: var(--space-md);
+  }
+
+  .family-stats {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--faded);
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+  }
+
+  .stat-separator {
+    color: var(--faded-light);
+  }
+
+  /* Instruments Grid */
+  .instruments-section {
+    margin-bottom: var(--space-2xl);
+  }
+
+  .instruments-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: var(--space-md);
+  }
+
+  @media (max-width: 768px) {
+    .instruments-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* Diamond Separator */
+  .diamond {
+    text-align: center;
+    color: var(--gold);
+    font-size: 0.875rem;
+    padding: var(--space-lg) 0;
+  }
+</style>

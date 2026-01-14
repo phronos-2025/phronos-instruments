@@ -505,29 +505,59 @@ async def find_lexical_bridge(
     # Compute direction vector
     direction = target_vec - anchor_vec
 
-    # Generate interpolation points and find nearest words
-    bridge_words = []
-    used_words = [anchor.lower(), target.lower()]
+    # Use fast existing function to get candidates near the midpoint
+    # This is much faster than multiple queries with exclusions
+    midpoint = (anchor_vec + target_vec) / 2
 
+    # Get candidates near the midpoint region (single fast query)
+    result = supabase.rpc(
+        "get_noise_floor_by_embedding",
+        {
+            "seed_embedding": midpoint.tolist(),
+            "seed_word": "",  # No word to exclude by name
+            "k": 100  # Get plenty of candidates
+        }
+    ).execute()
+
+    if not result.data:
+        return []
+
+    # Build candidate list with their embeddings
+    candidate_words = [r["word"] for r in result.data]
+
+    # Get embeddings for all candidates in one batch
+    candidate_embeddings = await get_embeddings_batch(candidate_words)
+
+    # Create lookup of word -> embedding
+    word_to_emb = {
+        word: np.array(emb)
+        for word, emb in zip(candidate_words, candidate_embeddings)
+    }
+
+    # Exclude anchor and target
+    used_words = {anchor.lower(), target.lower()}
+
+    # For each interpolation point, find the best candidate
+    bridge_words = []
     for i in range(1, num_steps + 1):
-        # Evenly spaced: t = 1/(N+1), 2/(N+1), ..., N/(N+1)
         t = i / (num_steps + 1)
         interpolated_point = anchor_vec + t * direction
 
-        # Query pgvector for nearest vocabulary word
-        result = supabase.rpc(
-            "get_nearest_word_excluding",
-            {
-                "query_embedding": interpolated_point.tolist(),
-                "exclude_words": used_words,
-                "k": 1
-            }
-        ).execute()
+        # Find closest candidate that hasn't been used
+        best_word = None
+        best_dist = float('inf')
 
-        if result.data and len(result.data) > 0:
-            word = result.data[0]["word"]
-            bridge_words.append(word)
-            used_words.append(word.lower())
+        for word, emb in word_to_emb.items():
+            if word.lower() in used_words:
+                continue
+            dist = np.linalg.norm(emb - interpolated_point)
+            if dist < best_dist:
+                best_dist = dist
+                best_word = word
+
+        if best_word:
+            bridge_words.append(best_word)
+            used_words.add(best_word.lower())
 
     return bridge_words
 

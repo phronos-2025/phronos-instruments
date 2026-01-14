@@ -11,6 +11,7 @@ import '../styles/global.css';
 import '../styles/components.css';
 import LandingNav from '../components/landing/LandingNav.astro';
 import InstrumentCard from '../components/landing/InstrumentCard.astro';
+import InstrumentFamilyCard from '../components/landing/InstrumentFamilyCard.astro';
 import SectionHeader from '../components/landing/SectionHeader.astro';
 import LandingFooter from '../components/landing/LandingFooter.astro';
 ---
@@ -44,7 +45,7 @@ import LandingFooter from '../components/landing/LandingFooter.astro';
         <div class="hero-meta">
           <div class="hero-meta-item">
             <span class="dot"></span>
-            <span>1 Instrument Live</span>
+            <span>2 Instruments Live</span>
           </div>
           <div class="hero-meta-item">
             <span>3 In Development</span>
@@ -57,14 +58,16 @@ import LandingFooter from '../components/landing/LandingFooter.astro';
         <SectionHeader id="01" title="Available Instruments" />
         
         <div class="instruments-grid">
-          <InstrumentCard
+          <InstrumentFamilyCard
             id="INS-001"
             title="Semantic Associations"
             description="Measures divergence (semantic creativity) and convergence (communicability) through word association patterns."
             status="live"
-            duration="~5 min"
-            outputs="2 scores"
             href="/ins-001/"
+            children={[
+              { id: 'INS-001.1', title: 'Semantic Radiation', status: 'live', href: '/ins-001/ins-001-1/' },
+              { id: 'INS-001.2', title: 'Semantic Bridging', status: 'live', href: '/ins-001/ins-001-2/' },
+            ]}
           />
           
           <InstrumentCard

@@ -26,7 +26,7 @@ export const IntroScreen: React.FC = () => {
       <ProgressBar currentStep={1} />
       
       <p className="subtitle">
-        <span className="id">INS-001</span> · Semantic Associations
+        <span className="id">INS-001.1</span> · Semantic Radiation
       </p>
       <h1 className="title">Measure how you think.</h1>
       

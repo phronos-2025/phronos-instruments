@@ -69,7 +69,7 @@ export const CluesScreen: React.FC<CluesScreenProps> = ({
       <ProgressBar currentStep={2} />
       
       <p className="subtitle">
-        <span className="subtitle-id">INS-001</span> · Step 2 of 3
+        <span className="subtitle-id">INS-001.1</span> · Step 2 of 3
       </p>
       <h1 className="title">Provide your clues.</h1>
       

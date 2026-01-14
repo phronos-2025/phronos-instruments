@@ -8,8 +8,8 @@
 // This route must be server-rendered since share codes are dynamic
 export const prerender = false;
 
-import InstrumentLayout from '../../../layouts/InstrumentLayout.astro';
-import JoinBridgingGame from '../../../components/bridging/JoinBridgingGame';
+import InstrumentLayout from '../../../../layouts/InstrumentLayout.astro';
+import JoinBridgingGame from '../../../../components/bridging/JoinBridgingGame';
 
 const { shareCode } = Astro.params;
 ---

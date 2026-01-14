@@ -38,7 +38,7 @@ function GameRouter() {
 export default function Game() {
   return (
     <GameProvider>
-      <Navigation instrumentId="INS-001" instrumentTitle="ACTIVE" />
+      <Navigation instrumentId="INS-001.1" instrumentTitle="RADIATION" />
       <GameRouter />
     </GameProvider>
   );

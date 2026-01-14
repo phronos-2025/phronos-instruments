@@ -1,7 +1,7 @@
 /**
  * Fixed Navigation Component
  *
- * Matches reference: Phronos logo on left, INS-001 ACTIVE on right
+ * Matches reference: Phronos logo on left, INS-001.1 RADIATION on right
  */
 
 import React from 'react';
@@ -13,8 +13,8 @@ interface NavigationProps {
 }
 
 export const Navigation: React.FC<NavigationProps> = ({
-  instrumentId = 'INS-001',
-  instrumentTitle = 'ACTIVE'
+  instrumentId = 'INS-001.1',
+  instrumentTitle = 'RADIATION'
 }) => {
   return (
     <nav className="nav">

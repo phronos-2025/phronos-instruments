@@ -120,7 +120,7 @@ export const SeedScreen: React.FC = () => {
       <ProgressBar currentStep={1} />
       
       <p className="subtitle">
-        <span className="id">INS-001</span> · Step 1 of 3
+        <span className="id">INS-001.1</span> · Step 1 of 3
       </p>
       <h1 className="title">Choose your word.</h1>
       
