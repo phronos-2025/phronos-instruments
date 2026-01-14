@@ -261,42 +261,46 @@ def _is_semantically_meaningful(seed_word: str, candidate: str, similarity: floa
         else:
             break
 
-    # CORE FILTER: Higher similarity threshold + edit distance requirements
-    # Embeddings conflate lexical and semantic similarity
-    # We need to separate them by requiring different spellings
+    # CORE FILTER: Reject words that are orthographically similar but not semantically related
+    # The goal is to filter phonetic/spelling matches like "riptide" → "ribbon"
+    # while keeping true semantic neighbors like "coffee" → "espresso"
 
     # Reject low similarity entirely
-    if similarity < 0.5:
+    if similarity < 0.45:
         return False
 
-    # For high similarity (>0.65), allow if not too orthographically similar
-    if similarity >= 0.65:
-        if edit_ratio < 0.4 and overlap > 0.5:
-            return False
-        if shared_prefix_len >= 3 and edit_ratio < 0.5:
+    # For high similarity (>0.60), trust the embedding - these are strong semantic matches
+    # Only filter if BOTH very similar spelling AND high character overlap (true duplicates)
+    if similarity >= 0.60:
+        if edit_ratio < 0.3 and overlap > 0.6:
             return False
         return True
 
-    # Moderate similarity (0.5-0.65): Strict filtering
-    # This is where most lexical noise lives
+    # Moderate similarity (0.45-0.60): Filter obvious phonetic matches
+    # Be more permissive - only reject when multiple red flags combine
 
-    # Require high edit distance
-    if edit_ratio < 0.7:
-        return False
+    red_flags = 0
 
-    # Reject high character overlap
-    if overlap > 0.4:
-        return False
+    # Very low edit distance (nearly same spelling)
+    if edit_ratio < 0.4:
+        red_flags += 2
+    elif edit_ratio < 0.5:
+        red_flags += 1
 
-    # Reject shared prefix of 2+ chars
-    if shared_prefix_len >= 2:
-        return False
+    # High character overlap
+    if overlap > 0.6:
+        red_flags += 1
 
-    # Reject shared suffix of 2+ chars
-    if shared_suffix_len >= 2:
-        return False
+    # Long shared prefix (4+ chars suggests morphological relation)
+    if shared_prefix_len >= 4:
+        red_flags += 1
 
-    return True
+    # Long shared suffix (3+ chars)
+    if shared_suffix_len >= 3:
+        red_flags += 1
+
+    # Only reject if multiple red flags (likely phonetic noise)
+    return red_flags < 3
 
 
 async def get_noise_floor(
@@ -332,10 +336,19 @@ async def get_noise_floor(
     - Vocabulary hit: ~$0.00002 (OpenAI embedding only)
     - LLM fallback: ~$0.001 (Haiku + embeddings)
     Latency:
+    - Cache hit: <10ms
     - Vocabulary hit: ~300ms
     - LLM fallback: ~800ms
     """
+    from app.services.cache import NoiseFloorCache
+
     seed_word_clean = seed_word.lower().strip()
+
+    # Check noise floor cache first
+    nf_cache = NoiseFloorCache.get_instance()
+    cached_result = nf_cache.get(seed_word_clean, sense_context, k)
+    if cached_result is not None:
+        return cached_result
 
     # Always embed seed on-demand (handles any word)
     if sense_context:
@@ -396,10 +409,14 @@ async def get_noise_floor(
 
             # Sort by similarity and return top k
             final_results = sorted(merged.values(), key=lambda x: x["similarity"], reverse=True)
-            return final_results[:k]
+            result = final_results[:k]
+            nf_cache.put(seed_word_clean, result, sense_context, k)
+            return result
 
     # Return vocabulary results (sufficient coverage)
-    return vocab_results[:k]
+    result = vocab_results[:k]
+    nf_cache.put(seed_word_clean, result, sense_context, k)
+    return result
 
 
 async def check_word_in_vocabulary(supabase: Client, word: str) -> bool:
