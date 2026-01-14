@@ -78,7 +78,8 @@ export const BridgingStepsScreen: React.FC<BridgingStepsScreenProps> = ({
       });
 
       // If Haiku game and completed, go to results
-      if (response.status === 'completed' && response.haiku_guessed_anchor) {
+      // V2 uses haiku_clues, V1 legacy uses haiku_guessed_anchor
+      if (response.status === 'completed' && (response.haiku_clues || response.haiku_guessed_anchor)) {
         const game = await api.bridging.get(gameId);
         dispatch({
           type: 'GAME_COMPLETED',

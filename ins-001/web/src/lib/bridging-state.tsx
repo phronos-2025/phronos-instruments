@@ -104,7 +104,7 @@ function bridgingSenderReducer(
       };
 
     case 'RESET':
-      return { screen: 'intro' };
+      return { screen: 'anchor-target' };  // Skip intro (consent already given)
 
     default:
       return state;

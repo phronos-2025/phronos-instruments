@@ -28,7 +28,7 @@ export const IntroScreen: React.FC = () => {
       <p className="subtitle">
         <span className="id">INS-001.1</span> · Semantic Radiation
       </p>
-      <h1 className="title">Measure how you think.</h1>
+      <h1 className="title">Radiate from a concept.</h1>
       
       <p className="description">
         This instrument measures two dimensions of cognition: how creatively you associate concepts, 
