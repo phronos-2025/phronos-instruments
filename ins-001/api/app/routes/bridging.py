@@ -235,8 +235,8 @@ async def submit_bridging_clues(
     haiku_reconstruction_score = None
 
     if game["recipient_type"] == "haiku":
-        # V2: Haiku builds its own union
-        haiku_result = await haiku_build_bridge(anchor, target, num_clues=3)
+        # V2: Haiku builds its own union (same number of concepts as participant)
+        haiku_result = await haiku_build_bridge(anchor, target, num_clues=len(clues_clean))
 
         if haiku_result.get("clues") and len(haiku_result["clues"]) > 0:
             haiku_clues = haiku_result["clues"]

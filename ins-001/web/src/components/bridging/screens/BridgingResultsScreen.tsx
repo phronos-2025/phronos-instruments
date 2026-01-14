@@ -211,21 +211,32 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
           meta={haikuDivergence !== undefined ? Math.round(haikuDivergence).toString() : undefined}
           style={{ marginBottom: 'var(--space-md)' }}
         >
+          {/* Bridge display - same format as other panels */}
           <div
             style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: '0.85rem',
-              color: 'var(--text-light)',
-              lineHeight: '1.8',
+              textAlign: 'center',
               marginBottom: 'var(--space-md)',
             }}
           >
-            {haikuSteps.map((step, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
-                <span style={{ color: 'var(--text-light)', fontSize: '0.7rem' }}>•</span>
-                <span>{step}</span>
-              </div>
-            ))}
+            <div
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.9rem',
+                color: 'var(--gold)',
+                marginBottom: 'var(--space-sm)',
+              }}
+            >
+              {game.anchor_word} ←――――――――――――――――→ {game.target_word}
+            </div>
+            <div
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.8rem',
+                color: 'var(--text-light)',
+              }}
+            >
+              {haikuSteps.join(' · ')}
+            </div>
           </div>
 
           {haikuDivergence !== undefined && (
