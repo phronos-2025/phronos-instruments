@@ -50,7 +50,7 @@ export const IntroScreen: React.FC = () => {
           </div>
           <div>
             <div style={{ color: 'var(--gold)', fontSize: '1.5rem', marginBottom: 'var(--space-xs)' }}>02</div>
-            <div style={{ color: 'var(--text-light)', marginBottom: '4px' }}>Give 5 clues</div>
+            <div style={{ color: 'var(--text-light)', marginBottom: '4px' }}>Give 1-5 concepts</div>
             <div style={{ color: 'var(--faded)', fontSize: '0.65rem' }}>One-word associations.</div>
           </div>
           <div>

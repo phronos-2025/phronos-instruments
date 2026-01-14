@@ -16,6 +16,7 @@ import { useBridgingSenderState } from '../../../lib/bridging-state';
 import { Panel } from '../../ui/Panel';
 import { Button } from '../../ui/Button';
 import { ShareLinkBox } from '../../ui/ShareLinkBox';
+import { MagicLinkModal } from '../../auth/MagicLinkModal';
 import { api } from '../../../lib/api';
 import type { BridgingGameResponse } from '../../../lib/api';
 
@@ -37,7 +38,7 @@ function DotPlotRow({ label, concepts, relevance, spread, isYou }: DotPlotRowPro
 
   return (
     <div style={{ marginBottom: 'var(--space-lg)' }}>
-      {/* Concepts above the track */}
+      {/* Concepts above the track - offset to align with track, not label */}
       <div
         style={{
           fontFamily: 'var(--font-mono)',
@@ -46,6 +47,7 @@ function DotPlotRow({ label, concepts, relevance, spread, isYou }: DotPlotRowPro
           marginBottom: 'var(--space-xs)',
           letterSpacing: '0.02em',
           textAlign: 'center',
+          marginLeft: '92px', // 80px label + 12px gap (--space-sm)
         }}
       >
         {concepts.join(' · ')}
@@ -186,7 +188,7 @@ function HumanShareRow({
 }) {
   return (
     <div style={{ marginBottom: 'var(--space-lg)' }}>
-      {/* Placeholder concepts */}
+      {/* Placeholder concepts - offset to align with track, not label */}
       <div
         style={{
           fontFamily: 'var(--font-mono)',
@@ -196,6 +198,7 @@ function HumanShareRow({
           letterSpacing: '0.02em',
           fontStyle: 'italic',
           textAlign: 'center',
+          marginLeft: '92px', // 80px label + 12px gap (--space-sm)
         }}
       >
         compare your concepts
@@ -244,11 +247,9 @@ function HumanShareRow({
             }}
           />
 
-          {/* Share UI overlay */}
-          <div style={{ position: 'relative', zIndex: 1 }}>
-            {shareUrl ? (
-              <ShareLinkBox url={shareUrl} />
-            ) : (
+          {/* Button only shown when no share URL yet */}
+          {!shareUrl && (
+            <div style={{ position: 'relative', zIndex: 1 }}>
               <Button
                 variant="secondary"
                 onClick={onCreateShare}
@@ -260,11 +261,22 @@ function HumanShareRow({
               >
                 {isCreatingShare ? 'Creating...' : 'Create Share Link'}
               </Button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
-
       </div>
+
+      {/* Share link shown below the track when created */}
+      {shareUrl && (
+        <div
+          style={{
+            marginTop: 'var(--space-sm)',
+            marginLeft: '92px', // align with track
+          }}
+        >
+          <ShareLinkBox url={shareUrl} />
+        </div>
+      )}
 
       {shareError && (
         <div
@@ -273,7 +285,7 @@ function HumanShareRow({
             fontSize: '0.6rem',
             color: 'var(--alert)',
             marginTop: 'var(--space-xs)',
-            textAlign: 'center',
+            marginLeft: '92px',
           }}
         >
           {shareError}
@@ -312,6 +324,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
   );
   const [isCreatingShare, setIsCreatingShare] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
+  const [showInitModal, setShowInitModal] = useState(false);
 
   // Metrics (with fallback to old field names)
   const relevance = game.relevance ?? game.binding_score ?? 0;
@@ -498,11 +511,47 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
         </div>
       </Panel>
 
+      {/* Unregistered Record Panel */}
+      <Panel style={{ borderColor: 'var(--gold)', background: 'linear-gradient(to bottom, var(--card-bg), rgba(176, 141, 85, 0.05))', marginTop: 'var(--space-md)' }}>
+        <div className="panel-header" style={{ borderBottomColor: 'var(--gold-dim)' }}>
+          <span className="panel-title" style={{ color: 'var(--gold)' }}>Unregistered Record</span>
+          <span className="panel-meta">Session ID: #{game.game_id?.slice(0, 4).toUpperCase() || 'A7F3'}</span>
+        </div>
+        <div className="panel-content">
+          <div style={{ display: 'flex', gap: 'var(--space-md)', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: '200px' }}>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-light)', marginBottom: 'var(--space-xs)' }}>
+                Save this Divergence Score ({spread.toFixed(2)}) to your permanent cognitive profile.
+              </p>
+              <div className="score-bar" style={{ height: '4px', margin: 'var(--space-sm) 0', opacity: 0.5 }}>
+                <div className="score-bar-fill" style={{ width: '20%' }} />
+              </div>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'var(--faded)' }}>
+                Progress: 3/15 instruments complete
+              </p>
+            </div>
+
+            <Button
+              variant="primary"
+              style={{ fontSize: '0.65rem', padding: '10px 20px' }}
+              onClick={() => setShowInitModal(true)}
+            >
+              Initialize ID
+            </Button>
+          </div>
+        </div>
+      </Panel>
+
       <div className="btn-group" style={{ marginTop: 'var(--space-md)' }}>
         <Button variant="primary" onClick={() => dispatch({ type: 'RESET' })}>
           Find More Common Ground
         </Button>
       </div>
+
+      <MagicLinkModal
+        isOpen={showInitModal}
+        onClose={() => setShowInitModal(false)}
+      />
     </div>
   );
 };
