@@ -86,7 +86,7 @@ def _is_morphological_variant(word1: str, word2: str) -> bool:
 
 
 # ============================================
-# LEXICAL UNION FINDER (LLM Baseline)
+# STATISTICAL UNION FINDER (Full Vocabulary Scan)
 # ============================================
 
 async def find_lexical_union(
@@ -96,18 +96,17 @@ async def find_lexical_union(
     supabase
 ) -> list[str]:
     """
-    Find vocabulary words with high semantic relevance to BOTH anchor and target.
+    Find vocabulary words with minimum total embedding distance to both A and T.
 
-    Uses joint similarity scoring: words must relate strongly to both concepts,
-    not just sit at a geometric midpoint. This produces semantically meaningful
-    unions rather than superficial pattern matches (e.g., names near names).
+    Full vocabulary scan - no sampling bias. This finds words in the intersection
+    of neighborhoods around both endpoints, rather than sampling only from
+    neighbors of A or T (which misses words equidistant from both but not
+    particularly close to either).
 
-    Scoring: For each candidate word, calculate:
-    - sim_anchor = cosine_similarity(word_vec, anchor_vec)
-    - sim_target = cosine_similarity(word_vec, target_vec)
-    - joint_score = min(sim_anchor, sim_target)  # Must connect to BOTH
+    Scoring: For each word in vocabulary, calculate:
+    - score = sim_anchor + sim_target  (equivalently: mean(sim_a, sim_t))
 
-    Return the N words with highest joint similarity scores.
+    This finds words that minimize total distance to both endpoints.
 
     Args:
         anchor: The anchor concept
@@ -125,71 +124,69 @@ async def find_lexical_union(
     anchor_vec = np.array(embeddings[0])
     target_vec = np.array(embeddings[1])
 
-    # Get candidates near both anchor and target regions
-    # Query from both ends to ensure we have words relevant to each concept
-    anchor_result = supabase.rpc(
-        "get_noise_floor_by_embedding",
-        {
-            "seed_embedding": anchor_vec.tolist(),
-            "seed_word": anchor,
-            "k": 150
-        }
-    ).execute()
+    # Full vocabulary scan - fetch all words with embeddings
+    # Using pagination to handle large vocabularies
+    all_candidates = []
+    batch_size = 1000
+    offset = 0
 
-    target_result = supabase.rpc(
-        "get_noise_floor_by_embedding",
-        {
-            "seed_embedding": target_vec.tolist(),
-            "seed_word": target,
-            "k": 150
-        }
-    ).execute()
+    while True:
+        result = supabase.table("vocabulary_embeddings") \
+            .select("word, embedding") \
+            .range(offset, offset + batch_size - 1) \
+            .execute()
 
-    if not anchor_result.data and not target_result.data:
+        if not result.data:
+            break
+
+        for row in result.data:
+            word = row["word"]
+            embedding = row.get("embedding")
+
+            if not embedding:
+                continue
+
+            # Parse embedding if it's a string
+            if isinstance(embedding, str):
+                try:
+                    import json
+                    embedding = json.loads(embedding)
+                except (json.JSONDecodeError, ValueError):
+                    continue
+
+            # Skip anchor/target and their morphological variants
+            if word.lower() == anchor.lower() or word.lower() == target.lower():
+                continue
+            if _is_morphological_variant(word, anchor) or _is_morphological_variant(word, target):
+                continue
+
+            word_vec = np.array(embedding)
+
+            # Score: sum of similarities to both endpoints
+            # This finds words that minimize total distance to both A and T
+            sim_anchor = cosine_similarity(word_vec.tolist(), anchor_vec.tolist())
+            sim_target = cosine_similarity(word_vec.tolist(), target_vec.tolist())
+            score = sim_anchor + sim_target
+
+            all_candidates.append((word, score, sim_anchor, sim_target))
+
+        offset += batch_size
+
+        # Safety limit to prevent runaway queries
+        if offset > 100000:
+            break
+
+    if not all_candidates:
         return []
 
-    # Combine candidates from both queries, deduplicating by word
-    candidate_words_set = set()
-    candidate_words = []
-    for r in (anchor_result.data or []) + (target_result.data or []):
-        word = r["word"]
-        if word not in candidate_words_set:
-            candidate_words_set.add(word)
-            candidate_words.append(word)
+    # Sort by score (descending) - highest sum of similarities first
+    all_candidates.sort(key=lambda x: x[1], reverse=True)
 
-    if not candidate_words:
-        return []
-
-    # Get embeddings for all candidates in one batch
-    candidate_embeddings = await get_embeddings_batch(candidate_words)
-
-    # Track used words for morphological variant detection
+    # Select top N, filtering morphological variants of selected words
     used_words = [anchor.lower(), target.lower()]
-
-    # Score each candidate by joint similarity (must relate to BOTH concepts)
-    scored_candidates = []
-    for word, emb in zip(candidate_words, candidate_embeddings):
-        if _is_morphological_variant(word, anchor) or _is_morphological_variant(word, target):
-            continue
-
-        word_vec = np.array(emb)
-
-        # Cosine similarity to both anchor and target
-        sim_anchor = cosine_similarity(word_vec.tolist(), anchor_vec.tolist())
-        sim_target = cosine_similarity(word_vec.tolist(), target_vec.tolist())
-
-        # Joint relevance: word must connect meaningfully to BOTH concepts
-        # Using min() ensures we don't get words that are very close to one
-        # concept but irrelevant to the other
-        joint_score = min(sim_anchor, sim_target)
-
-        scored_candidates.append((word, joint_score, sim_anchor, sim_target))
-
-    # Sort by joint score (descending) and select top N, avoiding morphological variants
-    scored_candidates.sort(key=lambda x: x[1], reverse=True)
-
     union_words = []
-    for word, joint_score, sim_a, sim_t in scored_candidates:
+
+    for word, score, sim_a, sim_t in all_candidates:
         # Skip if morphological variant of already selected word
         is_variant = any(_is_morphological_variant(word, used) for used in used_words)
         if is_variant:
