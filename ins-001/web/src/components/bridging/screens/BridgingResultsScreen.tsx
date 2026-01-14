@@ -134,6 +134,22 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
         meta={Math.round(divergence).toString()}
         style={{ marginBottom: 'var(--space-md)' }}
       >
+        <div
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.85rem',
+            color: 'var(--text-light)',
+            lineHeight: '1.8',
+            marginBottom: 'var(--space-md)',
+          }}
+        >
+          {game.clues?.map((clue, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
+              <span style={{ color: 'var(--gold)', fontSize: '0.7rem' }}>•</span>
+              <span>{clue}</span>
+            </div>
+          ))}
+        </div>
         <ScoreBar
           score={divergence}
           leftLabel="predictable"
@@ -154,7 +170,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
       {/* The Lexical Bridge - embedding-based path */}
       <Panel
         title="The Lexical Bridge"
-        meta={`${stepCount} steps`}
+        meta="0 steps"
         style={{ marginBottom: 'var(--space-md)' }}
       >
         <div
@@ -171,21 +187,19 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
           style={{
             fontFamily: 'var(--font-mono)',
             fontSize: '0.85rem',
-            color: 'var(--text-light)',
+            color: 'var(--faded)',
             textAlign: 'center',
             padding: 'var(--space-sm)',
-            background: 'var(--bg-card)',
-            borderRadius: '4px',
+            marginBottom: 'var(--space-xs)',
           }}
         >
-          {game.anchor_word} → {game.target_word}
+          (direct connection)
         </div>
         <div
           style={{
             fontFamily: 'var(--font-mono)',
             fontSize: '0.65rem',
             color: 'var(--faded)',
-            marginTop: 'var(--space-sm)',
             textAlign: 'center',
           }}
         >
@@ -197,7 +211,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
       {hasHaikuBridge && (
         <Panel
           title="The LLM Bridge (Haiku)"
-          meta={haikuBridgeSimilarity !== undefined ? `${Math.round(haikuBridgeSimilarity)}% similar` : undefined}
+          meta={haikuDivergence !== undefined ? Math.round(haikuDivergence).toString() : undefined}
           style={{ marginBottom: 'var(--space-md)' }}
         >
           <div
@@ -211,18 +225,18 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
           >
             {haikuSteps.map((step, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
-                <span style={{ color: 'var(--faded)', fontSize: '0.7rem' }}>•</span>
+                <span style={{ color: 'var(--text-light)', fontSize: '0.7rem' }}>•</span>
                 <span>{step}</span>
               </div>
             ))}
           </div>
 
-          {haikuBridgeSimilarity !== undefined && (
+          {haikuDivergence !== undefined && (
             <>
               <ScoreBar
-                score={haikuBridgeSimilarity}
-                leftLabel="divergent"
-                rightLabel="identical"
+                score={haikuDivergence}
+                leftLabel="predictable"
+                rightLabel="creative"
                 color="var(--text-light)"
               />
               <div
@@ -233,31 +247,9 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
                   marginTop: 'var(--space-sm)',
                 }}
               >
-                {haikuBridgeSimilarity >= 70
-                  ? 'Haiku found a similar conceptual path.'
-                  : haikuBridgeSimilarity >= 40
-                  ? 'Haiku took a different route between the concepts.'
-                  : 'Haiku approached this connection very differently.'}
+                How far Haiku's steps arc from the direct path.
               </div>
             </>
-          )}
-
-          {haikuDivergence !== undefined && (
-            <div
-              style={{
-                marginTop: 'var(--space-sm)',
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.65rem',
-                color: 'var(--faded)',
-              }}
-            >
-              Haiku's divergence: {Math.round(haikuDivergence)}%
-              {haikuDivergence > divergence
-                ? ' (more creative than yours)'
-                : haikuDivergence < divergence
-                ? ' (more direct than yours)'
-                : ' (similar creativity)'}
-            </div>
           )}
         </Panel>
       )}

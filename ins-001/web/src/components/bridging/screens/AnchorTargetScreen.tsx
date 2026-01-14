@@ -27,6 +27,8 @@ export const AnchorTargetScreen: React.FC<AnchorTargetScreenProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuggestingAnchor, setIsSuggestingAnchor] = useState(false);
   const [isSuggestingTarget, setIsSuggestingTarget] = useState(false);
+  const [anchorSuggestAttempt, setAnchorSuggestAttempt] = useState(1);
+  const [targetSuggestAttempt, setTargetSuggestAttempt] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [distance, setDistance] = useState<SemanticDistanceResponse | null>(null);
@@ -114,8 +116,9 @@ export const AnchorTargetScreen: React.FC<AnchorTargetScreenProps> = ({
     setIsSuggestingAnchor(true);
     try {
       // If target exists, suggest a word distant from it
-      const response = await api.bridging.suggest(target || undefined);
+      const response = await api.bridging.suggest(target || undefined, anchorSuggestAttempt);
       setAnchor(response.suggestion);
+      setAnchorSuggestAttempt((a) => a + 1);
     } catch (err) {
       console.error('Suggest failed:', err);
     } finally {
@@ -127,8 +130,9 @@ export const AnchorTargetScreen: React.FC<AnchorTargetScreenProps> = ({
     setIsSuggestingTarget(true);
     try {
       // If anchor exists, suggest a word distant from it
-      const response = await api.bridging.suggest(anchor || undefined);
+      const response = await api.bridging.suggest(anchor || undefined, targetSuggestAttempt);
       setTarget(response.suggestion);
+      setTargetSuggestAttempt((a) => a + 1);
     } catch (err) {
       console.error('Suggest failed:', err);
     } finally {

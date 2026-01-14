@@ -538,8 +538,13 @@ export const api = {
         body: JSON.stringify(data),
       }),
 
-    suggest: (fromWord?: string): Promise<SuggestWordResponse> =>
-      apiCall(`/api/v1/bridging/suggest${fromWord ? `?from_word=${encodeURIComponent(fromWord)}` : ''}`),
+    suggest: (fromWord?: string, attempt?: number): Promise<SuggestWordResponse> => {
+      const params = new URLSearchParams();
+      if (fromWord) params.set('from_word', fromWord);
+      if (attempt) params.set('attempt', attempt.toString());
+      const query = params.toString();
+      return apiCall(`/api/v1/bridging/suggest${query ? `?${query}` : ''}`);
+    },
 
     createShare: (gameId: string): Promise<CreateBridgingShareResponse> =>
       apiCall(`/api/v1/bridging/${gameId}/share`, {

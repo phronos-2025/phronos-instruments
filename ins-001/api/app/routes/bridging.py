@@ -259,13 +259,18 @@ async def submit_bridging_clues(
 @router.get("/suggest", response_model=SuggestWordResponse)
 async def suggest_distant_word(
     from_word: str = Query(default=None, max_length=50),
+    attempt: int = Query(default=1, ge=1, le=100),
     auth = Depends(get_authenticated_client)
 ):
     """
     Suggest a word distant from the input word.
 
-    If no from_word is provided, returns a random word from vocabulary.
-    If from_word is provided, returns a word with low cosine similarity.
+    Uses fast random selection by default. After 3+ attempts,
+    uses embedding-based distant word search for better results.
+
+    Args:
+        from_word: Word to find distant suggestions from
+        attempt: Which attempt this is (1-indexed). After 3, uses embeddings.
     """
     supabase, user = auth
 
@@ -289,16 +294,34 @@ async def suggest_distant_word(
         ]
         return random.choice(fallback_words)
 
+    # No from_word - just return random
     if not from_word:
-        # Return random word from vocabulary
         suggestion = await get_random_word()
         return SuggestWordResponse(suggestion=suggestion, from_word=None)
 
-    # Get embedding for from_word
     from_word_clean = from_word.lower().strip()
 
+    # Fast path: first few attempts just return random words
+    # This is instant and usually good enough
+    if attempt < 3:
+        suggestion = await get_random_word()
+        return SuggestWordResponse(suggestion=suggestion, from_word=from_word_clean)
+
+    # Slow path: after 3+ attempts, use embedding-based distant word search
+    # This ensures truly distant words for users who keep clicking
     try:
-        from_emb = await get_embedding(from_word_clean)
+        # First try to get embedding from vocabulary table (fast)
+        vocab_result = supabase.table("vocabulary_embeddings") \
+            .select("embedding") \
+            .eq("word", from_word_clean) \
+            .limit(1) \
+            .execute()
+
+        if vocab_result.data and vocab_result.data[0].get("embedding"):
+            from_emb = vocab_result.data[0]["embedding"]
+        else:
+            # Word not in vocabulary - fetch from OpenAI
+            from_emb = await get_embedding(from_word_clean)
 
         # Try the RPC function for distant words
         try:
@@ -319,19 +342,13 @@ async def suggest_distant_word(
                     from_word=from_word_clean
                 )
         except Exception as rpc_error:
-            # RPC failed - log and fall through to fallback
             print(f"get_distant_words RPC failed: {rpc_error}")
 
-        # Fallback: get random words and pick one that's likely different
-        # Get 20 random words and return one
+        # Fallback to random
         suggestion = await get_random_word()
-        return SuggestWordResponse(
-            suggestion=suggestion,
-            from_word=from_word_clean
-        )
+        return SuggestWordResponse(suggestion=suggestion, from_word=from_word_clean)
 
     except Exception as e:
-        # If everything fails, return a random word from fallback list
         print(f"suggest_distant_word error: {e}")
         fallback_words = [
             "universe", "cosmos", "ocean", "mountain", "algorithm",
@@ -339,7 +356,7 @@ async def suggest_distant_word(
         ]
         return SuggestWordResponse(
             suggestion=random.choice(fallback_words),
-            from_word=from_word_clean if from_word else None
+            from_word=from_word_clean
         )
 
 
