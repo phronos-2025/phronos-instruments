@@ -1,13 +1,14 @@
 /**
- * Bridging Results Screen - INS-001.2 V2
+ * Bridging Results Screen - INS-001.2 V2 (Connected Dot Plot)
  *
- * Shows full results including:
- * - Your Union (user's concepts + relevance/spread metrics)
- * - How Others See This Union (Haiku, Statistical, Human)
+ * Shows full results as a connected dot plot visualization:
+ * - Each row shows concepts above, with relevance (filled) and spread (hollow) dots
+ * - Connecting line shows the gap between metrics
+ * - Human row allows sharing to compare with a friend
  *
  * Metrics:
- * - Relevance: How connected clues are to anchor+target (0-100, bootstrapped percentile)
- * - Spread: How spread out the clues are (0-100, DAT-style, using published norms)
+ * - Relevance: How connected concepts are to anchor+target (0-100)
+ * - Spread: How spread out the concepts are (0-100, DAT-style)
  */
 
 import React, { useState } from 'react';
@@ -22,118 +23,292 @@ interface BridgingResultsScreenProps {
   game: BridgingGameResponse;
 }
 
-// Unified metric display component for consistent visualization
-function MetricDisplay({
-  label,
-  score,
-  leftLabel,
-  rightLabel,
-  compact = false,
-  highlight,
-}: {
+interface DotPlotRowProps {
   label: string;
-  score: number;
-  leftLabel: string;
-  rightLabel: string;
-  compact?: boolean;
-  highlight?: string;
-}) {
-  const barHeight = compact ? '20px' : '24px';
+  concepts: string[];
+  relevance: number;
+  spread: number;
+  isYou?: boolean;
+}
+
+// Single row in the connected dot plot
+function DotPlotRow({ label, concepts, relevance, spread, isYou }: DotPlotRowProps) {
+  const scale = (val: number) => Math.min(100, Math.max(0, val));
+  const delta = Math.round(spread - relevance);
 
   return (
-    <div style={{ marginBottom: compact ? 'var(--space-sm)' : 'var(--space-md)' }}>
+    <div style={{ marginBottom: 'var(--space-lg)' }}>
+      {/* Concepts above the track */}
       <div
         style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'baseline',
+          fontFamily: 'var(--font-mono)',
+          fontSize: '0.75rem',
+          color: isYou ? 'var(--gold)' : 'var(--text-light)',
           marginBottom: 'var(--space-xs)',
+          letterSpacing: '0.02em',
         }}
       >
-        <span
+        {concepts.join(' · ')}
+      </div>
+
+      {/* Row with label, track, and delta */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
+        {/* Label */}
+        <div
           style={{
+            width: '80px',
             fontFamily: 'var(--font-mono)',
-            fontSize: compact ? '0.65rem' : '0.7rem',
-            color: 'var(--text-light)',
+            fontSize: '0.65rem',
             textTransform: 'uppercase',
-            letterSpacing: '0.05em',
+            letterSpacing: '0.5px',
+            color: isYou ? 'var(--gold)' : 'var(--faded)',
           }}
         >
           {label}
-        </span>
-        <span
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: compact ? '0.7rem' : '0.75rem',
-            color: 'var(--gold)',
-          }}
-        >
-          {Math.round(score)}
-        </span>
-      </div>
-      <div
-        style={{
-          position: 'relative',
-          background: 'linear-gradient(to right, rgba(176, 141, 85, 0.15), rgba(176, 141, 85, 0.05))',
-          borderRadius: '4px',
-          height: barHeight,
-          overflow: 'hidden',
-        }}
-      >
-        {/* Filled portion */}
+        </div>
+
+        {/* Track */}
         <div
           style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            background: 'var(--gold)',
-            height: '100%',
-            width: `${Math.min(100, score)}%`,
-            transition: 'width 0.3s ease',
-          }}
-        />
-        {/* Scale labels inside bar */}
-        <div
-          style={{
+            flex: 1,
+            height: '32px',
             position: 'relative',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            height: '100%',
-            padding: '0 8px',
-            fontFamily: 'var(--font-mono)',
-            fontSize: compact ? '0.55rem' : '0.6rem',
-            textTransform: 'lowercase',
-            letterSpacing: '0.02em',
+            backgroundColor: 'rgba(255, 255, 255, 0.03)',
+            borderRadius: '2px',
           }}
         >
-          <span style={{ color: 'var(--faded)', zIndex: 1 }}>{leftLabel}</span>
-          <span style={{ color: 'var(--faded)', zIndex: 1 }}>{rightLabel}</span>
+          {/* Gridlines */}
+          {[25, 50, 75].map((v) => (
+            <div
+              key={v}
+              style={{
+                position: 'absolute',
+                left: `${v}%`,
+                top: 0,
+                bottom: 0,
+                width: '1px',
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              }}
+            />
+          ))}
+
+          {/* Connecting line */}
+          <div
+            style={{
+              position: 'absolute',
+              left: `${scale(relevance)}%`,
+              width: `${Math.max(0, scale(spread) - scale(relevance))}%`,
+              top: '50%',
+              height: '2px',
+              backgroundColor: 'var(--gold)',
+              opacity: 0.4,
+              transform: 'translateY(-50%)',
+            }}
+          />
+
+          {/* Relevance dot (filled) */}
+          <div
+            style={{
+              position: 'absolute',
+              left: `${scale(relevance)}%`,
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: '12px',
+              height: '12px',
+              borderRadius: '50%',
+              backgroundColor: 'var(--gold)',
+            }}
+          />
+
+          {/* Spread dot (hollow) */}
+          <div
+            style={{
+              position: 'absolute',
+              left: `${scale(spread)}%`,
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: '12px',
+              height: '12px',
+              borderRadius: '50%',
+              border: '2px solid var(--gold)',
+              backgroundColor: 'var(--bg)',
+              boxSizing: 'border-box',
+            }}
+          />
+
+          {/* Value labels */}
+          <span
+            style={{
+              position: 'absolute',
+              left: `${scale(relevance)}%`,
+              top: '2px',
+              transform: 'translateX(-50%)',
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.6rem',
+              color: 'var(--gold)',
+            }}
+          >
+            {Math.round(relevance)}
+          </span>
+          <span
+            style={{
+              position: 'absolute',
+              left: `${scale(spread)}%`,
+              top: '2px',
+              transform: 'translateX(-50%)',
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.6rem',
+              color: 'var(--faded)',
+            }}
+          >
+            {Math.round(spread)}
+          </span>
+        </div>
+
+        {/* Delta indicator */}
+        <div
+          style={{
+            width: '40px',
+            textAlign: 'right',
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.65rem',
+            color: 'var(--faded)',
+          }}
+        >
+          {delta > 0 ? `+${delta}` : delta}
         </div>
       </div>
-      {highlight && (
+    </div>
+  );
+}
+
+// Human row placeholder for sharing
+function HumanShareRow({
+  shareUrl,
+  isCreatingShare,
+  shareError,
+  onCreateShare,
+}: {
+  shareUrl: string | null;
+  isCreatingShare: boolean;
+  shareError: string | null;
+  onCreateShare: () => void;
+}) {
+  return (
+    <div style={{ marginBottom: 'var(--space-lg)' }}>
+      {/* Placeholder concepts */}
+      <div
+        style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: '0.75rem',
+          color: 'var(--faded)',
+          marginBottom: 'var(--space-xs)',
+          letterSpacing: '0.02em',
+          fontStyle: 'italic',
+        }}
+      >
+        compare your concepts
+      </div>
+
+      {/* Row with label, track placeholder, and share button */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
+        {/* Label */}
+        <div
+          style={{
+            width: '80px',
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.65rem',
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+            color: 'var(--faded)',
+          }}
+        >
+          Human
+        </div>
+
+        {/* Track placeholder with dashed line */}
+        <div
+          style={{
+            flex: 1,
+            height: '32px',
+            position: 'relative',
+            backgroundColor: 'rgba(255, 255, 255, 0.03)',
+            borderRadius: '2px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {/* Dashed placeholder line */}
+          <div
+            style={{
+              position: 'absolute',
+              left: '10%',
+              right: '10%',
+              top: '50%',
+              height: '1px',
+              borderTop: '1px dashed var(--border)',
+              transform: 'translateY(-50%)',
+            }}
+          />
+
+          {/* Share UI overlay */}
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            {shareUrl ? (
+              <ShareLinkBox url={shareUrl} />
+            ) : (
+              <Button
+                variant="secondary"
+                onClick={onCreateShare}
+                disabled={isCreatingShare}
+                style={{
+                  fontSize: '0.65rem',
+                  padding: '4px 12px',
+                }}
+              >
+                {isCreatingShare ? 'Creating...' : 'Create Share Link'}
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Empty delta space for alignment */}
+        <div style={{ width: '40px' }} />
+      </div>
+
+      {shareError && (
         <div
           style={{
             fontFamily: 'var(--font-mono)',
             fontSize: '0.6rem',
-            color: 'var(--gold)',
+            color: 'var(--alert)',
             marginTop: 'var(--space-xs)',
+            marginLeft: '92px',
           }}
         >
-          {highlight}
+          {shareError}
         </div>
       )}
     </div>
   );
 }
 
-function Divider() {
+// Human row with actual data (when recipient has played)
+function HumanDataRow({
+  concepts,
+  relevance,
+  spread,
+}: {
+  concepts: string[];
+  relevance: number;
+  spread: number;
+}) {
   return (
-    <div
-      style={{
-        borderTop: '1px dashed var(--border)',
-        margin: 'var(--space-md) 0',
-      }}
+    <DotPlotRow
+      label="Human"
+      concepts={concepts}
+      relevance={relevance}
+      spread={spread}
     />
   );
 }
@@ -148,34 +323,28 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
   const [isCreatingShare, setIsCreatingShare] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
 
-  // New metrics (with fallback to old field names for backwards compatibility)
+  // Metrics (with fallback to old field names)
   const relevance = game.relevance ?? game.binding_score ?? 0;
   const spread = game.divergence ?? game.divergence_score ?? 0;
-
-  // Convert relevance from 0-1 to 0-100 for display if it's in the new format
   const relevanceDisplay = relevance <= 1 ? relevance * 100 : relevance;
 
-  // V2 fields - check for Haiku's union
+  // Haiku data
   const haikuClues = game.haiku_clues;
   const haikuRelevance = game.haiku_relevance ?? game.haiku_binding;
   const haikuSpread = game.haiku_divergence;
   const hasHaikuUnion = haikuClues && haikuClues.length > 0;
 
-  // Lexical union (statistical baseline)
+  // Lexical/Statistical data
   const lexicalUnion = game.lexical_bridge;
   const lexicalRelevance = game.lexical_relevance;
   const lexicalSpread = game.lexical_divergence ?? game.lexical_similarity;
   const hasLexicalUnion = lexicalUnion && lexicalUnion.length > 0;
 
-  // Human recipient union (V2)
+  // Human recipient data
   const recipientClues = game.recipient_clues;
   const recipientRelevance = game.recipient_relevance ?? game.recipient_binding;
   const recipientSpread = game.recipient_divergence;
   const hasHumanUnion = recipientClues && recipientClues.length > 0;
-
-  // Comparison: is participant more creative than baseline?
-  const moreCreativeThanHaiku = hasHaikuUnion && haikuSpread !== undefined && spread > haikuSpread;
-  const moreCreativeThanLexical = hasLexicalUnion && lexicalSpread !== undefined && spread > lexicalSpread;
 
   const handleCreateShareLink = async () => {
     setIsCreatingShare(true);
@@ -197,283 +366,151 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
       </p>
       <h1 className="title">Common Ground Analysis</h1>
 
-      {/* Panel 1: Your Union */}
-      <Panel style={{ marginBottom: 'var(--space-md)' }}>
-        {/* Anchor-Target display */}
+      <Panel>
+        {/* Semantic axis */}
         <div
           style={{
             fontFamily: 'var(--font-mono)',
-            fontSize: '0.9rem',
+            fontSize: '0.8rem',
             color: 'var(--gold)',
             textAlign: 'center',
-            marginBottom: 'var(--space-md)',
+            marginBottom: 'var(--space-lg)',
           }}
         >
-          {game.anchor_word} ←―――――――――――――――――――――――――――――――→ {game.target_word}
+          {game.anchor_word} ←―――――――――――――――――――――→ {game.target_word}
         </div>
 
-        {/* Your Union */}
+        {/* Legend */}
         <div
           style={{
+            display: 'flex',
+            gap: 'var(--space-md)',
+            marginBottom: 'var(--space-md)',
             fontFamily: 'var(--font-mono)',
-            fontSize: '0.7rem',
-            color: 'var(--text-light)',
+            fontSize: '0.6rem',
             textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-            marginBottom: 'var(--space-xs)',
-            textAlign: 'center',
-          }}
-        >
-          Your Common Ground
-        </div>
-        <div
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.85rem',
-            color: 'var(--text-light)',
-            marginBottom: 'var(--space-md)',
-            textAlign: 'center',
-          }}
-        >
-          {game.clues?.join(' · ')}
-        </div>
-
-        {/* Relevance metric */}
-        <MetricDisplay
-          label="Relevance"
-          score={relevanceDisplay}
-          leftLabel="noise"
-          rightLabel="strong"
-        />
-
-        {/* Spread metric */}
-        <MetricDisplay
-          label="Spread"
-          score={spread}
-          leftLabel="clustered"
-          rightLabel="spread"
-        />
-      </Panel>
-
-      {/* Panel 2: How Others See This Union */}
-      <Panel style={{ marginBottom: 'var(--space-md)' }}>
-        <div
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.7rem',
+            letterSpacing: '0.5px',
             color: 'var(--faded)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-            marginBottom: 'var(--space-md)',
           }}
         >
-          How Others See This Common Ground
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div
+              style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                backgroundColor: 'var(--gold)',
+              }}
+            />
+            <span>Relevance</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div
+              style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                border: '2px solid var(--gold)',
+                backgroundColor: 'transparent',
+                boxSizing: 'border-box',
+              }}
+            />
+            <span>Spread</span>
+          </div>
+          <div style={{ marginLeft: 'auto', color: 'var(--faded)' }}>
+            <span>Δ = gap</span>
+          </div>
         </div>
 
-        {/* Haiku */}
-        {hasHaikuUnion && (
-          <>
-            <div
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.7rem',
-                color: 'var(--text-light)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-                marginBottom: 'var(--space-xs)',
-                textAlign: 'center',
-              }}
-            >
-              Haiku
-            </div>
-            <div
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.85rem',
-                color: 'var(--text-light)',
-                marginBottom: 'var(--space-sm)',
-                textAlign: 'center',
-              }}
-            >
-              {haikuClues.join(' · ')}
-            </div>
-            {haikuRelevance !== undefined && (
-              <MetricDisplay
-                label="Relevance"
-                score={haikuRelevance <= 1 ? haikuRelevance * 100 : haikuRelevance}
-                leftLabel="noise"
-                rightLabel="strong"
-                compact
-              />
-            )}
-            {haikuSpread !== undefined && (
-              <MetricDisplay
-                label="Spread"
-                score={haikuSpread}
-                leftLabel="clustered"
-                rightLabel="spread"
-                compact
-                highlight={moreCreativeThanHaiku ? 'your spread is higher' : undefined}
-              />
-            )}
-            <Divider />
-          </>
-        )}
-
-        {/* Statistical (Lexical Union) */}
-        {hasLexicalUnion && (
-          <>
-            <div
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.7rem',
-                color: 'var(--text-light)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-                marginBottom: 'var(--space-xs)',
-                textAlign: 'center',
-              }}
-            >
-              Statistical
-            </div>
-            <div
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.85rem',
-                color: 'var(--text-light)',
-                marginBottom: 'var(--space-sm)',
-                textAlign: 'center',
-              }}
-            >
-              {lexicalUnion.join(' · ')}
-            </div>
-            {lexicalRelevance != null && (
-              <MetricDisplay
-                label="Relevance"
-                score={lexicalRelevance <= 1 ? lexicalRelevance * 100 : lexicalRelevance}
-                leftLabel="noise"
-                rightLabel="strong"
-                compact
-              />
-            )}
-            {lexicalSpread != null && (
-              <MetricDisplay
-                label="Spread"
-                score={lexicalSpread}
-                leftLabel="clustered"
-                rightLabel="spread"
-                compact
-                highlight={moreCreativeThanLexical ? 'your spread is higher' : undefined}
-              />
-            )}
-            <Divider />
-          </>
-        )}
-
-        {/* Human */}
-        {hasHumanUnion ? (
-          <>
-            <div
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.7rem',
-                color: 'var(--text-light)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-                marginBottom: 'var(--space-xs)',
-                textAlign: 'center',
-              }}
-            >
-              Human
-            </div>
-            <div
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.85rem',
-                color: 'var(--text-light)',
-                marginBottom: 'var(--space-sm)',
-                textAlign: 'center',
-              }}
-            >
-              {recipientClues.join(' · ')}
-            </div>
-            {recipientRelevance !== undefined && (
-              <MetricDisplay
-                label="Relevance"
-                score={recipientRelevance <= 1 ? recipientRelevance * 100 : recipientRelevance}
-                leftLabel="noise"
-                rightLabel="strong"
-                compact
-              />
-            )}
-            {recipientSpread !== undefined && (
-              <MetricDisplay
-                label="Spread"
-                score={recipientSpread}
-                leftLabel="clustered"
-                rightLabel="spread"
-                compact
-              />
-            )}
-          </>
-        ) : (
-          <div style={{ textAlign: 'center' }}>
-            <div
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.7rem',
-                color: 'var(--text-light)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-                marginBottom: 'var(--space-xs)',
-              }}
-            >
-              Human
-            </div>
-            <div
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.75rem',
-                color: 'var(--faded)',
-                marginBottom: 'var(--space-sm)',
-              }}
-            >
-              Share with a friend to compare common ground
-            </div>
-
-            {shareUrl ? (
-              <ShareLinkBox url={shareUrl} />
-            ) : (
-              <Button
-                variant="secondary"
-                onClick={handleCreateShareLink}
-                disabled={isCreatingShare}
-                style={{
-                  fontSize: '0.75rem',
-                  padding: 'var(--space-xs) var(--space-sm)',
-                }}
-              >
-                {isCreatingShare ? 'Creating...' : 'Create Share Link'}
-              </Button>
-            )}
-
-            {shareError && (
-              <div
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '0.7rem',
-                  color: 'var(--alert)',
-                  marginTop: 'var(--space-xs)',
-                }}
-              >
-                {shareError}
-              </div>
-            )}
+        {/* Axis scale */}
+        <div style={{ marginLeft: '92px', marginRight: '52px', marginBottom: 'var(--space-sm)' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.55rem',
+              color: 'var(--faded)',
+              marginBottom: '2px',
+            }}
+          >
+            {[0, 25, 50, 75, 100].map((v) => (
+              <span key={v}>{v}</span>
+            ))}
           </div>
-        )}
+          <div
+            style={{
+              height: '1px',
+              backgroundColor: 'var(--border)',
+              position: 'relative',
+            }}
+          >
+            {[0, 25, 50, 75, 100].map((v) => (
+              <div
+                key={v}
+                style={{
+                  position: 'absolute',
+                  left: `${v}%`,
+                  top: '-2px',
+                  width: '1px',
+                  height: '5px',
+                  backgroundColor: 'var(--border)',
+                }}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Data rows */}
+        <div style={{ marginTop: 'var(--space-md)' }}>
+          {/* Your row */}
+          <DotPlotRow
+            label="You"
+            concepts={game.clues || []}
+            relevance={relevanceDisplay}
+            spread={spread}
+            isYou
+          />
+
+          {/* Haiku row */}
+          {hasHaikuUnion && haikuRelevance !== undefined && haikuSpread !== undefined && (
+            <DotPlotRow
+              label="Haiku"
+              concepts={haikuClues}
+              relevance={haikuRelevance <= 1 ? haikuRelevance * 100 : haikuRelevance}
+              spread={haikuSpread}
+            />
+          )}
+
+          {/* Statistical row */}
+          {hasLexicalUnion && lexicalRelevance != null && lexicalSpread != null && (
+            <DotPlotRow
+              label="Statistical"
+              concepts={lexicalUnion}
+              relevance={lexicalRelevance <= 1 ? lexicalRelevance * 100 : lexicalRelevance}
+              spread={lexicalSpread}
+            />
+          )}
+
+          {/* Human row */}
+          {hasHumanUnion && recipientRelevance !== undefined && recipientSpread !== undefined ? (
+            <HumanDataRow
+              concepts={recipientClues}
+              relevance={recipientRelevance <= 1 ? recipientRelevance * 100 : recipientRelevance}
+              spread={recipientSpread}
+            />
+          ) : (
+            <HumanShareRow
+              shareUrl={shareUrl}
+              isCreatingShare={isCreatingShare}
+              shareError={shareError}
+              onCreateShare={handleCreateShareLink}
+            />
+          )}
+        </div>
       </Panel>
 
-      <div className="btn-group">
+      <div className="btn-group" style={{ marginTop: 'var(--space-md)' }}>
         <Button variant="primary" onClick={() => dispatch({ type: 'RESET' })}>
           Find More Common Ground
         </Button>
