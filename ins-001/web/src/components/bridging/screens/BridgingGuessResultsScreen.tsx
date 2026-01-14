@@ -65,10 +65,10 @@ export const BridgingGuessResultsScreen: React.FC<BridgingGuessResultsScreenProp
         <span className="id">INS-001.2</span> · Results
       </p>
       <h1 className="title">
-        {perfectMatch ? 'Perfect reconstruction!' : 'Bridge revealed.'}
+        {perfectMatch ? 'Perfect reconstruction!' : 'Union revealed.'}
       </h1>
 
-      {/* True bridge reveal */}
+      {/* True union reveal */}
       <div
         style={{
           textAlign: 'center',
@@ -83,7 +83,7 @@ export const BridgingGuessResultsScreen: React.FC<BridgingGuessResultsScreenProp
             marginBottom: 'var(--space-xs)',
           }}
         >
-          THE BRIDGE WAS:
+          THE UNION WAS:
         </div>
         <div
           style={{
@@ -325,7 +325,7 @@ export const BridgingGuessResultsScreen: React.FC<BridgingGuessResultsScreenProp
           ) : (
             <>
               <strong style={{ color: 'var(--text-light)' }}>
-                The bridge was opaque.
+                The union was opaque.
               </strong>
               <br />
               The clues took a creative route that was hard to decode.
@@ -336,7 +336,7 @@ export const BridgingGuessResultsScreen: React.FC<BridgingGuessResultsScreenProp
 
       <div className="btn-group" style={{ justifyContent: 'center' }}>
         <Button variant="primary" onClick={() => (window.location.href = '/ins-001-2')}>
-          Build Your Own Bridge
+          Build Your Own Union
         </Button>
       </div>
     </div>

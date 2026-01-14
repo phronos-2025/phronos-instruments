@@ -25,14 +25,14 @@ export const BridgingIntroScreen: React.FC = () => {
       <ProgressBar currentStep={1} />
 
       <p className="subtitle">
-        <span className="id">INS-001.2</span> · Semantic Bridging
+        <span className="id">INS-001.2</span> · Semantic Union
       </p>
-      <h1 className="title">Build a bridge.</h1>
+      <h1 className="title">Build a union.</h1>
 
       <p className="description">
         This instrument measures how you construct conceptual connections between
-        two different semantic domains. Choose two words and build a bridge of
-        steps connecting them.
+        two different semantic domains. Choose two words and build a union of
+        concepts connecting them.
       </p>
 
       <Panel title="How It Works" meta="~5 minutes">
@@ -73,10 +73,10 @@ export const BridgingIntroScreen: React.FC = () => {
               02
             </div>
             <div style={{ color: 'var(--text-light)', marginBottom: '4px' }}>
-              Build your bridge
+              Build your union
             </div>
             <div style={{ color: 'var(--faded)', fontSize: '0.65rem' }}>
-              1-5 steps connecting them.
+              1-5 concepts connecting them.
             </div>
           </div>
           <div>
@@ -115,12 +115,12 @@ export const BridgingIntroScreen: React.FC = () => {
           </strong>
           <br />
           <br />
-          <strong>Divergence</strong> — How far your steps arc from the direct
+          <strong>Divergence</strong> — How far your concepts arc from the direct
           path between anchor and target. High divergence indicates creative,
           unexpected routes.
           <br />
           <br />
-          <strong>Bridge Similarity</strong> — How similarly you and others
+          <strong>Union Similarity</strong> — How similarly you and others
           navigate between the same concepts. High similarity indicates shared
           conceptual pathways.
         </div>

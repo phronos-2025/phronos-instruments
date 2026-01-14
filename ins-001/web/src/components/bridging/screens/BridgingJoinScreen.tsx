@@ -1,8 +1,8 @@
 /**
  * Bridging Join Screen - INS-001.2 V2
  *
- * Recipient sees anchor + target and builds their own bridge (steps).
- * Their bridge is then compared to the sender's bridge.
+ * Recipient sees anchor + target and builds their own union (concepts).
+ * Their union is then compared to the sender's union.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -109,7 +109,7 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
     const filledSteps = getFilledSteps();
 
     if (filledSteps.length === 0) {
-      setError('Please enter at least one step');
+      setError('Please enter at least one concept');
       return;
     }
 
@@ -119,7 +119,7 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
     for (const step of filledSteps) {
       const stepLower = step.trim().toLowerCase();
       if (stepLower === anchorLower || stepLower === targetLower) {
-        setError('Steps cannot be the anchor or target words');
+        setError('Concepts cannot be the anchor or target words');
         return;
       }
     }
@@ -143,7 +143,7 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
         recipientDivergence: response.recipient_divergence,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to submit bridge');
+      setError(err instanceof Error ? err.message : 'Failed to submit union');
     } finally {
       setIsSubmitting(false);
     }
@@ -163,7 +163,7 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
             fontSize: '0.85rem',
           }}
         >
-          Preparing the bridge...
+          Preparing the union...
         </div>
       </div>
     );
@@ -193,7 +193,7 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
             fontFamily: 'var(--font-mono)',
           }}
         >
-          Create your own bridge →
+          Create your own union →
         </a>
       </div>
     );
@@ -204,12 +204,12 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
   return (
     <div>
       <p className="subtitle">
-        <span className="id">INS-001.2</span> · Build Your Bridge
+        <span className="id">INS-001.2</span> · Build Your Union
       </p>
       <h1 className="title">Connect these concepts.</h1>
 
       <p className="description">
-        Someone built a bridge between these two words. Now build your own.
+        Someone built a union between these two words. Now build your own.
       </p>
 
       {/* Anchor ←→ Target display */}
@@ -246,13 +246,13 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
               fontSize: '0.75rem',
             }}
           >
-            Their bridge used {senderStepCount} step{senderStepCount !== 1 ? 's' : ''}
+            Their union used {senderStepCount} concept{senderStepCount !== 1 ? 's' : ''}
           </div>
         )}
       </Panel>
 
       <p className="description">
-        Enter 1-5 steps that connect <strong>{anchor}</strong> to{' '}
+        Enter 1-5 concepts that connect <strong>{anchor}</strong> to{' '}
         <strong>{target}</strong>:
       </p>
 
@@ -284,7 +284,7 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
                   className="text-input"
                   value={step}
                   onChange={(e) => updateStep(index, e.target.value)}
-                  placeholder={index === 0 ? 'first step (required)' : 'optional step'}
+                  placeholder={index === 0 ? 'first concept (required)' : 'optional concept'}
                   autoComplete="off"
                   spellCheck="false"
                   autoFocus={index === 0}
@@ -306,8 +306,8 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
           }}
         >
           {filledCount === 0
-            ? 'Enter at least one step'
-            : `${filledCount} step${filledCount !== 1 ? 's' : ''} entered`}
+            ? 'Enter at least one concept'
+            : `${filledCount} concept${filledCount !== 1 ? 's' : ''} entered`}
         </div>
 
         {error && (
@@ -329,7 +329,7 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
             variant="primary"
             disabled={filledCount === 0 || isSubmitting}
           >
-            {isSubmitting ? 'Comparing bridges...' : 'Compare Bridges →'}
+            {isSubmitting ? 'Comparing unions...' : 'Compare Unions →'}
           </Button>
         </div>
       </form>

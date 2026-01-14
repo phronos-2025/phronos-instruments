@@ -35,7 +35,8 @@ from app.services.scoring_bridging import (
     calculate_statistical_baseline,
     get_divergence_interpretation,
     get_reconstruction_interpretation,
-    find_lexical_bridge
+    find_lexical_bridge,
+    _is_morphological_variant
 )
 from app.services.llm import haiku_reconstruct_bridge, haiku_build_bridge
 from app.config import SUPABASE_URL, SUPABASE_SERVICE_KEY, FRONTEND_URL
@@ -158,20 +159,37 @@ async def submit_bridging_clues(
     anchor = game["anchor_word"]
     target = game["target_word"]
 
-    # Validate clues don't include anchor or target
+    # Validate clues don't include anchor, target, or morphological variants
     for clue in clues_clean:
         if clue == anchor or clue == target:
             raise HTTPException(
                 status_code=400,
                 detail={"error": f"Clue '{clue}' cannot be the anchor or target word"}
             )
+        if _is_morphological_variant(clue, anchor):
+            raise HTTPException(
+                status_code=400,
+                detail={"error": f"Clue '{clue}' is too similar to the anchor word '{anchor}'"}
+            )
+        if _is_morphological_variant(clue, target):
+            raise HTTPException(
+                status_code=400,
+                detail={"error": f"Clue '{clue}' is too similar to the target word '{target}'"}
+            )
 
-    # Check for duplicate clues
+    # Check for duplicate clues and morphological variants between clues
     if len(clues_clean) != len(set(clues_clean)):
         raise HTTPException(
             status_code=400,
             detail={"error": "Clues must be unique"}
         )
+    for i, clue1 in enumerate(clues_clean):
+        for clue2 in clues_clean[i + 1:]:
+            if _is_morphological_variant(clue1, clue2):
+                raise HTTPException(
+                    status_code=400,
+                    detail={"error": f"Clues '{clue1}' and '{clue2}' are too similar to each other"}
+                )
 
     # Batch embed anchor, target, and all clues
     all_texts = [anchor, target] + clues_clean
@@ -184,13 +202,13 @@ async def submit_bridging_clues(
     # Calculate divergence (perpendicular distance from anchor-target line)
     divergence_score = calculate_divergence(anchor_emb, target_emb, clue_embs)
 
-    # Calculate lexical bridge (optimal embedding-based path with same step count)
+    # Calculate lexical union (equidistant concepts with same count as participant)
     lexical_bridge = None
     try:
         lexical_bridge = await find_lexical_bridge(anchor, target, len(clues_clean), supabase)
     except Exception as e:
-        print(f"Lexical bridge calculation failed: {e}")
-        # Non-fatal - continue without lexical bridge
+        print(f"Lexical union calculation failed: {e}")
+        # Non-fatal - continue without lexical union
 
     # Generate share code
     share_code = None
@@ -217,7 +235,7 @@ async def submit_bridging_clues(
     haiku_reconstruction_score = None
 
     if game["recipient_type"] == "haiku":
-        # V2: Haiku builds its own bridge
+        # V2: Haiku builds its own union
         haiku_result = await haiku_build_bridge(anchor, target, num_clues=3)
 
         if haiku_result.get("clues") and len(haiku_result["clues"]) > 0:
@@ -229,7 +247,7 @@ async def submit_bridging_clues(
             # Calculate Haiku's divergence
             haiku_divergence = calculate_divergence(anchor_emb, target_emb, haiku_clue_embs)
 
-            # Calculate bridge similarity between sender and Haiku
+            # Calculate union similarity between sender and Haiku
             similarity_result = calculate_bridge_similarity(
                 sender_clue_embeddings=clue_embs,
                 recipient_clue_embeddings=haiku_clue_embs,
@@ -591,20 +609,37 @@ async def submit_bridging_bridge(
     target = game["target_word"]
     sender_clues = game["clues"]
 
-    # Validate clues don't include anchor or target
+    # Validate clues don't include anchor, target, or morphological variants
     for clue in clues_clean:
         if clue == anchor or clue == target:
             raise HTTPException(
                 status_code=400,
                 detail={"error": f"Clue '{clue}' cannot be the anchor or target word"}
             )
+        if _is_morphological_variant(clue, anchor):
+            raise HTTPException(
+                status_code=400,
+                detail={"error": f"Clue '{clue}' is too similar to the anchor word '{anchor}'"}
+            )
+        if _is_morphological_variant(clue, target):
+            raise HTTPException(
+                status_code=400,
+                detail={"error": f"Clue '{clue}' is too similar to the target word '{target}'"}
+            )
 
-    # Check for duplicate clues
+    # Check for duplicate clues and morphological variants between clues
     if len(clues_clean) != len(set(clues_clean)):
         raise HTTPException(
             status_code=400,
             detail={"error": "Clues must be unique"}
         )
+    for i, clue1 in enumerate(clues_clean):
+        for clue2 in clues_clean[i + 1:]:
+            if _is_morphological_variant(clue1, clue2):
+                raise HTTPException(
+                    status_code=400,
+                    detail={"error": f"Clues '{clue1}' and '{clue2}' are too similar to each other"}
+                )
 
     # Batch embed everything: anchor, target, sender clues, recipient clues
     all_texts = [anchor, target] + sender_clues + clues_clean

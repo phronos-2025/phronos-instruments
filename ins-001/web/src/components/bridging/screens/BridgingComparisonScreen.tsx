@@ -1,7 +1,7 @@
 /**
  * Bridging Comparison Screen - INS-001.2 V2
  *
- * Shows side-by-side comparison of sender's bridge vs recipient's bridge.
+ * Shows side-by-side comparison of sender's union vs recipient's union.
  */
 
 import React from 'react';
@@ -45,12 +45,12 @@ function ScoreBar({ score, color = 'var(--gold)' }: { score: number; color?: str
 function getSimilarityInterpretation(score: number): { text: string; description: string } {
   if (score >= 80) {
     return {
-      text: 'Highly similar bridges',
+      text: 'Highly similar unions',
       description: 'You and the sender navigated this connection almost identically.',
     };
   } else if (score >= 60) {
     return {
-      text: 'Similar bridges',
+      text: 'Similar unions',
       description: 'You took a related conceptual path between these words.',
     };
   } else if (score >= 40) {
@@ -60,7 +60,7 @@ function getSimilarityInterpretation(score: number): { text: string; description
     };
   } else {
     return {
-      text: 'Divergent bridges',
+      text: 'Divergent unions',
       description: 'You and the sender had very different ways of connecting these ideas.',
     };
   }
@@ -89,7 +89,7 @@ export const BridgingComparisonScreen: React.FC<BridgingComparisonScreenProps> =
   return (
     <div>
       <p className="subtitle">
-        <span className="id">INS-001.2</span> · Bridge Comparison
+        <span className="id">INS-001.2</span> · Union Comparison
       </p>
       <h1 className="title">{interpretation.text}</h1>
 
@@ -125,7 +125,7 @@ export const BridgingComparisonScreen: React.FC<BridgingComparisonScreenProps> =
         </div>
       </div>
 
-      {/* Side-by-side bridges */}
+      {/* Side-by-side unions */}
       <div
         style={{
           display: 'grid',
@@ -134,7 +134,7 @@ export const BridgingComparisonScreen: React.FC<BridgingComparisonScreenProps> =
           marginBottom: 'var(--space-lg)',
         }}
       >
-        {/* Sender's bridge */}
+        {/* Sender's union */}
         <div
           style={{
             padding: 'var(--space-md)',
@@ -153,7 +153,7 @@ export const BridgingComparisonScreen: React.FC<BridgingComparisonScreenProps> =
               letterSpacing: '0.05em',
             }}
           >
-            Their Bridge
+            Their Union
           </div>
           <div
             style={{
@@ -182,7 +182,7 @@ export const BridgingComparisonScreen: React.FC<BridgingComparisonScreenProps> =
           </div>
         </div>
 
-        {/* Recipient's bridge */}
+        {/* Recipient's union */}
         <div
           style={{
             padding: 'var(--space-md)',
@@ -201,7 +201,7 @@ export const BridgingComparisonScreen: React.FC<BridgingComparisonScreenProps> =
               letterSpacing: '0.05em',
             }}
           >
-            Your Bridge
+            Your Union
           </div>
           <div
             style={{
@@ -231,9 +231,9 @@ export const BridgingComparisonScreen: React.FC<BridgingComparisonScreenProps> =
         </div>
       </div>
 
-      {/* Bridge Similarity Score */}
+      {/* Union Similarity Score */}
       <Panel
-        title="Bridge Similarity"
+        title="Union Similarity"
         meta={`${Math.round(bridgeSimilarity)}%`}
         style={{ marginBottom: 'var(--space-md)' }}
       >
@@ -371,7 +371,7 @@ export const BridgingComparisonScreen: React.FC<BridgingComparisonScreenProps> =
             </>
           ) : (
             <>
-              Both bridges had similar levels of creativity (~{Math.round(senderDivergence)}% divergence).
+              Both unions had similar levels of creativity (~{Math.round(senderDivergence)}% divergence).
             </>
           )}
         </div>
@@ -379,7 +379,7 @@ export const BridgingComparisonScreen: React.FC<BridgingComparisonScreenProps> =
 
       <div className="btn-group" style={{ justifyContent: 'center' }}>
         <Button variant="primary" onClick={() => (window.location.href = '/ins-001-2')}>
-          Build Your Own Bridge
+          Build Your Own Union
         </Button>
       </div>
     </div>

@@ -3,12 +3,13 @@ LLM Guesser Service - INS-001 Semantic Associations
 
 Uses Claude 3.5 Haiku to guess:
 - INS-001: The seed word from clues
-- INS-001.2: The anchor-target pair from bridge clues
+- INS-001.2: The anchor-target pair from union concepts
 """
 
 import os
 import html
 from anthropic import AsyncAnthropic
+from app.services.scoring_bridging import _is_morphological_variant
 
 # ============================================
 # CONFIGURATION
@@ -87,15 +88,15 @@ Your guesses:"""
 
 
 # ============================================
-# INS-001.2: BRIDGE RECONSTRUCTION
+# INS-001.2: UNION RECONSTRUCTION
 # ============================================
 
 async def haiku_reconstruct_bridge(clues: list[str]) -> dict:
     """
-    Have Claude Haiku guess the anchor-target pair from bridge clues.
+    Have Claude Haiku guess the anchor-target pair from union concepts.
 
-    This is a generative baseline - Haiku reasons about the clues
-    to infer what two concepts were being connected.
+    This is a generative baseline - Haiku reasons about the concepts
+    to infer what two ideas were being united.
 
     Args:
         clues: List of 1-5 clue words that connect anchor and target
@@ -111,13 +112,13 @@ async def haiku_reconstruct_bridge(clues: list[str]) -> dict:
     escaped_clues = [html.escape(c) for c in clues]
     clue_xml = "\n".join(f"  <clue>{c}</clue>" for c in escaped_clues)
 
-    prompt = f"""You are playing a word game. Someone chose two words (an anchor and a target) and provided clues that connect them.
+    prompt = f"""You are playing a word game. Someone chose two words (an anchor and a target) and provided concepts that unite them.
 
-<clues>
+<concepts>
 {clue_xml}
-</clues>
+</concepts>
 
-These clues are meant to form a bridge between two concepts. What two words do you think were being connected?
+These concepts are meant to form a union between two ideas. What two words do you think were being connected?
 
 Rules:
 - Respond with exactly two words separated by a comma
@@ -167,7 +168,7 @@ Your guess:"""
 
 
 # ============================================
-# INS-001.2 v2: BRIDGE BUILDING
+# INS-001.2 v2: UNION BUILDING
 # ============================================
 
 async def haiku_build_bridge(
@@ -176,20 +177,20 @@ async def haiku_build_bridge(
     num_clues: int = 3
 ) -> dict:
     """
-    Have Claude Haiku build its own bridge between anchor and target.
+    Have Claude Haiku build its own union between anchor and target.
 
-    Instead of guessing words from clues, Haiku generates its own clues
-    that connect the given anchor-target pair. This creates a baseline
-    bridge that can be compared to the human's bridge.
+    Instead of guessing words from concepts, Haiku generates its own concepts
+    that unite the given anchor-target pair. This creates a baseline
+    union that can be compared to the human's union.
 
     Args:
         anchor: The anchor word
         target: The target word
-        num_clues: Number of clues to generate (default 3)
+        num_clues: Number of concepts to generate (default 3)
 
     Returns:
         Dictionary with:
-        - clues: List of generated clue words
+        - clues: List of generated concept words
         - raw_response: Original response text
         - error: Error message if parsing failed
     """
@@ -197,20 +198,20 @@ async def haiku_build_bridge(
     anchor_safe = html.escape(anchor)
     target_safe = html.escape(target)
 
-    prompt = f"""You are playing a word-bridging game. Connect these two concepts with clue words.
+    prompt = f"""You are playing a word-union game. Unite these two concepts with connecting words.
 
 Anchor: {anchor_safe}
 Target: {target_safe}
 
-Provide exactly {num_clues} single-word clues that form a conceptual bridge between these words. The clues should help someone understand HOW these two concepts connect.
+Provide exactly {num_clues} single-word concepts that connect these two words. The concepts should help someone understand how these two ideas are related.
 
 Rules:
 - One word per line
 - Single words only (no phrases)
-- Do NOT use the anchor word "{anchor_safe}" or target word "{target_safe}" as clues
-- Clues should create a path of association between anchor and target
+- Do NOT use the anchor word "{anchor_safe}" or target word "{target_safe}" as concepts
+- Concepts should connect both anchor and target
 
-Your clues:"""
+Your concepts:"""
 
     response = await anthropic_client.messages.create(
         model=MODEL,
@@ -236,9 +237,21 @@ Your clues:"""
         word = ''.join(c for c in word if c.isalpha())
         word_lower = word.lower()
 
-        # Skip if it's the anchor or target
+        # Skip if it's the anchor, target, or a morphological variant
         if word_lower and word_lower != anchor_lower and word_lower != target_lower:
-            clues.append(word_lower)
+            # Also skip morphological variants of anchor/target
+            if _is_morphological_variant(word_lower, anchor_lower):
+                continue
+            if _is_morphological_variant(word_lower, target_lower):
+                continue
+            # Skip if it's a morphological variant of an existing clue
+            is_variant = False
+            for existing_clue in clues:
+                if _is_morphological_variant(word_lower, existing_clue):
+                    is_variant = True
+                    break
+            if not is_variant:
+                clues.append(word_lower)
 
     if clues:
         return {
@@ -249,7 +262,7 @@ Your clues:"""
     return {
         "clues": [],
         "raw_response": text,
-        "error": "Could not parse clues from response"
+        "error": "Could not parse concepts from response"
     }
 
 

@@ -2,9 +2,9 @@
  * Bridging Results Screen - INS-001.2 V2
  *
  * Shows full results including:
- * - Your Semantic Bridge (user's steps + divergence)
- * - The Lexical Bridge (embedding-based shortest path)
- * - The LLM Bridge (Haiku's steps)
+ * - Your Semantic Union (user's concepts + divergence)
+ * - The Lexical Union (equidistant concept set)
+ * - The LLM Union (Haiku's concepts)
  */
 
 import React from 'react';
@@ -98,11 +98,11 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
       <p className="subtitle">
         <span className="id">INS-001.2</span> · Your Results
       </p>
-      <h1 className="title">Bridge Analysis</h1>
+      <h1 className="title">Union Analysis</h1>
 
-      {/* Your Semantic Bridge */}
+      {/* Your Semantic Union */}
       <Panel
-        title="Your Semantic Bridge"
+        title="Your Semantic Union"
         meta={Math.round(divergence).toString()}
         style={{ marginBottom: 'var(--space-md)' }}
       >
@@ -147,14 +147,14 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
             marginTop: 'var(--space-sm)',
           }}
         >
-          How far your steps arc from the direct path.
+          How far your concepts arc from the direct path.
         </div>
       </Panel>
 
-      {/* The Lexical Bridge - embedding-based path */}
+      {/* The Lexical Union - equidistant concept set */}
       <Panel
-        title="The Lexical Bridge"
-        meta={`${stepCount} steps`}
+        title="The Lexical Union"
+        meta={`${stepCount} concepts`}
         style={{ marginBottom: 'var(--space-md)' }}
       >
         <div
@@ -165,7 +165,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
             marginBottom: 'var(--space-sm)',
           }}
         >
-          The most direct semantic path between anchor and target:
+          The set of concepts equidistant to both anchor and target:
         </div>
         <div
           style={{
@@ -200,14 +200,14 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
             textAlign: 'center',
           }}
         >
-          Optimal path found by embedding interpolation
+          Concepts closest to the midpoint between anchor and target
         </div>
       </Panel>
 
-      {/* The LLM Bridge (Haiku) */}
+      {/* The LLM Union (Haiku) */}
       {hasHaikuBridge && (
         <Panel
-          title="The LLM Bridge (Haiku)"
+          title="The LLM Union (Haiku)"
           meta={haikuDivergence !== undefined ? Math.round(haikuDivergence).toString() : undefined}
           style={{ marginBottom: 'var(--space-md)' }}
         >
@@ -244,7 +244,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
                   marginTop: 'var(--space-sm)',
                 }}
               >
-                How far Haiku's steps arc from the direct path.
+                How far Haiku's concepts arc from the direct path.
               </div>
             </>
           )}
@@ -254,7 +254,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
       {/* Legacy Haiku Guess (V1) - for old games */}
       {hasLegacyHaikuGuess && (
         <Panel
-          title="The LLM Bridge (Haiku)"
+          title="The LLM Union (Haiku)"
           meta={haikuReconstructionScore !== undefined ? Math.round(haikuReconstructionScore).toString() : undefined}
           style={{ marginBottom: 'var(--space-md)' }}
         >
@@ -284,15 +284,15 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
               marginTop: 'var(--space-sm)',
             }}
           >
-            Legacy: What Haiku guessed from your steps.
+            Legacy: What Haiku guessed from your concepts.
           </div>
         </Panel>
       )}
 
-      {/* Human Recipient Bridge (V2) */}
+      {/* Human Recipient Union (V2) */}
       {hasHumanBridge && (
         <Panel
-          title="Recipient's Bridge"
+          title="Recipient's Union"
           meta={bridgeSimilarity !== undefined ? `${Math.round(bridgeSimilarity)}% similar` : undefined}
           style={{ marginBottom: 'var(--space-md)' }}
         >
@@ -438,7 +438,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
               ) : (
                 <>
                   <strong style={{ color: 'var(--text-light)' }}>
-                    Human and Haiku matched your bridge equally well.
+                    Human and Haiku matched your union equally well.
                   </strong>
                   <br />
                   Both: {Math.round(bridgeSimilarity)}% similarity
@@ -446,13 +446,13 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
               )
             ) : hasHaikuBridge && haikuBridgeSimilarity !== undefined ? (
               <>
-                Haiku approached this bridge with {Math.round(haikuBridgeSimilarity)}% similarity to your thinking.
+                Haiku approached this union with {Math.round(haikuBridgeSimilarity)}% similarity to your thinking.
                 <br />
                 Share with a friend to see how a human compares!
               </>
             ) : hasHumanBridge && bridgeSimilarity !== undefined ? (
               <>
-                Your recipient's bridge was {Math.round(bridgeSimilarity)}% similar to yours.
+                Your recipient's union was {Math.round(bridgeSimilarity)}% similar to yours.
               </>
             ) : null}
           </div>
@@ -461,7 +461,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
 
       <div className="btn-group">
         <Button variant="primary" onClick={() => dispatch({ type: 'RESET' })}>
-          Build Another Bridge
+          Build Another Union
         </Button>
       </div>
     </div>

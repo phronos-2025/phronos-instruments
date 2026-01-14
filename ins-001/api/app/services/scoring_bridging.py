@@ -1,7 +1,7 @@
 """
-Scoring Algorithms - INS-001.2 Semantic Bridging
+Scoring Algorithms - INS-001.2 Semantic Union
 
-These algorithms measure how participants construct conceptual bridges
+These algorithms measure how participants construct conceptual unions
 between two semantic domains (anchor and target words).
 
 Key difference from INS-001:
@@ -9,6 +9,8 @@ Key difference from INS-001:
   (not distance from neighborhood centroid)
 - Reconstruction measures how well recipient recovered the pair
   (not convergence to single seed)
+- Lexical Union finds words equidistant to both anchor and target
+  (not a sequential path)
 """
 
 import numpy as np
@@ -468,45 +470,206 @@ def get_reconstruction_interpretation(score: float) -> str:
         return "Transparent"
 
 
-async def find_lexical_bridge(
+# ============================================
+# JOINT DISTANCE SCORING (Semantic Union)
+# ============================================
+
+# Calibration constant for joint distance normalization
+# Represents expected max distance difference in embedding space
+JOINT_DISTANCE_MAX_DIFF = 1.5
+
+
+def calculate_joint_distance_score(
+    word_embedding: list[float],
+    anchor_embedding: list[float],
+    target_embedding: list[float]
+) -> float:
+    """
+    Calculate how equidistant a word is to both anchor and target.
+
+    Score is higher when word is equally distant from both concepts.
+    Used to evaluate how well participant words form a semantic union.
+
+    Args:
+        word_embedding: Embedding vector for the word to score
+        anchor_embedding: Embedding vector for anchor concept
+        target_embedding: Embedding vector for target concept
+
+    Returns:
+        Score 0-100 where 100 = perfectly equidistant
+    """
+    word_vec = np.array(word_embedding)
+    anchor_vec = np.array(anchor_embedding)
+    target_vec = np.array(target_embedding)
+
+    dist_to_anchor = np.linalg.norm(word_vec - anchor_vec)
+    dist_to_target = np.linalg.norm(word_vec - target_vec)
+
+    # Calculate how close the distances are (smaller difference = more equidistant)
+    distance_diff = abs(dist_to_anchor - dist_to_target)
+
+    # Normalize: 0 difference = 100 score, large difference = low score
+    equidistance_score = max(0, 100 * (1 - distance_diff / JOINT_DISTANCE_MAX_DIFF))
+
+    return float(equidistance_score)
+
+
+def calculate_union_quality(
+    clue_embeddings: list[list[float]],
+    anchor_embedding: list[float],
+    target_embedding: list[float]
+) -> dict:
+    """
+    Calculate overall quality of participant's semantic union.
+
+    Measures how well the participant's concepts form an equidistant set
+    between anchor and target.
+
+    Args:
+        clue_embeddings: List of embedding vectors for participant's concepts
+        anchor_embedding: Embedding vector for anchor concept
+        target_embedding: Embedding vector for target concept
+
+    Returns:
+        Dictionary with:
+        - overall: Mean joint distance score (0-100)
+        - individual_scores: List of scores for each concept
+        - interpretation: Human-readable interpretation
+    """
+    if not clue_embeddings:
+        return {
+            "overall": 0.0,
+            "individual_scores": [],
+            "interpretation": "No concepts provided"
+        }
+
+    individual_scores = [
+        calculate_joint_distance_score(emb, anchor_embedding, target_embedding)
+        for emb in clue_embeddings
+    ]
+
+    overall = float(np.mean(individual_scores))
+
+    if overall >= 70:
+        interpretation = "Excellent union - concepts are well-balanced between both ideas"
+    elif overall >= 50:
+        interpretation = "Good union - concepts connect both ideas reasonably well"
+    elif overall >= 30:
+        interpretation = "Moderate union - concepts lean toward one idea"
+    else:
+        interpretation = "Weak union - concepts cluster around one idea"
+
+    return {
+        "overall": overall,
+        "individual_scores": individual_scores,
+        "interpretation": interpretation
+    }
+
+
+def get_union_quality_interpretation(score: float) -> str:
+    """
+    Get human-readable interpretation of union quality score.
+
+    Args:
+        score: Union quality score (0-100)
+
+    Returns:
+        Interpretation label
+    """
+    if score >= 70:
+        return "Excellent"
+    elif score >= 50:
+        return "Good"
+    elif score >= 30:
+        return "Moderate"
+    else:
+        return "Weak"
+
+
+def _get_word_stem(word: str) -> str:
+    """
+    Get a simple stem for morphological variant detection.
+
+    Uses a basic approach: strip common suffixes to detect
+    plurals, verb forms, and other variants.
+    """
+    word = word.lower()
+
+    # Common suffixes to strip (order matters - check longer ones first)
+    suffixes = [
+        'ically', 'ation', 'ness', 'ment', 'able', 'ible', 'tion',
+        'sion', 'ally', 'ful', 'less', 'ing', 'ity', 'ous', 'ive',
+        'est', 'ier', 'ies', 'ied', 'ly', 'ed', 'er', 'en', 'es', 's'
+    ]
+
+    for suffix in suffixes:
+        if word.endswith(suffix) and len(word) > len(suffix) + 2:
+            return word[:-len(suffix)]
+
+    return word
+
+
+def _is_morphological_variant(word1: str, word2: str) -> bool:
+    """
+    Check if two words are morphological variants of each other.
+
+    Examples: catalyst/catalysts, run/running, happy/happiness
+    """
+    w1, w2 = word1.lower(), word2.lower()
+
+    # Exact match
+    if w1 == w2:
+        return True
+
+    # One is substring of the other (catches most plurals/verb forms)
+    if w1.startswith(w2) or w2.startswith(w1):
+        # But not if they're very different lengths (e.g., "cat" vs "catalyst")
+        if abs(len(w1) - len(w2)) <= 4:
+            return True
+
+    # Same stem
+    if _get_word_stem(w1) == _get_word_stem(w2):
+        return True
+
+    return False
+
+
+async def find_lexical_union(
     anchor: str,
     target: str,
-    num_steps: int,
+    num_concepts: int,
     supabase
 ) -> list[str]:
     """
-    Find the optimal N-step semantic bridge between anchor and target.
+    Find the N vocabulary words most equidistant to both anchor and target.
 
-    Uses greedy interpolation: finds vocabulary words closest to evenly-spaced
-    points along the anchor→target embedding vector.
+    Instead of finding a path from A to T, finds words that sit at similar
+    distances from both concepts - words in the "union" of both semantic spaces.
 
-    This serves as a baseline comparison for human-created bridges, showing
-    "the most direct semantic path an algorithm would take."
+    Scoring: For each candidate word, calculate:
+    - dist_to_anchor = ||word_vec - anchor_vec||
+    - dist_to_target = ||word_vec - target_vec||
+    - equidistance_score = 1 / (1 + |dist_to_anchor - dist_to_target|)
+
+    Return the N words with highest equidistance scores.
 
     Args:
-        anchor: The starting word
-        target: The ending word
-        num_steps: Number of intermediate bridge words (1-5)
+        anchor: The anchor concept
+        target: The target concept
+        num_concepts: Number of union concepts (n = # used by participant)
         supabase: Authenticated Supabase client
 
     Returns:
-        List of bridge words (may be fewer than num_steps if vocabulary sparse)
+        List of union words (unordered set, but returned as list)
     """
     from .embeddings import get_embeddings_batch
 
     # Get anchor and target embeddings
     embeddings = await get_embeddings_batch([anchor, target])
-    anchor_emb = embeddings[0]
-    target_emb = embeddings[1]
+    anchor_vec = np.array(embeddings[0])
+    target_vec = np.array(embeddings[1])
 
-    anchor_vec = np.array(anchor_emb)
-    target_vec = np.array(target_emb)
-
-    # Compute direction vector
-    direction = target_vec - anchor_vec
-
-    # Use fast existing function to get candidates near the midpoint
-    # This is much faster than multiple queries with exclusions
+    # Get candidate words near the midpoint region
     midpoint = (anchor_vec + target_vec) / 2
 
     # Get candidates near the midpoint region (single fast query)
@@ -515,7 +678,7 @@ async def find_lexical_bridge(
         {
             "seed_embedding": midpoint.tolist(),
             "seed_word": "",  # No word to exclude by name
-            "k": 100  # Get plenty of candidates
+            "k": 200  # More candidates for better selection
         }
     ).execute()
 
@@ -528,38 +691,64 @@ async def find_lexical_bridge(
     # Get embeddings for all candidates in one batch
     candidate_embeddings = await get_embeddings_batch(candidate_words)
 
-    # Create lookup of word -> embedding
-    word_to_emb = {
-        word: np.array(emb)
-        for word, emb in zip(candidate_words, candidate_embeddings)
-    }
+    # Track used words for morphological variant detection
+    used_words = [anchor.lower(), target.lower()]
 
-    # Exclude anchor and target
-    used_words = {anchor.lower(), target.lower()}
+    # Score each candidate by equidistance
+    scored_candidates = []
+    for word, emb in zip(candidate_words, candidate_embeddings):
+        if _is_morphological_variant(word, anchor) or _is_morphological_variant(word, target):
+            continue
 
-    # For each interpolation point, find the best candidate
-    bridge_words = []
-    for i in range(1, num_steps + 1):
-        t = i / (num_steps + 1)
-        interpolated_point = anchor_vec + t * direction
+        word_vec = np.array(emb)
+        dist_to_anchor = np.linalg.norm(word_vec - anchor_vec)
+        dist_to_target = np.linalg.norm(word_vec - target_vec)
 
-        # Find closest candidate that hasn't been used
-        best_word = None
-        best_dist = float('inf')
+        # Equidistance: prefer words with similar distances to both concepts
+        # Lower |dist_to_anchor - dist_to_target| = more equidistant
+        equidistance_score = 1.0 / (1.0 + abs(dist_to_anchor - dist_to_target))
 
-        for word, emb in word_to_emb.items():
-            if word.lower() in used_words:
-                continue
-            dist = np.linalg.norm(emb - interpolated_point)
-            if dist < best_dist:
-                best_dist = dist
-                best_word = word
+        # Also factor in being reasonably close to midpoint (not too far from both)
+        avg_distance = (dist_to_anchor + dist_to_target) / 2
+        proximity_score = 1.0 / (1.0 + avg_distance)
 
-        if best_word:
-            bridge_words.append(best_word)
-            used_words.add(best_word.lower())
+        # Combined score: equidistance matters most, but proximity is a tiebreaker
+        combined_score = equidistance_score * 0.8 + proximity_score * 0.2
 
-    return bridge_words
+        scored_candidates.append((word, combined_score))
+
+    # Sort by score (descending) and select top N, avoiding morphological variants
+    scored_candidates.sort(key=lambda x: x[1], reverse=True)
+
+    union_words = []
+    for word, score in scored_candidates:
+        # Skip if morphological variant of already selected word
+        is_variant = any(_is_morphological_variant(word, used) for used in used_words)
+        if is_variant:
+            continue
+
+        union_words.append(word)
+        used_words.append(word.lower())
+
+        if len(union_words) >= num_concepts:
+            break
+
+    return union_words
+
+
+# Keep old function name as alias for backwards compatibility
+async def find_lexical_bridge(
+    anchor: str,
+    target: str,
+    num_steps: int,
+    supabase
+) -> list[str]:
+    """
+    Alias for find_lexical_union for backwards compatibility.
+
+    Deprecated: Use find_lexical_union instead.
+    """
+    return await find_lexical_union(anchor, target, num_steps, supabase)
 
 
 # ============================================

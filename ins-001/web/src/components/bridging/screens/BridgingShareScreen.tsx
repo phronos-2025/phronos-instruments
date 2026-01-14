@@ -27,22 +27,22 @@ function getDivergenceInterpretation(score: number): {
   if (score < 30) {
     return {
       label: 'Predictable',
-      description: 'Your steps stay close to the direct path between anchor and target.',
+      description: 'Your concepts stay close to the direct path between anchor and target.',
     };
   } else if (score < 50) {
     return {
       label: 'Moderate',
-      description: 'Your steps take a moderately creative route.',
+      description: 'Your concepts take a moderately creative route.',
     };
   } else if (score < 70) {
     return {
       label: 'Creative',
-      description: 'Your steps arc away from the obvious path.',
+      description: 'Your concepts arc away from the obvious path.',
     };
   } else {
     return {
       label: 'Highly Creative',
-      description: 'Your steps take a highly unexpected route to connect the concepts.',
+      description: 'Your concepts take a highly unexpected route to connect the ideas.',
     };
   }
 }
@@ -109,7 +109,7 @@ export const BridgingShareScreen: React.FC<BridgingShareScreenProps> = ({
         game,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to get Haiku bridge');
+      setError(err instanceof Error ? err.message : 'Failed to get Haiku union');
     } finally {
       setIsGettingHaiku(false);
     }
@@ -122,11 +122,11 @@ export const BridgingShareScreen: React.FC<BridgingShareScreenProps> = ({
       <p className="subtitle">
         <span className="id">INS-001.2</span> · Step 3 of 3
       </p>
-      <h1 className="title">Bridge submitted.</h1>
+      <h1 className="title">Union submitted.</h1>
 
-      {/* Your Semantic Bridge */}
+      {/* Your Semantic Union */}
       <Panel
-        title="Your Semantic Bridge"
+        title="Your Semantic Union"
         meta={Math.round(divergence).toString()}
         style={{ marginBottom: 'var(--space-lg)' }}
       >
@@ -209,7 +209,7 @@ export const BridgingShareScreen: React.FC<BridgingShareScreenProps> = ({
       </Panel>
 
       {/* Share options */}
-      <p className="description">Who should build the bridge?</p>
+      <p className="description">Who should build the union?</p>
 
       <div
         style={{
@@ -313,7 +313,7 @@ export const BridgingShareScreen: React.FC<BridgingShareScreenProps> = ({
               color: 'var(--faded)',
             }}
           >
-            See how Claude Haiku builds the same bridge
+            See how Claude Haiku builds the same union
           </div>
         </button>
       </div>

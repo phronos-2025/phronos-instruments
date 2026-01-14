@@ -1,7 +1,7 @@
 /**
- * Bridging Steps Screen - INS-001.2
+ * Bridging Concepts Screen - INS-001.2
  *
- * Step 2: Enter 1-5 steps connecting anchor and target.
+ * Step 2: Enter 1-5 concepts connecting anchor and target.
  */
 
 import React, { useState } from 'react';
@@ -40,20 +40,20 @@ export const BridgingStepsScreen: React.FC<BridgingStepsScreenProps> = ({
     const filled = getFilledSteps();
 
     if (filled.length === 0) {
-      return 'Please provide at least one step';
+      return 'Please provide at least one concept';
     }
 
     // Check for anchor/target in steps
     for (const step of filled) {
       if (step === anchor.toLowerCase() || step === target.toLowerCase()) {
-        return `Step "${step}" cannot be the anchor or target word`;
+        return `Concept "${step}" cannot be the anchor or target word`;
       }
     }
 
     // Check for duplicates
     const unique = new Set(filled);
     if (unique.size !== filled.length) {
-      return 'Steps must be unique';
+      return 'Concepts must be unique';
     }
 
     return null;
@@ -96,7 +96,7 @@ export const BridgingStepsScreen: React.FC<BridgingStepsScreenProps> = ({
         });
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to submit steps');
+      setError(err instanceof Error ? err.message : 'Failed to submit concepts');
     } finally {
       setIsSubmitting(false);
     }
@@ -111,10 +111,10 @@ export const BridgingStepsScreen: React.FC<BridgingStepsScreenProps> = ({
       <p className="subtitle">
         <span className="id">INS-001.2</span> · Step 2 of 3
       </p>
-      <h1 className="title">Build your bridge.</h1>
+      <h1 className="title">Build your union.</h1>
 
       <p className="description">
-        Enter single-word steps that connect your anchor and target.
+        Enter single-word concepts that connect your anchor and target.
       </p>
 
       {/* Bridge visualization */}
@@ -136,9 +136,9 @@ export const BridgingStepsScreen: React.FC<BridgingStepsScreenProps> = ({
       <form onSubmit={handleSubmit}>
         <div className="input-group">
           <label className="input-label">
-            Your Steps{' '}
+            Your Concepts{' '}
             <span style={{ color: 'var(--faded)', fontWeight: 'normal' }}>
-              {filledCount}/5 words
+              {filledCount}/5 concepts
             </span>
           </label>
 
@@ -190,7 +190,7 @@ export const BridgingStepsScreen: React.FC<BridgingStepsScreenProps> = ({
           ))}
 
           <p className="input-hint">
-            At least 1 step required. More steps provide more signal.
+            At least 1 concept required. More concepts provide more signal.
           </p>
         </div>
 
@@ -219,7 +219,7 @@ export const BridgingStepsScreen: React.FC<BridgingStepsScreenProps> = ({
             variant="primary"
             disabled={filledCount === 0 || isSubmitting}
           >
-            {isSubmitting ? 'Submitting...' : 'Submit Bridge →'}
+            {isSubmitting ? 'Submitting...' : 'Submit Union →'}
           </Button>
         </div>
       </form>
