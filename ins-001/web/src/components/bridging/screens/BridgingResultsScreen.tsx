@@ -527,11 +527,70 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
             lineHeight: '1.7',
           }}
         >
-          Your bridging concepts show {spread < 30 ? 'low' : spread < 60 ? 'moderate' : 'high'} spread ({Math.round(spread)})
-          with {relevanceDisplay < 40 ? 'weak' : relevanceDisplay < 70 ? 'moderate' : 'strong'} relevance ({Math.round(relevanceDisplay)}) to the anchor-target pair.
-          {spread > 60 && relevanceDisplay > 50 && ' This indicates creative but valid conceptual bridges.'}
-          {spread < 40 && relevanceDisplay > 50 && ' This indicates conventional, predictable bridging.'}
-          {relevanceDisplay < 40 && ' The bridging concepts may be too distant from the semantic space between anchor and target.'}
+          {(() => {
+            const userRel = Math.round(relevanceDisplay);
+            const userSpread = Math.round(spread);
+            const haikuRel = hasHaikuUnion && haikuRelevance !== undefined
+              ? Math.round(haikuRelevance <= 1 ? haikuRelevance * 100 : haikuRelevance)
+              : null;
+            const haikuSpr = hasHaikuUnion && haikuSpread !== undefined ? Math.round(haikuSpread) : null;
+            const statRel = hasLexicalUnion && lexicalRelevance != null
+              ? Math.round(lexicalRelevance <= 1 ? lexicalRelevance * 100 : lexicalRelevance)
+              : null;
+            const statSpr = hasLexicalUnion && lexicalSpread != null ? Math.round(lexicalSpread) : null;
+
+            // Helper to compare values (within 5 points = "on par")
+            const compare = (user: number, baseline: number | null, name: string) => {
+              if (baseline === null) return null;
+              const diff = user - baseline;
+              if (Math.abs(diff) <= 5) return `on par with ${name}`;
+              return diff > 0 ? `higher than ${name}` : `lower than ${name}`;
+            };
+
+            // Build relevance comparison
+            const haikuRelComp = compare(userRel, haikuRel, 'Haiku');
+            const statRelComp = compare(userRel, statRel, 'the statistical model');
+
+            let relevanceStatement = `Your relevance (${userRel}) is `;
+            if (haikuRelComp && statRelComp) {
+              relevanceStatement += `${haikuRelComp}, and ${statRelComp}.`;
+            } else if (haikuRelComp) {
+              relevanceStatement += `${haikuRelComp}.`;
+            } else if (statRelComp) {
+              relevanceStatement += `${statRelComp}.`;
+            } else {
+              relevanceStatement = `Your relevance is ${userRel}.`;
+            }
+
+            // Build spread comparison
+            const haikuSprComp = compare(userSpread, haikuSpr, 'Haiku');
+            const statSprComp = compare(userSpread, statSpr, 'the statistical model');
+
+            let spreadStatement = ` Your spread (${userSpread}) is `;
+            if (haikuSprComp && statSprComp) {
+              spreadStatement += `${haikuSprComp}, and ${statSprComp}`;
+            } else if (haikuSprComp) {
+              spreadStatement += `${haikuSprComp}`;
+            } else if (statSprComp) {
+              spreadStatement += `${statSprComp}`;
+            } else {
+              spreadStatement = ` Your spread is ${userSpread}`;
+            }
+
+            // Add qualitative insight
+            let insight = '';
+            if (userSpread > (haikuSpr ?? 50) && userSpread > (statSpr ?? 50)) {
+              insight = ', which may indicate your concepts are more diverse but less focused on the semantic bridge between anchor and target.';
+            } else if (userRel > (haikuRel ?? 50) && userRel > (statRel ?? 50)) {
+              insight = ', suggesting strong conceptual bridging between the anchor and target.';
+            } else if (userRel < (haikuRel ?? 50) && userRel < (statRel ?? 50)) {
+              insight = '. The bridging concepts may be too distant from the semantic space between anchor and target.';
+            } else {
+              insight = '.';
+            }
+
+            return relevanceStatement + spreadStatement + insight;
+          })()}
         </div>
       </Panel>
 

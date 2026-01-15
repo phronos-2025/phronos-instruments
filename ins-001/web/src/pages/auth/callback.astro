@@ -44,27 +44,57 @@ import '../../styles/global.css';
 
       async function handleCallback() {
         try {
-          // Check if we have a hash fragment with access_token
+          console.log('[Auth Callback] Starting...');
+          console.log('[Auth Callback] URL hash:', window.location.hash);
+          console.log('[Auth Callback] Supabase URL:', supabaseUrl);
+          console.log('[Auth Callback] Has anon key:', !!supabaseAnonKey);
+
+          // Check if we have a hash fragment with access_token or error
           const hash = window.location.hash;
+          const params = new URLSearchParams(hash.substring(1));
+
+          // Check for error in the hash (e.g., expired link)
+          const errorCode = params.get('error');
+          const errorDescription = params.get('error_description');
+
+          if (errorCode) {
+            console.log('[Auth Callback] Error in hash:', errorCode, errorDescription);
+            const message = errorDescription
+              ? decodeURIComponent(errorDescription.replace(/\+/g, ' '))
+              : 'Authentication failed';
+            statusEl.textContent = message;
+            statusEl.style.color = 'var(--alert)';
+
+            setTimeout(() => {
+              window.location.href = '/';
+            }, 3000);
+            return;
+          }
 
           if (hash && hash.includes('access_token')) {
-            // Parse the hash fragment
-            const params = new URLSearchParams(hash.substring(1));
+            console.log('[Auth Callback] Found access_token in hash');
             const accessToken = params.get('access_token');
             const refreshToken = params.get('refresh_token');
 
+            console.log('[Auth Callback] Access token exists:', !!accessToken);
+            console.log('[Auth Callback] Refresh token exists:', !!refreshToken);
+
             if (accessToken && refreshToken) {
+              console.log('[Auth Callback] Setting session...');
               // Set the session manually
               const { data, error } = await supabase.auth.setSession({
                 access_token: accessToken,
                 refresh_token: refreshToken
               });
 
+              console.log('[Auth Callback] setSession result:', { data, error });
+
               if (error) {
                 throw error;
               }
 
               if (data.session) {
+                console.log('[Auth Callback] Session established, redirecting...');
                 statusEl.textContent = 'Signed in successfully! Redirecting...';
 
                 // Clear the hash from URL for cleaner look
@@ -76,22 +106,29 @@ import '../../styles/global.css';
                 return;
               }
             }
+          } else {
+            console.log('[Auth Callback] No access_token in hash');
           }
 
           // Fallback: check if there's already a session
+          console.log('[Auth Callback] Checking existing session...');
           const { data: { session }, error } = await supabase.auth.getSession();
+
+          console.log('[Auth Callback] getSession result:', { session, error });
 
           if (error) {
             throw error;
           }
 
           if (session) {
+            console.log('[Auth Callback] Existing session found, redirecting...');
             statusEl.textContent = 'Signed in successfully! Redirecting...';
 
             setTimeout(() => {
               window.location.href = '/';
             }, 1500);
           } else {
+            console.log('[Auth Callback] No session found');
             // No session found - might be expired or invalid link
             statusEl.textContent = 'Link expired or invalid. Redirecting...';
             statusEl.style.color = 'var(--alert)';

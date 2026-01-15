@@ -528,7 +528,7 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
             />
           )}
 
-          {/* Statistical row - using noise floor as baseline */}
+          {/* Statistical row - using noise floor as baseline (show all words from previous screen) */}
           {game.noise_floor && game.noise_floor.length > 0 && (
             <>
               <div
@@ -548,7 +548,7 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
               </div>
               <DotPlotRow
                 label="Statistical"
-                concepts={game.noise_floor.slice(0, 5).map(w => w.word)}
+                concepts={game.noise_floor.map(w => w.word)}
                 relevance={game.noise_floor.reduce((sum, w) => sum + w.similarity * 100, 0) / game.noise_floor.length}
                 spread={50} // Noise floor is designed to have moderate spread
               />
