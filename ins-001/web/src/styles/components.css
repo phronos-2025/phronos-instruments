@@ -1045,6 +1045,30 @@
 }
 
 /* ============================================
+   DOT PLOT VISUALIZATION (INS-001.1 & INS-001.2 Results)
+   ============================================ */
+
+/* Desktop: Label on left, track on right */
+.dot-plot-row {
+  margin-bottom: var(--space-lg);
+}
+
+.dot-plot-label {
+  width: 70px;
+  min-width: 70px;
+}
+
+.dot-plot-track {
+  flex: 1;
+  min-width: 0;
+}
+
+.dot-plot-axis-scale {
+  margin-left: 82px; /* 70px label + 12px gap */
+  margin-right: 12px;
+}
+
+/* ============================================
    RESPONSIVE
    ============================================ */
 
@@ -1052,12 +1076,44 @@
   .score-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .share-options {
     grid-template-columns: 1fr;
   }
-  
+
   .title {
     font-size: 2rem;
+  }
+}
+
+/* Mobile optimizations for dot plot */
+@media (max-width: 480px) {
+  /* Stack concepts above, smaller label */
+  .dot-plot-label {
+    width: 55px;
+    min-width: 55px;
+    font-size: 0.55rem !important;
+  }
+
+  /* Reduce axis scale offset for smaller label */
+  .dot-plot-axis-scale {
+    margin-left: 67px; /* 55px label + 12px gap */
+    margin-right: 8px;
+  }
+
+  /* Smaller concepts text on mobile */
+  .dot-plot-concepts {
+    font-size: 0.65rem !important;
+    line-height: 1.4;
+  }
+
+  /* Tighter spacing */
+  .dot-plot-row {
+    margin-bottom: var(--space-md);
+  }
+
+  /* Panel padding reduction on mobile */
+  .panel {
+    padding: var(--space-sm);
   }
 }

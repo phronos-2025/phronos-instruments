@@ -84,9 +84,10 @@ function DotPlotRow({ label, concepts, relevance, spread, isYou, anchorWord, tar
   };
 
   return (
-    <div style={{ marginBottom: 'var(--space-lg)' }}>
-      {/* Concepts above the track - offset to align with track, not label */}
+    <div className="dot-plot-row" style={{ marginBottom: 'var(--space-lg)' }}>
+      {/* Concepts above the track - centered on mobile */}
       <div
+        className="dot-plot-concepts"
         style={{
           fontFamily: 'var(--font-mono)',
           fontSize: '0.75rem',
@@ -94,7 +95,6 @@ function DotPlotRow({ label, concepts, relevance, spread, isYou, anchorWord, tar
           marginBottom: 'var(--space-xs)',
           letterSpacing: '0.02em',
           textAlign: 'center',
-          marginLeft: '92px', // 80px label + 12px gap (--space-sm)
         }}
       >
         {concepts.map((concept, idx) => {
@@ -112,17 +112,18 @@ function DotPlotRow({ label, concepts, relevance, spread, isYou, anchorWord, tar
       </div>
 
       {/* Row with label, track, and delta */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
+      <div className="dot-plot-track-row" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
         {/* Label */}
         <div
+          className="dot-plot-label"
           style={{
-            width: '80px',
             fontFamily: 'var(--font-mono)',
             fontSize: '0.65rem',
             fontWeight: 600,
             textTransform: 'uppercase',
             letterSpacing: '0.5px',
             color: isYou ? 'var(--gold)' : 'var(--text-light)',
+            flexShrink: 0,
           }}
         >
           {label}
@@ -130,8 +131,10 @@ function DotPlotRow({ label, concepts, relevance, spread, isYou, anchorWord, tar
 
         {/* Track */}
         <div
+          className="dot-plot-track"
           style={{
             flex: 1,
+            minWidth: 0,
             height: '32px',
             position: 'relative',
             backgroundColor: 'rgba(255, 255, 255, 0.08)',
@@ -245,9 +248,10 @@ function HumanShareRow({
   onCreateShare: () => void;
 }) {
   return (
-    <div style={{ marginBottom: 'var(--space-lg)' }}>
-      {/* Placeholder concepts - offset to align with track, not label */}
+    <div className="dot-plot-row" style={{ marginBottom: 'var(--space-lg)' }}>
+      {/* Placeholder concepts - centered on mobile */}
       <div
+        className="dot-plot-concepts"
         style={{
           fontFamily: 'var(--font-mono)',
           fontSize: '0.75rem',
@@ -256,24 +260,24 @@ function HumanShareRow({
           letterSpacing: '0.02em',
           fontStyle: 'italic',
           textAlign: 'center',
-          marginLeft: '92px', // 80px label + 12px gap (--space-sm)
         }}
       >
         compare your concepts
       </div>
 
       {/* Row with label, track placeholder, and share button */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
+      <div className="dot-plot-track-row" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
         {/* Label */}
         <div
+          className="dot-plot-label"
           style={{
-            width: '80px',
             fontFamily: 'var(--font-mono)',
             fontSize: '0.65rem',
             fontWeight: 600,
             textTransform: 'uppercase',
             letterSpacing: '0.5px',
             color: 'var(--text-light)',
+            flexShrink: 0,
           }}
         >
           Human
@@ -281,8 +285,10 @@ function HumanShareRow({
 
         {/* Track placeholder with dashed line */}
         <div
+          className="dot-plot-track"
           style={{
             flex: 1,
+            minWidth: 0,
             height: '32px',
             position: 'relative',
             backgroundColor: 'rgba(255, 255, 255, 0.08)',
@@ -329,7 +335,6 @@ function HumanShareRow({
         <div
           style={{
             marginTop: 'var(--space-sm)',
-            marginLeft: '92px', // align with track
           }}
         >
           <ShareLinkBox url={shareUrl} />
@@ -343,7 +348,6 @@ function HumanShareRow({
             fontSize: '0.6rem',
             color: 'var(--alert)',
             marginTop: 'var(--space-xs)',
-            marginLeft: '92px',
           }}
         >
           {shareError}
@@ -490,7 +494,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
         </div>
 
         {/* Axis scale */}
-        <div style={{ marginLeft: '92px', marginRight: '12px', marginBottom: 'var(--space-sm)' }}>
+        <div className="dot-plot-axis-scale" style={{ marginBottom: 'var(--space-sm)' }}>
           <div
             style={{
               display: 'flex',

@@ -42,9 +42,10 @@ function HumanShareRow({
   onCreateShare: () => void;
 }) {
   return (
-    <div style={{ marginBottom: 'var(--space-lg)' }}>
-      {/* Placeholder concepts - offset to align with track, not label */}
+    <div className="dot-plot-row" style={{ marginBottom: 'var(--space-lg)' }}>
+      {/* Placeholder concepts - centered on mobile */}
       <div
+        className="dot-plot-concepts"
         style={{
           fontFamily: 'var(--font-mono)',
           fontSize: '0.75rem',
@@ -53,24 +54,24 @@ function HumanShareRow({
           letterSpacing: '0.02em',
           fontStyle: 'italic',
           textAlign: 'center',
-          marginLeft: '92px',
         }}
       >
         compare your concepts
       </div>
 
       {/* Row with label, track placeholder, and share button */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
+      <div className="dot-plot-track-row" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
         {/* Label */}
         <div
+          className="dot-plot-label"
           style={{
-            width: '80px',
             fontFamily: 'var(--font-mono)',
             fontSize: '0.65rem',
             fontWeight: 600,
             textTransform: 'uppercase',
             letterSpacing: '0.5px',
             color: 'var(--text-light)',
+            flexShrink: 0,
           }}
         >
           Human
@@ -78,8 +79,10 @@ function HumanShareRow({
 
         {/* Track placeholder with dashed line */}
         <div
+          className="dot-plot-track"
           style={{
             flex: 1,
+            minWidth: 0,
             height: '32px',
             position: 'relative',
             backgroundColor: 'rgba(255, 255, 255, 0.08)',
@@ -126,7 +129,6 @@ function HumanShareRow({
         <div
           style={{
             marginTop: 'var(--space-sm)',
-            marginLeft: '92px',
           }}
         >
           <ShareLinkBox url={shareUrl} />
@@ -140,7 +142,6 @@ function HumanShareRow({
             fontSize: '0.6rem',
             color: 'var(--alert)',
             marginTop: 'var(--space-xs)',
-            marginLeft: '92px',
           }}
         >
           {shareError}
@@ -154,9 +155,10 @@ function DotPlotRow({ label, concepts, relevance, spread, isYou }: DotPlotRowPro
   const scale = (val: number) => Math.min(100, Math.max(0, val));
 
   return (
-    <div style={{ marginBottom: 'var(--space-lg)' }}>
-      {/* Concepts above the track */}
+    <div className="dot-plot-row" style={{ marginBottom: 'var(--space-lg)' }}>
+      {/* Concepts above the track - centered on mobile */}
       <div
+        className="dot-plot-concepts"
         style={{
           fontFamily: 'var(--font-mono)',
           fontSize: '0.75rem',
@@ -164,24 +166,24 @@ function DotPlotRow({ label, concepts, relevance, spread, isYou }: DotPlotRowPro
           marginBottom: 'var(--space-xs)',
           letterSpacing: '0.02em',
           textAlign: 'center',
-          marginLeft: '92px',
         }}
       >
         {concepts.join(' · ')}
       </div>
 
       {/* Row with label, track, and values */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
+      <div className="dot-plot-track-row" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
         {/* Label */}
         <div
+          className="dot-plot-label"
           style={{
-            width: '80px',
             fontFamily: 'var(--font-mono)',
             fontSize: '0.65rem',
             fontWeight: 600,
             textTransform: 'uppercase',
             letterSpacing: '0.5px',
             color: isYou ? 'var(--gold)' : 'var(--text-light)',
+            flexShrink: 0,
           }}
         >
           {label}
@@ -189,8 +191,10 @@ function DotPlotRow({ label, concepts, relevance, spread, isYou }: DotPlotRowPro
 
         {/* Track */}
         <div
+          className="dot-plot-track"
           style={{
             flex: 1,
+            minWidth: 0,
             height: '32px',
             position: 'relative',
             backgroundColor: 'rgba(255, 255, 255, 0.08)',
@@ -455,7 +459,7 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
         </div>
 
         {/* Axis scale */}
-        <div style={{ marginLeft: '92px', marginRight: '12px', marginBottom: 'var(--space-sm)' }}>
+        <div className="dot-plot-axis-scale" style={{ marginBottom: 'var(--space-sm)' }}>
           <div
             style={{
               display: 'flex',
@@ -586,23 +590,67 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
             lineHeight: '1.7',
           }}
         >
-          <p style={{ marginBottom: 'var(--space-sm)' }}>
-            Your clues show {spreadInterpretation.toLowerCase()} spread ({Math.round(spreadDisplay)})
-            with {relevanceInterpretation.toLowerCase()} relevance ({Math.round(relevanceDisplay)}) to the target concept.
-            {spreadDisplay > 60 && relevanceDisplay > 50 && ' This indicates creative but valid associations.'}
-            {spreadDisplay < 40 && relevanceDisplay > 50 && ' This indicates conventional, predictable associations.'}
-            {relevanceDisplay < 40 && ' The associations may be too distant from the target concept.'}
-          </p>
-          {hasHaikuData && (
-            <p style={{ marginBottom: 0, fontSize: '0.8rem' }}>
-              Haiku guessed "{game.guesses?.join(', ')}" from your clues —
-              {haikuRelevance > 70
-                ? ' accurately inferring the target.'
-                : haikuRelevance > 40
-                  ? ' getting close to the target.'
-                  : ' struggling to identify the target.'}
-            </p>
-          )}
+          {(() => {
+            // Determine if Haiku correctly guessed the target
+            const targetWord = game.seed_word?.toLowerCase();
+            const haikuGuessedCorrectly = game.guesses?.some(
+              (guess) => guess.toLowerCase() === targetWord
+            );
+
+            // Check for semantic win: user has high relevance but Haiku failed to guess
+            // Semantic win = relevance >= Haiku's relevance (or moderately high) AND Haiku didn't guess correctly
+            const isSemanticWin = hasHaikuData && !haikuGuessedCorrectly && relevanceDisplay >= 60;
+
+            // Build interpretation based on metrics and outcome
+            let primaryMessage = '';
+            let secondaryMessage = '';
+
+            if (isSemanticWin) {
+              // Semantic win scenario
+              primaryMessage = `Your clues show ${spreadInterpretation.toLowerCase()} spread (${Math.round(spreadDisplay)}) with ${relevanceInterpretation.toLowerCase()} relevance (${Math.round(relevanceDisplay)}) to the target concept.`;
+              if (spreadDisplay < 40) {
+                primaryMessage += ' You sacrificed spread for precision, but it was sufficient to mislead Haiku while maintaining strong semantic connection to the target.';
+              } else {
+                primaryMessage += ' Your associations successfully balanced relevance and unpredictability.';
+              }
+            } else {
+              // Standard interpretation
+              primaryMessage = `Your clues show ${spreadInterpretation.toLowerCase()} spread (${Math.round(spreadDisplay)}) with ${relevanceInterpretation.toLowerCase()} relevance (${Math.round(relevanceDisplay)}) to the target concept.`;
+              if (spreadDisplay > 60 && relevanceDisplay > 50) {
+                primaryMessage += ' This indicates creative but valid associations.';
+              } else if (spreadDisplay < 40 && relevanceDisplay > 50) {
+                primaryMessage += ' This indicates conventional, predictable associations.';
+              } else if (relevanceDisplay < 40) {
+                primaryMessage += ' The associations may be too distant from the target concept.';
+              }
+            }
+
+            // Haiku outcome message
+            if (hasHaikuData) {
+              if (haikuGuessedCorrectly) {
+                secondaryMessage = `Haiku guessed "${game.guesses?.join(', ')}" from your clues — accurately inferring the target.`;
+              } else if (haikuRelevance > 70) {
+                secondaryMessage = `Haiku guessed "${game.guesses?.join(', ')}" from your clues — getting very close to the target, but not an exact match.`;
+              } else if (haikuRelevance > 40) {
+                secondaryMessage = `Haiku guessed "${game.guesses?.join(', ')}" from your clues — partially inferring the semantic space.`;
+              } else {
+                secondaryMessage = `Haiku guessed "${game.guesses?.join(', ')}" from your clues — struggling to identify the target.`;
+              }
+            }
+
+            return (
+              <>
+                <p style={{ marginBottom: hasHaikuData ? 'var(--space-sm)' : 0 }}>
+                  {primaryMessage}
+                </p>
+                {hasHaikuData && (
+                  <p style={{ marginBottom: 0, fontSize: '0.85rem' }}>
+                    {secondaryMessage}
+                  </p>
+                )}
+              </>
+            );
+          })()}
         </div>
       </Panel>
 
