@@ -1,0 +1,51 @@
+{
+	"version": 3,
+	"routes": [
+		{
+			"handle": "filesystem"
+		},
+		{
+			"src": "^/_astro/(.*)$",
+			"headers": {
+				"cache-control": "public, max-age=31536000, immutable"
+			},
+			"continue": true
+		},
+		{
+			"src": "^/_server-islands/([^/]+?)/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/_image/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/auth/callback/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/ins-001/ins-001-1/join/([^/]+?)/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/ins-001/ins-001-1/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/ins-001/ins-001-2/join/([^/]+?)/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/ins-001/ins-001-2/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/ins-001/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/$",
+			"dest": "_render"
+		}
+	]
+}

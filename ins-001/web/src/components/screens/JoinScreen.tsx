@@ -6,13 +6,14 @@
 
 import React, { useState } from 'react';
 import { api } from '../../lib/api';
+import type { JoinGameResponse, SubmitGuessesResponse } from '../../lib/api';
 import { Panel } from '../ui/Panel';
 import { Button } from '../ui/Button';
 import { ClueInput } from '../ui/ClueInput';
 
 interface JoinScreenProps {
-  game: api.JoinGameResponse;
-  onGuessesSubmitted: (response: api.SubmitGuessesResponse, guesses: string[]) => void;
+  game: JoinGameResponse;
+  onGuessesSubmitted: (response: SubmitGuessesResponse, guesses: string[]) => void;
 }
 
 export const JoinScreen: React.FC<JoinScreenProps> = ({ game, onGuessesSubmitted }) => {
@@ -62,7 +63,7 @@ export const JoinScreen: React.FC<JoinScreenProps> = ({ game, onGuessesSubmitted
             CLUES
           </div>
           <div style={{ color: 'var(--text-light)', lineHeight: '1.8' }}>
-            {game.clues.map((clue, idx) => (
+            {game.clues.map((clue: string, idx: number) => (
               <div key={idx} style={{ marginBottom: '0.5rem' }}>
                 {idx + 1}. {clue}
               </div>

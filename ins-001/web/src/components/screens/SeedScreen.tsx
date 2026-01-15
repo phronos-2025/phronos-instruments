@@ -37,7 +37,6 @@ export const SeedScreen: React.FC = () => {
         
         if (!session) {
           // Sign in anonymously if no session
-          console.log('No session found, signing in anonymously...');
           const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
           
           if (authError) {
@@ -54,9 +53,6 @@ export const SeedScreen: React.FC = () => {
             return;
           }
           
-          console.log('Anonymous sign-in successful');
-        } else {
-          console.log('Existing session found');
         }
         
         setAuthReady(true);

@@ -5,13 +5,13 @@
  */
 
 import React from 'react';
-import { api } from '../../lib/api';
+import type { SubmitGuessesResponse } from '../../lib/api';
 import { Panel } from '../ui/Panel';
 import { Button } from '../ui/Button';
 import { ScoreCard } from '../ui/ScoreCard';
 
 interface GuessResultsScreenProps {
-  game: api.SubmitGuessesResponse;
+  game: SubmitGuessesResponse;
   guesses: string[];
 }
 

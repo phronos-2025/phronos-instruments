@@ -7,6 +7,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { api } from '../lib/api';
+import type { JoinGameResponse, SubmitGuessesResponse } from '../lib/api';
 import { JoinScreen } from './screens/JoinScreen';
 import { GuessResultsScreen } from './screens/GuessResultsScreen';
 import { ErrorScreen } from './screens/ErrorScreen';
@@ -18,8 +19,8 @@ interface JoinGameProps {
 type RecipientGameState =
   | { screen: 'loading'; token: string }
   | { screen: 'error'; error: 'expired' | 'already_joined' | 'not_found' | 'network' }
-  | { screen: 'join'; game: api.JoinGameResponse }
-  | { screen: 'results'; game: api.SubmitGuessesResponse; guesses: string[] };
+  | { screen: 'join'; game: JoinGameResponse }
+  | { screen: 'results'; game: SubmitGuessesResponse; guesses: string[] };
 
 export default function JoinGame({ token }: JoinGameProps) {
   const [state, setState] = useState<RecipientGameState>({ screen: 'loading', token });
@@ -55,7 +56,7 @@ export default function JoinGame({ token }: JoinGameProps) {
     initializeAuth();
   }, [token]);
   
-  const handleGuessesSubmitted = (response: api.SubmitGuessesResponse, guesses: string[]) => {
+  const handleGuessesSubmitted = (response: SubmitGuessesResponse, guesses: string[]) => {
     setState({ screen: 'results', game: response, guesses });
   };
   

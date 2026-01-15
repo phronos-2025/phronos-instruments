@@ -7,7 +7,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useBridgingSenderState } from '../../../lib/bridging-state';
-import { api, SemanticDistanceResponse } from '../../../lib/api';
+import { api } from '../../../lib/api';
+import type { SemanticDistanceResponse } from '../../../lib/api';
 import { supabase } from '../../../lib/supabase';
 import { Button } from '../../ui/Button';
 import { ProgressBar } from '../../ui/ProgressBar';
@@ -50,7 +51,6 @@ export const AnchorTargetScreen: React.FC<AnchorTargetScreenProps> = ({
         }
 
         if (!session) {
-          console.log('No session found, signing in anonymously...');
           const { error: authError } = await supabase.auth.signInAnonymously();
 
           if (authError) {

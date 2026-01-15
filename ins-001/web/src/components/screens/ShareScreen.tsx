@@ -132,7 +132,6 @@ export const ShareScreen: React.FC<ShareScreenProps> = ({
                 style={{ fontSize: '0.65rem', padding: '6px 12px', whiteSpace: 'nowrap' }}
                 onClick={() => {
                   // TODO: Trigger account creation modal
-                  console.log('Notify Me clicked');
                 }}
               >
                 Notify Me
