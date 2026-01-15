@@ -28,15 +28,18 @@ export const MagicLinkModal: React.FC<MagicLinkModalProps> = ({ isOpen, onClose 
     setError(null);
     
     try {
+      // Store the current path to return to after authentication
+      const returnPath = window.location.pathname;
+
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`
+          emailRedirectTo: `${window.location.origin}/auth/callback?returnTo=${encodeURIComponent(returnPath)}`
         }
       });
-      
+
       if (error) throw error;
-      
+
       setSent(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send magic link');

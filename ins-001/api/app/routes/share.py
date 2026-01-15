@@ -25,19 +25,20 @@ async def create_share_token(
 ):
     """
     Generate a share token for a game.
-    
+
     Only the sender can create share tokens.
-    Game must be in 'pending_guess' status (clues submitted).
+    Game must have clues submitted (status: pending_guess or completed).
     """
     supabase, user = auth
-    
+
     # Verify user owns the game and it's ready to share
+    # Allow both pending_guess and completed games to be shared
     try:
         game_result = supabase.table("games") \
             .select("*") \
             .eq("id", game_id) \
             .eq("sender_id", user["id"]) \
-            .eq("status", "pending_guess") \
+            .in_("status", ["pending_guess", "completed"]) \
             .single() \
             .execute()
     except APIError:

@@ -35,6 +35,12 @@ import '../../styles/global.css';
         try {
           console.log('[Auth Callback] Starting...');
           console.log('[Auth Callback] URL hash:', window.location.hash);
+          console.log('[Auth Callback] URL search:', window.location.search);
+
+          // Get the return path from query params (set when magic link was requested)
+          const searchParams = new URLSearchParams(window.location.search);
+          const returnTo = searchParams.get('returnTo') || '/';
+          console.log('[Auth Callback] Return path:', returnTo);
 
           // Check if we have a hash fragment with access_token or error
           const hash = window.location.hash;
@@ -53,7 +59,7 @@ import '../../styles/global.css';
             statusEl.style.color = 'var(--alert)';
 
             setTimeout(() => {
-              window.location.href = '/';
+              window.location.href = returnTo;
             }, 3000);
             return;
           }
@@ -88,7 +94,7 @@ import '../../styles/global.css';
                 window.history.replaceState(null, '', window.location.pathname);
 
                 setTimeout(() => {
-                  window.location.href = '/';
+                  window.location.href = returnTo;
                 }, 1500);
                 return;
               }
@@ -112,7 +118,7 @@ import '../../styles/global.css';
             statusEl.textContent = 'Signed in successfully! Redirecting...';
 
             setTimeout(() => {
-              window.location.href = '/';
+              window.location.href = returnTo;
             }, 1500);
           } else {
             console.log('[Auth Callback] No session found');
@@ -121,7 +127,7 @@ import '../../styles/global.css';
             statusEl.style.color = 'var(--alert)';
 
             setTimeout(() => {
-              window.location.href = '/';
+              window.location.href = returnTo;
             }, 2000);
           }
         } catch (err) {
@@ -130,7 +136,7 @@ import '../../styles/global.css';
           statusEl.style.color = 'var(--alert)';
 
           setTimeout(() => {
-            window.location.href = '/';
+            window.location.href = returnTo;
           }, 3000);
         }
       }
