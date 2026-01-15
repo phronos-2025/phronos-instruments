@@ -57,7 +57,7 @@ export const Navigation: React.FC<NavigationProps> = ({
 
         <ul className="nav-links">
           <li><a href="https://phronos.org/dispatches" className="nav-link">Dispatches</a></li>
-          <li><span className="nav-link nav-link-disabled">Library</span></li>
+          <li><a href="https://phronos.org/library/" className="nav-link">Library</a></li>
           <li><a href="https://phronos.org/methods" className="nav-link">Methods</a></li>
           <li><a href="https://instruments.phronos.org" className="nav-link nav-link-active">Instruments</a></li>
         </ul>
@@ -112,10 +112,9 @@ export const Navigation: React.FC<NavigationProps> = ({
           <a href="https://phronos.org/dispatches" className="nav-mobile-link" onClick={handleLinkClick}>
             Dispatches
           </a>
-          <span className="nav-mobile-link nav-mobile-link-disabled">
+          <a href="https://phronos.org/library/" className="nav-mobile-link" onClick={handleLinkClick}>
             Library
-            <span className="soon-label">(soon)</span>
-          </span>
+          </a>
           <a href="https://phronos.org/methods" className="nav-mobile-link" onClick={handleLinkClick}>
             Methods
           </a>
