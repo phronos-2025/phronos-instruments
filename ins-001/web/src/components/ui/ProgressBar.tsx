@@ -1,7 +1,7 @@
 /**
  * Progress Bar Component
- * 
- * 4-step indicator for game flow
+ *
+ * 3-step indicator for game flow
  */
 
 import React from 'react';
@@ -13,7 +13,7 @@ interface ProgressBarProps {
 
 export const ProgressBar: React.FC<ProgressBarProps> = ({
   currentStep,
-  totalSteps = 4
+  totalSteps = 3
 }) => {
   return (
     <div className="progress">

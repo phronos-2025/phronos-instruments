@@ -24,7 +24,7 @@ const NavAuthButtonInner: React.FC<NavAuthButtonProps> = ({ variant = 'desktop' 
     if (variant === 'mobile') {
       return (
         <div className="nav-mobile-auth-user">
-          <a href="/profile" className="nav-mobile-auth-email nav-profile-link">
+          <a href="/profile" className="nav-mobile-auth-email">
             {user?.email}
           </a>
         </div>
@@ -33,7 +33,7 @@ const NavAuthButtonInner: React.FC<NavAuthButtonProps> = ({ variant = 'desktop' 
 
     return (
       <div className="nav-auth-user">
-        <a href="/profile" className="nav-auth-email nav-profile-link" title={`${user?.email} - View Profile`}>
+        <a href="/profile" className="nav-auth-email" title={`${user?.email} - View Profile`}>
           {user?.email && user.email.length > 20 ? user.email.slice(0, 17) + '...' : user?.email}
         </a>
       </div>

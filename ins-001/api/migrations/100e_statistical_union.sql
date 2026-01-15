@@ -26,22 +26,22 @@ BEGIN
 
     RETURN QUERY
     WITH candidates AS (
-        -- Get candidates near anchor
+        -- Get candidates near anchor (reduced from 500 to 100 for performance)
         (
             SELECT v.word, v.embedding
             FROM vocabulary_embeddings v
             WHERE v.word NOT IN (lower(anchor_word), lower(target_word))
             ORDER BY v.embedding <=> anchor_emb
-            LIMIT 500
+            LIMIT 100
         )
         UNION
-        -- Get candidates near target
+        -- Get candidates near target (reduced from 500 to 100 for performance)
         (
             SELECT v.word, v.embedding
             FROM vocabulary_embeddings v
             WHERE v.word NOT IN (lower(anchor_word), lower(target_word))
             ORDER BY v.embedding <=> target_emb
-            LIMIT 500
+            LIMIT 100
         )
     )
     SELECT

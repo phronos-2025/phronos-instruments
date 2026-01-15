@@ -75,13 +75,26 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Vocabulary index recreation function
+-- Vocabulary index recreation function (auto-detects vector vs halfvec)
 CREATE OR REPLACE FUNCTION recreate_vocabulary_index()
 RETURNS void AS $$
+DECLARE
+    embedding_type TEXT;
 BEGIN
+    -- Detect the actual column type
+    SELECT udt_name INTO embedding_type
+    FROM information_schema.columns
+    WHERE table_name = 'vocabulary_embeddings' AND column_name = 'embedding';
+
     DROP INDEX IF EXISTS idx_vocab_embedding;
-    CREATE INDEX idx_vocab_embedding ON vocabulary_embeddings
-        USING ivfflat (embedding halfvec_cosine_ops) WITH (lists = 100);
+
+    IF embedding_type = 'halfvec' THEN
+        CREATE INDEX idx_vocab_embedding ON vocabulary_embeddings
+            USING ivfflat (embedding halfvec_cosine_ops) WITH (lists = 25);
+    ELSE
+        CREATE INDEX idx_vocab_embedding ON vocabulary_embeddings
+            USING ivfflat (embedding vector_cosine_ops) WITH (lists = 25);
+    END IF;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

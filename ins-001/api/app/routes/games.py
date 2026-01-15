@@ -591,12 +591,16 @@ async def submit_bridging_clues(
         return await cache.get_embeddings_batch(texts)
 
     async def get_lexical_bridge():
-        result = supabase.rpc("get_statistical_union", {
-            "anchor_word": anchor,
-            "target_word": target,
-            "k": len(clues_clean)
-        }).execute()
-        return [row["word"] for row in result.data] if result.data else []
+        try:
+            result = supabase.rpc("get_statistical_union", {
+                "anchor_word": anchor,
+                "target_word": target,
+                "k": len(clues_clean)
+            }).execute()
+            return [row["word"] for row in result.data] if result.data else []
+        except Exception as e:
+            print(f"Warning: get_statistical_union failed: {e}")
+            return []  # Return empty list as fallback
 
     # Parallel execution
     if is_llm_game:
