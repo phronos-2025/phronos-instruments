@@ -76,7 +76,7 @@ function DotPlotRow({ label, concepts, relevance, spread, isYou }: DotPlotRowPro
             flex: 1,
             height: '32px',
             position: 'relative',
-            backgroundColor: 'rgba(255, 255, 255, 0.03)',
+            backgroundColor: 'rgba(255, 255, 255, 0.08)',
             borderRadius: '2px',
             marginBottom: '16px',
           }}
@@ -227,7 +227,7 @@ function HumanShareRow({
             flex: 1,
             height: '32px',
             position: 'relative',
-            backgroundColor: 'rgba(255, 255, 255, 0.03)',
+            backgroundColor: 'rgba(255, 255, 255, 0.08)',
             borderRadius: '2px',
             display: 'flex',
             alignItems: 'center',
@@ -515,19 +515,13 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
       <Panel style={{ borderColor: 'var(--gold)', background: 'linear-gradient(to bottom, var(--card-bg), rgba(176, 141, 85, 0.05))', marginTop: 'var(--space-md)' }}>
         <div className="panel-header" style={{ borderBottomColor: 'var(--gold-dim)' }}>
           <span className="panel-title" style={{ color: 'var(--gold)' }}>Unregistered Record</span>
-          <span className="panel-meta">Session ID: #{game.game_id?.slice(0, 4).toUpperCase() || 'A7F3'}</span>
+          <span className="panel-meta">Session ID: #{game.game_id?.slice(0, 4).toUpperCase() || '----'}</span>
         </div>
         <div className="panel-content">
           <div style={{ display: 'flex', gap: 'var(--space-md)', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: '200px' }}>
               <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-light)', marginBottom: 'var(--space-xs)' }}>
-                Save this Divergence Score ({spread.toFixed(2)}) to your permanent cognitive profile.
-              </p>
-              <div className="score-bar" style={{ height: '4px', margin: 'var(--space-sm) 0', opacity: 0.5 }}>
-                <div className="score-bar-fill" style={{ width: '20%' }} />
-              </div>
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'var(--faded)' }}>
-                Progress: 3/15 instruments complete
+                Save your scores to your permanent cognitive profile.
               </p>
             </div>
 

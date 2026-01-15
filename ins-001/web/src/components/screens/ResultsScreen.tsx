@@ -68,7 +68,7 @@ function BarbellRow({ label, concepts, divergence, convergence, isYou }: Barbell
             flex: 1,
             height: '32px',
             position: 'relative',
-            backgroundColor: 'rgba(255, 255, 255, 0.03)',
+            backgroundColor: 'rgba(255, 255, 255, 0.08)',
             borderRadius: '2px',
             marginBottom: '16px',
           }}
@@ -219,11 +219,6 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
       </span>
     );
   };
-
-  // Mock progress - would come from profile in real implementation
-  const progressGames = 3;
-  const progressTotal = 15;
-  const progressPercent = Math.round((progressGames / progressTotal) * 100);
 
   return (
     <div>
@@ -384,7 +379,7 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
             Unregistered Record
           </span>
           <span className="panel-meta">
-            Session ID: #{game.game_id?.slice(0, 4).toUpperCase() || 'A7F3'}
+            Session ID: #{game.game_id?.slice(0, 4).toUpperCase() || '----'}
           </span>
         </div>
         <div className="panel-content">
@@ -406,23 +401,7 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
                   marginBottom: 'var(--space-xs)',
                 }}
               >
-                Save this Divergence Score ({game.divergence_score?.toFixed(2) || 'N/A'}) to
-                your permanent cognitive profile.
-              </p>
-              <div
-                className="score-bar"
-                style={{ height: '4px', margin: 'var(--space-sm) 0', opacity: 0.5 }}
-              >
-                <div className="score-bar-fill" style={{ width: `${progressPercent}%` }} />
-              </div>
-              <p
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '0.65rem',
-                  color: 'var(--faded)',
-                }}
-              >
-                Progress: {progressGames}/{progressTotal} instruments complete
+                Save your scores to your permanent cognitive profile.
               </p>
             </div>
 

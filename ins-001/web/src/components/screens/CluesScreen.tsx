@@ -147,16 +147,16 @@ export const CluesScreen: React.FC<CluesScreenProps> = ({
         .filter((_, i) => validations[i].status === 'valid' || validations[i].status === 'warning')
         .map((c) => c.trim());
 
-      const response = await api.games.submitClues(gameId, {
+      // Submit clues
+      await api.games.submitClues(gameId, {
         clues: validConcepts
       });
 
+      // Fetch full game data and go directly to results (skip share screen)
+      const game = await api.games.get(gameId);
       dispatch({
-        type: 'CLUES_SUBMITTED',
-        gameId: response.game_id,
-        divergence: response.divergence_score,
-        noiseFloor: noiseFloor,
-        seedWord: seedWord
+        type: 'GAME_COMPLETED',
+        game
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit concepts');
