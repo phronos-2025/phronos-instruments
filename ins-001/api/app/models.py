@@ -387,6 +387,17 @@ class AcceptTermsRequest(BaseModel):
     accepted: bool = True
 
 
+class TransferGamesRequest(BaseModel):
+    """Request to transfer games from an anonymous session to current user."""
+    anonymous_user_id: str = Field(description="The anonymous user ID whose games should be transferred")
+
+
+class TransferGamesResponse(BaseModel):
+    """Response from game transfer."""
+    transferred_count: int = Field(description="Number of games transferred")
+    message: str
+
+
 class ProfileResponse(BaseModel):
     """Cognitive profile (computed from view)."""
     user_id: str

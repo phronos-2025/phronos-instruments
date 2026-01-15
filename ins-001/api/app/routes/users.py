@@ -13,6 +13,8 @@ from app.models import (
     UserResponse,
     ProfileResponse,
     AcceptTermsRequest,
+    TransferGamesRequest,
+    TransferGamesResponse,
     GameHistoryItem,
     GameHistoryResponse,
     ErrorResponse
@@ -188,3 +190,90 @@ async def get_game_history(
         limit=limit,
         offset=offset
     )
+
+
+@router.post("/me/transfer-games", response_model=TransferGamesResponse)
+async def transfer_games_from_anonymous(
+    request: TransferGamesRequest,
+    auth = Depends(get_authenticated_client)
+):
+    """
+    Transfer games from an anonymous session to the current authenticated user.
+
+    This is used when a user plays games anonymously, then signs in to an existing
+    account. The games created under the anonymous session are transferred to
+    their authenticated account.
+
+    Security: Only transfers games where sender_id matches the anonymous_user_id
+    AND that anonymous user actually exists and is anonymous.
+    """
+    supabase, user = auth
+
+    anonymous_user_id = request.anonymous_user_id
+
+    # Don't allow transferring to yourself
+    if anonymous_user_id == user["id"]:
+        return TransferGamesResponse(
+            transferred_count=0,
+            message="Cannot transfer games from your own account"
+        )
+
+    # Verify the anonymous user exists and is actually anonymous
+    try:
+        anon_user_result = supabase.table("users") \
+            .select("id, is_anonymous") \
+            .eq("id", anonymous_user_id) \
+            .single() \
+            .execute()
+
+        if not anon_user_result.data:
+            return TransferGamesResponse(
+                transferred_count=0,
+                message="Anonymous session not found"
+            )
+
+        if not anon_user_result.data.get("is_anonymous", False):
+            return TransferGamesResponse(
+                transferred_count=0,
+                message="Cannot transfer games from a registered account"
+            )
+
+    except APIError:
+        return TransferGamesResponse(
+            transferred_count=0,
+            message="Anonymous session not found"
+        )
+
+    # Transfer all games where sender_id is the anonymous user
+    try:
+        # First count how many games will be transferred
+        count_result = supabase.table("games") \
+            .select("id", count="exact") \
+            .eq("sender_id", anonymous_user_id) \
+            .execute()
+
+        games_count = count_result.count or 0
+
+        if games_count == 0:
+            return TransferGamesResponse(
+                transferred_count=0,
+                message="No games to transfer"
+            )
+
+        # Update all games to new owner
+        supabase.table("games") \
+            .update({"sender_id": user["id"]}) \
+            .eq("sender_id", anonymous_user_id) \
+            .execute()
+
+        return TransferGamesResponse(
+            transferred_count=games_count,
+            message=f"Successfully transferred {games_count} game(s) to your account"
+        )
+
+    except Exception as e:
+        print(f"transfer_games_from_anonymous error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "Failed to transfer games", "detail": str(e)}
+        )

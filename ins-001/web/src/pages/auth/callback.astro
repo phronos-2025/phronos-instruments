@@ -28,6 +28,7 @@ import '../../styles/global.css';
 
     <script>
       import { supabase } from '../../lib/supabase';
+      import { api } from '../../lib/api';
 
       const statusEl = document.getElementById('status');
 
@@ -37,6 +38,24 @@ import '../../styles/global.css';
           if (isError) {
             statusEl.style.color = 'var(--alert)';
           }
+        }
+      }
+
+      // Transfer games from anonymous session to authenticated user
+      async function transferPendingGames(): Promise<number> {
+        const pendingTransferId = localStorage.getItem('pendingGameTransfer');
+        if (!pendingTransferId) return 0;
+
+        try {
+          const result = await api.users.transferGames(pendingTransferId);
+          console.log('Game transfer result:', result);
+          return result.transferred_count;
+        } catch (err) {
+          console.error('Failed to transfer games:', err);
+          return 0;
+        } finally {
+          // Always clear the pending transfer ID
+          localStorage.removeItem('pendingGameTransfer');
         }
       }
 
@@ -83,10 +102,18 @@ import '../../styles/global.css';
               }
 
               if (data.session) {
-                showStatus('Signed in successfully! Redirecting...');
-
                 // Clear the hash from URL for cleaner look
                 window.history.replaceState(null, '', window.location.pathname);
+
+                // Check if we need to transfer games from an anonymous session
+                showStatus('Signed in successfully! Checking for games to transfer...');
+                const transferred = await transferPendingGames();
+
+                if (transferred > 0) {
+                  showStatus(`Transferred ${transferred} game(s) to your account. Redirecting...`);
+                } else {
+                  showStatus('Signed in successfully! Redirecting...');
+                }
 
                 setTimeout(() => {
                   window.location.href = returnTo;
@@ -104,7 +131,15 @@ import '../../styles/global.css';
           }
 
           if (session) {
-            showStatus('Signed in successfully! Redirecting...');
+            // Check if we need to transfer games from an anonymous session
+            showStatus('Signed in successfully! Checking for games to transfer...');
+            const transferred = await transferPendingGames();
+
+            if (transferred > 0) {
+              showStatus(`Transferred ${transferred} game(s) to your account. Redirecting...`);
+            } else {
+              showStatus('Signed in successfully! Redirecting...');
+            }
 
             setTimeout(() => {
               window.location.href = returnTo;

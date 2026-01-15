@@ -71,12 +71,18 @@ export const MagicLinkModal: React.FC<MagicLinkModalProps> = ({ isOpen, onClose 
     }
   };
 
-  // Handle sign-in for existing account
+  // Handle sign-in for existing account (with game transfer)
   const handleSignIn = async () => {
     setIsLoading(true);
     setError(null);
 
     try {
+      // Store the current anonymous user ID so we can transfer games after sign-in
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.is_anonymous && user.id) {
+        localStorage.setItem('pendingGameTransfer', user.id);
+      }
+
       const returnPath = window.location.pathname;
       const { error } = await supabase.auth.signInWithOtp({
         email,
@@ -124,7 +130,7 @@ export const MagicLinkModal: React.FC<MagicLinkModalProps> = ({ isOpen, onClose 
                 An account with <strong style={{ color: 'var(--gold)' }}>{email}</strong> already exists.
               </p>
               <p style={{ marginBottom: '1rem', color: 'var(--faded)', fontSize: 'var(--text-sm)' }}>
-                Sign in to access your existing profile. Note: this game session will not transfer to your account.
+                Sign in to access your existing profile. Your games from this session will be transferred to your account.
               </p>
 
               {error && (

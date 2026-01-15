@@ -158,6 +158,12 @@ async def join_bridging_game_v2(
     # Find game by share_code in setup JSONB
     print(f"join_bridging_game_v2: Looking for share_code={share_code}")
     try:
+        # First, let's see ALL games to debug
+        debug_all = supabase.table("games").select("id, game_type, setup").execute()
+        print(f"join_bridging_game_v2: Total games in DB: {len(debug_all.data or [])}")
+        for g in debug_all.data or []:
+            print(f"  - Game {g['id'][:8]}: type={g.get('game_type')}, setup={g.get('setup')}")
+
         # Query all bridging games and filter by share_code
         all_games = supabase.table("games") \
             .select("*") \
@@ -310,14 +316,21 @@ async def create_bridging_share(
     setup = game.get("setup", {})
     share_code = setup.get("share_code")
 
+    print(f"create_bridging_share: game_id={game_id}, existing share_code={share_code}")
+    print(f"create_bridging_share: setup before={setup}")
+
     # If no share code exists, generate one
     if not share_code:
         share_code = secrets.token_hex(4)
         setup["share_code"] = share_code
-        supabase.table("games").update({"setup": setup}).eq("id", game_id).execute()
+        print(f"create_bridging_share: Generated new share_code={share_code}")
+        print(f"create_bridging_share: setup after={setup}")
+        update_result = supabase.table("games").update({"setup": setup}).eq("id", game_id).execute()
+        print(f"create_bridging_share: update result={update_result.data}")
 
     # Construct the share URL with correct path
     share_url = f"{FRONTEND_URL}/ins-001/ins-001-2/join/{share_code}"
+    print(f"create_bridging_share: returning share_url={share_url}")
 
     return CreateBridgingShareResponse(
         share_code=share_code,

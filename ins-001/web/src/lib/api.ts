@@ -661,5 +661,11 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ accepted: true }),
       }),
+
+    transferGames: (anonymousUserId: string): Promise<{ transferred_count: number; message: string }> =>
+      apiCall('/api/v1/users/me/transfer-games', {
+        method: 'POST',
+        body: JSON.stringify({ anonymous_user_id: anonymousUserId }),
+      }),
   },
 };
