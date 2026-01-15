@@ -134,13 +134,26 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
 
       dispatch({
         type: 'BRIDGE_SUBMITTED',
+        // Sender (Them)
         senderSteps: response.sender_clues,
+        senderRelevance: response.sender_relevance,
+        senderDivergence: response.sender_divergence,
+        // Recipient (You)
         recipientSteps: response.recipient_clues,
+        recipientRelevance: response.recipient_relevance,
+        recipientDivergence: response.recipient_divergence,
+        // Bridge comparison
         bridgeSimilarity: response.bridge_similarity,
         centroidSimilarity: response.centroid_similarity,
         pathAlignment: response.path_alignment,
-        senderDivergence: response.sender_divergence,
-        recipientDivergence: response.recipient_divergence,
+        // Haiku baseline
+        haikuClues: response.haiku_clues,
+        haikuRelevance: response.haiku_relevance,
+        haikuDivergence: response.haiku_divergence,
+        // Statistical baseline
+        lexicalBridge: response.lexical_bridge,
+        lexicalRelevance: response.lexical_relevance,
+        lexicalDivergence: response.lexical_divergence,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit union');

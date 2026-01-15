@@ -40,20 +40,25 @@ BEGIN
 
     -- Pre-filter using index, then score only the candidates
     RETURN QUERY
-    WITH candidates AS (
+    WITH
+    anchor_neighbors AS (
         -- Get candidates near anchor (uses IVFFlat index)
         SELECT v.word, v.embedding
         FROM vocabulary_embeddings v
         ORDER BY v.embedding <=> anchor_vec
         LIMIT candidate_limit
-
-        UNION
-
+    ),
+    target_neighbors AS (
         -- Get candidates near target (uses IVFFlat index)
         SELECT v.word, v.embedding
         FROM vocabulary_embeddings v
         ORDER BY v.embedding <=> target_vec
         LIMIT candidate_limit
+    ),
+    candidates AS (
+        SELECT * FROM anchor_neighbors
+        UNION
+        SELECT * FROM target_neighbors
     )
     SELECT
         c.word,

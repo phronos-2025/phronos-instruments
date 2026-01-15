@@ -480,12 +480,23 @@ class SubmitBridgingBridgeResponse(BaseModel):
     # Recipient's bridge
     recipient_clues: list[str]
     recipient_divergence: float
+    recipient_relevance: Optional[float] = None
     # Sender's bridge (revealed after submission)
     sender_clues: list[str]
     sender_divergence: float
+    sender_relevance: Optional[float] = None
     # Bridge comparison
     bridge_similarity: float  # 0-100
-    path_alignment: Optional[float]  # -1 to 1
+    centroid_similarity: Optional[float] = None
+    path_alignment: Optional[float] = None  # -1 to 1
+    # Haiku baseline (from sender's original game)
+    haiku_clues: Optional[list[str]] = None
+    haiku_relevance: Optional[float] = None
+    haiku_divergence: Optional[float] = None
+    # Statistical baseline (from sender's original game)
+    lexical_bridge: Optional[list[str]] = None
+    lexical_relevance: Optional[float] = None
+    lexical_divergence: Optional[float] = None
     # Meta
     anchor_word: str
     target_word: str

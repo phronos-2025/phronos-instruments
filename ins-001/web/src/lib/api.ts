@@ -306,12 +306,27 @@ export interface SubmitBridgingBridgeRequest {
 
 export interface SubmitBridgingBridgeResponse {
   game_id: string;
+  // Recipient's bridge
   recipient_clues: string[];
   recipient_divergence: number;
+  recipient_relevance?: number;
+  // Sender's bridge
   sender_clues: string[];
   sender_divergence: number;
+  sender_relevance?: number;
+  // Bridge comparison
   bridge_similarity: number;
+  centroid_similarity?: number;
   path_alignment?: number;
+  // Haiku baseline (from sender's original game)
+  haiku_clues?: string[];
+  haiku_relevance?: number;
+  haiku_divergence?: number;
+  // Statistical baseline (from sender's original game)
+  lexical_bridge?: string[];
+  lexical_relevance?: number;
+  lexical_divergence?: number;
+  // Meta
   anchor_word: string;
   target_word: string;
   status: BridgingGameStatus;

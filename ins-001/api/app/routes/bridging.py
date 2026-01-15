@@ -936,12 +936,27 @@ async def submit_bridging_bridge(
 
     return SubmitBridgingBridgeResponse(
         game_id=game_id,
+        # Recipient's bridge
         recipient_clues=clues_clean,
         recipient_divergence=recipient_divergence,
+        recipient_relevance=recipient_relevance,
+        # Sender's bridge
         sender_clues=sender_clues,
-        sender_divergence=game["divergence_score"],
+        sender_divergence=game.get("divergence") or game.get("divergence_score") or 0,
+        sender_relevance=game.get("relevance"),
+        # Bridge comparison
         bridge_similarity=similarity_result["overall"],
-        path_alignment=similarity_result["path_alignment"],
+        centroid_similarity=similarity_result.get("centroid_similarity"),
+        path_alignment=similarity_result.get("path_alignment"),
+        # Haiku baseline (from sender's original game)
+        haiku_clues=game.get("haiku_clues"),
+        haiku_relevance=game.get("haiku_relevance"),
+        haiku_divergence=game.get("haiku_divergence"),
+        # Statistical baseline (from sender's original game)
+        lexical_bridge=game.get("lexical_bridge"),
+        lexical_relevance=game.get("lexical_relevance"),
+        lexical_divergence=game.get("lexical_divergence"),
+        # Meta
         anchor_word=anchor,
         target_word=target,
         status=BridgingGameStatus.COMPLETED

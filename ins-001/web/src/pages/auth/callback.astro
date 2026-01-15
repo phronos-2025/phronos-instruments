@@ -26,19 +26,8 @@ import '../../styles/global.css';
       </div>
     </div>
 
-    <script type="module">
-      import { createClient } from '@supabase/supabase-js';
-
-      const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
-      const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
-
-      const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-        auth: {
-          persistSession: true,
-          autoRefreshToken: true,
-          detectSessionInUrl: true
-        }
-      });
+    <script>
+      import { supabase } from '../../lib/supabase';
 
       const statusEl = document.getElementById('status');
 
@@ -46,8 +35,6 @@ import '../../styles/global.css';
         try {
           console.log('[Auth Callback] Starting...');
           console.log('[Auth Callback] URL hash:', window.location.hash);
-          console.log('[Auth Callback] Supabase URL:', supabaseUrl);
-          console.log('[Auth Callback] Has anon key:', !!supabaseAnonKey);
 
           // Check if we have a hash fragment with access_token or error
           const hash = window.location.hash;

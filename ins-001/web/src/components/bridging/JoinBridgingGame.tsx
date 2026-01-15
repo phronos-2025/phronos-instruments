@@ -71,13 +71,24 @@ function BridgingRecipientRouter({ shareCode }: { shareCode: string }) {
         <BridgingComparisonScreen
           anchor={state.anchor}
           target={state.target}
+          // Sender (Them)
           senderSteps={state.senderSteps}
-          recipientSteps={state.recipientSteps}
-          bridgeSimilarity={state.bridgeSimilarity}
-          centroidSimilarity={state.centroidSimilarity}
-          pathAlignment={state.pathAlignment}
+          senderRelevance={state.senderRelevance}
           senderDivergence={state.senderDivergence}
+          // Recipient (You)
+          recipientSteps={state.recipientSteps}
+          recipientRelevance={state.recipientRelevance}
           recipientDivergence={state.recipientDivergence}
+          // Bridge comparison
+          bridgeSimilarity={state.bridgeSimilarity}
+          // Haiku baseline
+          haikuClues={state.haikuClues}
+          haikuRelevance={state.haikuRelevance}
+          haikuDivergence={state.haikuDivergence}
+          // Statistical baseline
+          lexicalBridge={state.lexicalBridge}
+          lexicalRelevance={state.lexicalRelevance}
+          lexicalDivergence={state.lexicalDivergence}
         />
       );
 

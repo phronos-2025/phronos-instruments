@@ -130,13 +130,26 @@ export type BridgingRecipientState =
       gameId: string;
       anchor: string;
       target: string;
+      // Sender (Them)
       senderSteps: string[];
-      recipientSteps: string[];
-      bridgeSimilarity: number;
-      centroidSimilarity: number;
-      pathAlignment: number;
+      senderRelevance?: number;
       senderDivergence: number;
+      // Recipient (You)
+      recipientSteps: string[];
+      recipientRelevance?: number;
       recipientDivergence: number;
+      // Bridge comparison
+      bridgeSimilarity: number;
+      centroidSimilarity?: number;
+      pathAlignment?: number;
+      // Haiku baseline
+      haikuClues?: string[];
+      haikuRelevance?: number;
+      haikuDivergence?: number;
+      // Statistical baseline
+      lexicalBridge?: string[];
+      lexicalRelevance?: number;
+      lexicalDivergence?: number;
     };
 
 type BridgingRecipientAction =
@@ -150,13 +163,26 @@ type BridgingRecipientAction =
   | { type: 'ERROR'; message: string }
   | {
       type: 'BRIDGE_SUBMITTED';
+      // Sender (Them)
       senderSteps: string[];
-      recipientSteps: string[];
-      bridgeSimilarity: number;
-      centroidSimilarity: number;
-      pathAlignment: number;
+      senderRelevance?: number;
       senderDivergence: number;
+      // Recipient (You)
+      recipientSteps: string[];
+      recipientRelevance?: number;
       recipientDivergence: number;
+      // Bridge comparison
+      bridgeSimilarity: number;
+      centroidSimilarity?: number;
+      pathAlignment?: number;
+      // Haiku baseline
+      haikuClues?: string[];
+      haikuRelevance?: number;
+      haikuDivergence?: number;
+      // Statistical baseline
+      lexicalBridge?: string[];
+      lexicalRelevance?: number;
+      lexicalDivergence?: number;
     }
   | { type: 'RESET' };
 
@@ -187,13 +213,26 @@ function bridgingRecipientReducer(
           gameId: state.gameId,
           anchor: state.anchor,
           target: state.target,
+          // Sender (Them)
           senderSteps: action.senderSteps,
+          senderRelevance: action.senderRelevance,
+          senderDivergence: action.senderDivergence,
+          // Recipient (You)
           recipientSteps: action.recipientSteps,
+          recipientRelevance: action.recipientRelevance,
+          recipientDivergence: action.recipientDivergence,
+          // Bridge comparison
           bridgeSimilarity: action.bridgeSimilarity,
           centroidSimilarity: action.centroidSimilarity,
           pathAlignment: action.pathAlignment,
-          senderDivergence: action.senderDivergence,
-          recipientDivergence: action.recipientDivergence,
+          // Haiku baseline
+          haikuClues: action.haikuClues,
+          haikuRelevance: action.haikuRelevance,
+          haikuDivergence: action.haikuDivergence,
+          // Statistical baseline
+          lexicalBridge: action.lexicalBridge,
+          lexicalRelevance: action.lexicalRelevance,
+          lexicalDivergence: action.lexicalDivergence,
         };
       }
       return state;

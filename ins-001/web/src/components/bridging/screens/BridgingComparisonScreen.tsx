@@ -1,7 +1,8 @@
 /**
  * Bridging Comparison Screen - INS-001.2 V2
  *
- * Shows side-by-side comparison of sender's union vs recipient's union.
+ * Shows side-by-side comparison of sender's union vs recipient's union,
+ * plus Haiku and Statistical baselines in a dot plot visualization.
  */
 
 import React from 'react';
@@ -11,13 +12,173 @@ import { Button } from '../../ui/Button';
 interface BridgingComparisonScreenProps {
   anchor: string;
   target: string;
+  // Sender (Them)
   senderSteps: string[];
-  recipientSteps: string[];
-  bridgeSimilarity: number;
-  centroidSimilarity: number;
-  pathAlignment: number;
+  senderRelevance?: number;
   senderDivergence: number;
+  // Recipient (You)
+  recipientSteps: string[];
+  recipientRelevance?: number;
   recipientDivergence: number;
+  // Bridge comparison
+  bridgeSimilarity: number;
+  // Haiku baseline
+  haikuClues?: string[];
+  haikuRelevance?: number;
+  haikuDivergence?: number;
+  // Statistical baseline
+  lexicalBridge?: string[];
+  lexicalRelevance?: number;
+  lexicalDivergence?: number;
+}
+
+interface DotPlotRowProps {
+  label: string;
+  concepts: string[];
+  relevance: number;
+  spread: number;
+  isYou?: boolean;
+}
+
+// Single row in the connected dot plot
+function DotPlotRow({ label, concepts, relevance, spread, isYou }: DotPlotRowProps) {
+  const scale = (val: number) => Math.min(100, Math.max(0, val));
+
+  return (
+    <div style={{ marginBottom: 'var(--space-lg)' }}>
+      {/* Concepts above the track - offset to align with track, not label */}
+      <div
+        style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: '0.75rem',
+          color: isYou ? 'var(--gold)' : 'var(--text-light)',
+          marginBottom: 'var(--space-xs)',
+          letterSpacing: '0.02em',
+          textAlign: 'center',
+          marginLeft: '92px', // 80px label + 12px gap (--space-sm)
+        }}
+      >
+        {concepts.join(' · ')}
+      </div>
+
+      {/* Row with label, track, and delta */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
+        {/* Label */}
+        <div
+          style={{
+            width: '80px',
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.65rem',
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+            color: isYou ? 'var(--gold)' : 'var(--text-light)',
+          }}
+        >
+          {label}
+        </div>
+
+        {/* Track */}
+        <div
+          style={{
+            flex: 1,
+            height: '32px',
+            position: 'relative',
+            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            borderRadius: '2px',
+            marginBottom: '16px',
+          }}
+        >
+          {/* Gridlines */}
+          {[25, 50, 75].map((v) => (
+            <div
+              key={v}
+              style={{
+                position: 'absolute',
+                left: `${v}%`,
+                top: 0,
+                bottom: 0,
+                width: '1px',
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              }}
+            />
+          ))}
+
+          {/* Connecting line */}
+          <div
+            style={{
+              position: 'absolute',
+              left: `${scale(relevance)}%`,
+              width: `${Math.max(0, scale(spread) - scale(relevance))}%`,
+              top: '50%',
+              height: '2px',
+              backgroundColor: 'var(--gold)',
+              opacity: 0.4,
+              transform: 'translateY(-50%)',
+            }}
+          />
+
+          {/* Relevance dot (filled) */}
+          <div
+            style={{
+              position: 'absolute',
+              left: `${scale(relevance)}%`,
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: '12px',
+              height: '12px',
+              borderRadius: '50%',
+              backgroundColor: 'var(--gold)',
+            }}
+          />
+
+          {/* Spread dot (hollow) */}
+          <div
+            style={{
+              position: 'absolute',
+              left: `${scale(spread)}%`,
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: '12px',
+              height: '12px',
+              borderRadius: '50%',
+              border: '2px solid var(--gold)',
+              backgroundColor: 'var(--bg)',
+              boxSizing: 'border-box',
+            }}
+          />
+
+          {/* Value labels */}
+          <span
+            style={{
+              position: 'absolute',
+              left: `${scale(relevance)}%`,
+              bottom: '-16px',
+              transform: 'translateX(-50%)',
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.6rem',
+              color: 'var(--gold)',
+            }}
+          >
+            {Math.round(relevance)}
+          </span>
+          <span
+            style={{
+              position: 'absolute',
+              left: `${scale(spread)}%`,
+              bottom: '-16px',
+              transform: 'translateX(-50%)',
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.6rem',
+              color: 'var(--faded)',
+            }}
+          >
+            {Math.round(spread)}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function ScoreBar({ score, color = 'var(--gold)' }: { score: number; color?: string }) {
@@ -66,25 +227,38 @@ function getSimilarityInterpretation(score: number): { text: string; description
   }
 }
 
-function getDivergenceLabel(divergence: number): string {
-  if (divergence >= 60) return 'high spread';
-  if (divergence >= 40) return 'moderate';
-  return 'direct';
-}
-
 export const BridgingComparisonScreen: React.FC<BridgingComparisonScreenProps> = ({
   anchor,
   target,
   senderSteps,
-  recipientSteps,
-  bridgeSimilarity,
-  centroidSimilarity,
-  pathAlignment,
+  senderRelevance,
   senderDivergence,
+  recipientSteps,
+  recipientRelevance,
   recipientDivergence,
+  bridgeSimilarity,
+  haikuClues,
+  haikuRelevance,
+  haikuDivergence,
+  lexicalBridge,
+  lexicalRelevance,
+  lexicalDivergence,
 }) => {
   const interpretation = getSimilarityInterpretation(bridgeSimilarity);
-  const senderMoreCreative = senderDivergence > recipientDivergence;
+
+  // Convert relevance from 0-1 to 0-100 if needed
+  const normalizeRelevance = (r?: number) => {
+    if (r === undefined || r === null) return 0;
+    return r <= 1 ? r * 100 : r;
+  };
+
+  const youRelevance = normalizeRelevance(recipientRelevance);
+  const themRelevance = normalizeRelevance(senderRelevance);
+  const haikuRel = normalizeRelevance(haikuRelevance);
+  const statRel = normalizeRelevance(lexicalRelevance);
+
+  const hasHaiku = haikuClues && haikuClues.length > 0 && haikuRelevance !== undefined && haikuDivergence !== undefined;
+  const hasStatistical = lexicalBridge && lexicalBridge.length > 0 && lexicalRelevance !== undefined && lexicalDivergence !== undefined;
 
   return (
     <div>
@@ -93,149 +267,145 @@ export const BridgingComparisonScreen: React.FC<BridgingComparisonScreenProps> =
       </p>
       <h1 className="title">{interpretation.text}</h1>
 
-      {/* Anchor ←→ Target header */}
-      <div
-        style={{
-          textAlign: 'center',
-          marginBottom: 'var(--space-lg)',
-        }}
-      >
+      <Panel>
+        {/* Semantic axis */}
         <div
           style={{
             fontFamily: 'var(--font-mono)',
-            fontSize: '1.1rem',
+            fontSize: '0.8rem',
             color: 'var(--gold)',
+            textAlign: 'center',
+            marginBottom: 'var(--space-lg)',
+          }}
+        >
+          {anchor} ←―――――――――――――――――――――→ {target}
+        </div>
+
+        {/* Legend */}
+        <div
+          style={{
             display: 'flex',
-            alignItems: 'center',
             justifyContent: 'center',
             gap: 'var(--space-md)',
+            marginBottom: 'var(--space-md)',
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.6rem',
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+            color: 'var(--faded)',
           }}
         >
-          <span style={{ fontWeight: 600 }}>{anchor}</span>
-          <span
-            style={{
-              color: 'var(--faded)',
-              fontSize: '0.9rem',
-              letterSpacing: '0.1em',
-            }}
-          >
-            ←――――――――――→
-          </span>
-          <span style={{ fontWeight: 600 }}>{target}</span>
-        </div>
-      </div>
-
-      {/* Side-by-side unions */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: 'var(--space-md)',
-          marginBottom: 'var(--space-lg)',
-        }}
-      >
-        {/* Sender's union */}
-        <div
-          style={{
-            padding: 'var(--space-md)',
-            background: 'var(--bg-card)',
-            borderRadius: '8px',
-            border: '1px solid var(--border)',
-          }}
-        >
-          <div
-            style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: '0.7rem',
-              color: 'var(--faded)',
-              marginBottom: 'var(--space-sm)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-            }}
-          >
-            Their Common Ground
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div
+              style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                backgroundColor: 'var(--gold)',
+              }}
+            />
+            <span>Relevance</span>
           </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div
+              style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                border: '2px solid var(--gold)',
+                backgroundColor: 'transparent',
+                boxSizing: 'border-box',
+              }}
+            />
+            <span>Spread</span>
+          </div>
+        </div>
+
+        {/* Axis scale */}
+        <div style={{ marginLeft: '92px', marginRight: '12px', marginBottom: 'var(--space-sm)' }}>
           <div
             style={{
+              display: 'flex',
+              justifyContent: 'space-between',
               fontFamily: 'var(--font-mono)',
-              fontSize: '0.85rem',
-              color: 'var(--text-light)',
-              lineHeight: '1.8',
+              fontSize: '11px',
+              color: 'var(--faded)',
+              marginBottom: '2px',
             }}
           >
-            {senderSteps.map((step, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
-                <span style={{ color: 'var(--faded)', fontSize: '0.7rem' }}>•</span>
-                <span>{step}</span>
-              </div>
+            {[0, 25, 50, 75, 100].map((v) => (
+              <span key={v}>{v}</span>
             ))}
           </div>
           <div
             style={{
-              marginTop: 'var(--space-sm)',
-              fontFamily: 'var(--font-mono)',
-              fontSize: '0.65rem',
-              color: 'var(--faded)',
+              height: '1px',
+              backgroundColor: 'var(--border)',
+              position: 'relative',
             }}
           >
-            {getDivergenceLabel(senderDivergence)} path ({Math.round(senderDivergence)}%)
+            {[0, 25, 50, 75, 100].map((v) => (
+              <div
+                key={v}
+                style={{
+                  position: 'absolute',
+                  left: `${v}%`,
+                  top: '-2px',
+                  width: '1px',
+                  height: '5px',
+                  backgroundColor: 'var(--border)',
+                }}
+              />
+            ))}
           </div>
         </div>
 
-        {/* Recipient's union */}
-        <div
-          style={{
-            padding: 'var(--space-md)',
-            background: 'var(--bg-card)',
-            borderRadius: '8px',
-            border: '1px solid var(--gold-dim)',
-          }}
-        >
-          <div
-            style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: '0.7rem',
-              color: 'var(--gold)',
-              marginBottom: 'var(--space-sm)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-            }}
-          >
-            Your Common Ground
-          </div>
-          <div
-            style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: '0.85rem',
-              color: 'var(--text-light)',
-              lineHeight: '1.8',
-            }}
-          >
-            {recipientSteps.map((step, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
-                <span style={{ color: 'var(--gold)', fontSize: '0.7rem' }}>•</span>
-                <span>{step}</span>
-              </div>
-            ))}
-          </div>
-          <div
-            style={{
-              marginTop: 'var(--space-sm)',
-              fontFamily: 'var(--font-mono)',
-              fontSize: '0.65rem',
-              color: 'var(--faded)',
-            }}
-          >
-            {getDivergenceLabel(recipientDivergence)} path ({Math.round(recipientDivergence)}%)
-          </div>
+        {/* Data rows */}
+        <div style={{ marginTop: 'var(--space-md)' }}>
+          {/* Your row (recipient) */}
+          <DotPlotRow
+            label="You"
+            concepts={recipientSteps}
+            relevance={youRelevance}
+            spread={recipientDivergence}
+            isYou
+          />
+
+          {/* Their row (sender) */}
+          <DotPlotRow
+            label="Them"
+            concepts={senderSteps}
+            relevance={themRelevance}
+            spread={senderDivergence}
+          />
+
+          {/* Haiku row */}
+          {hasHaiku && (
+            <DotPlotRow
+              label="Haiku"
+              concepts={haikuClues}
+              relevance={haikuRel}
+              spread={haikuDivergence}
+            />
+          )}
+
+          {/* Statistical row */}
+          {hasStatistical && (
+            <DotPlotRow
+              label="Statistical"
+              concepts={lexicalBridge}
+              relevance={statRel}
+              spread={lexicalDivergence}
+            />
+          )}
         </div>
-      </div>
+      </Panel>
 
       {/* Common Ground Similarity Score */}
       <Panel
         title="Common Ground Similarity"
         meta={`${Math.round(bridgeSimilarity)}%`}
-        style={{ marginBottom: 'var(--space-md)' }}
+        style={{ marginTop: 'var(--space-md)' }}
       >
         <ScoreBar score={bridgeSimilarity} />
         <div
@@ -253,100 +423,12 @@ export const BridgingComparisonScreen: React.FC<BridgingComparisonScreenProps> =
         </div>
       </Panel>
 
-      {/* Detailed metrics */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: 'var(--space-md)',
-          marginBottom: 'var(--space-lg)',
-        }}
-      >
-        {/* Centroid Similarity */}
-        <div
-          style={{
-            padding: 'var(--space-md)',
-            background: 'var(--bg-card)',
-            borderRadius: '8px',
-            border: '1px solid var(--border)',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: 'var(--space-sm)',
-            }}
-          >
-            <span
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.7rem',
-                color: 'var(--faded)',
-              }}
-            >
-              Semantic Center
-            </span>
-            <span
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.85rem',
-                color: 'var(--text-light)',
-              }}
-            >
-              {Math.round(centroidSimilarity)}%
-            </span>
-          </div>
-          <ScoreBar score={centroidSimilarity} color="var(--text-light)" />
-        </div>
-
-        {/* Path Alignment */}
-        <div
-          style={{
-            padding: 'var(--space-md)',
-            background: 'var(--bg-card)',
-            borderRadius: '8px',
-            border: '1px solid var(--border)',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: 'var(--space-sm)',
-            }}
-          >
-            <span
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.7rem',
-                color: 'var(--faded)',
-              }}
-            >
-              Path Alignment
-            </span>
-            <span
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.85rem',
-                color: 'var(--text-light)',
-              }}
-            >
-              {Math.round(pathAlignment)}%
-            </span>
-          </div>
-          <ScoreBar score={pathAlignment} color="var(--text-light)" />
-        </div>
-      </div>
-
       {/* Interpretation */}
       <Panel
         style={{
           background: 'transparent',
           borderColor: 'var(--gold-dim)',
-          marginBottom: 'var(--space-lg)',
+          marginTop: 'var(--space-md)',
         }}
       >
         <div
@@ -357,27 +439,10 @@ export const BridgingComparisonScreen: React.FC<BridgingComparisonScreenProps> =
           }}
         >
           <strong style={{ color: 'var(--text-light)' }}>{interpretation.description}</strong>
-          <br />
-          <br />
-          {senderMoreCreative ? (
-            <>
-              The sender took a higher divergence route ({Math.round(senderDivergence)}% spread)
-              while you stayed closer to the direct path ({Math.round(recipientDivergence)}%).
-            </>
-          ) : senderDivergence < recipientDivergence ? (
-            <>
-              You took a higher divergence route ({Math.round(recipientDivergence)}% spread)
-              while they stayed closer to the direct path ({Math.round(senderDivergence)}%).
-            </>
-          ) : (
-            <>
-              Both common grounds had similar levels of spread (~{Math.round(senderDivergence)}% divergence).
-            </>
-          )}
         </div>
       </Panel>
 
-      <div className="btn-group" style={{ justifyContent: 'center' }}>
+      <div className="btn-group" style={{ justifyContent: 'center', marginTop: 'var(--space-lg)' }}>
         <Button variant="primary" onClick={() => (window.location.href = '/ins-001-2')}>
           Find Your Own Common Ground
         </Button>
