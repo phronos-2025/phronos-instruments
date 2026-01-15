@@ -8,7 +8,7 @@ flexible, but API responses maintain stable field names.
 """
 
 from pydantic import BaseModel, Field
-from typing import Optional, Any
+from typing import Optional, Any, List
 from datetime import datetime
 from enum import Enum
 
