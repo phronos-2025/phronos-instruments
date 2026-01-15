@@ -42,7 +42,7 @@ function BridgingRecipientRouter({ shareCode }: { shareCode: string }) {
             {state.message}
           </p>
           <a
-            href="/ins-001-2"
+            href="/ins-001/ins-001-2/"
             style={{
               display: 'inline-block',
               marginTop: 'var(--space-lg)',

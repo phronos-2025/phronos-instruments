@@ -200,7 +200,7 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
           {error}
         </p>
         <a
-          href="/ins-001-2"
+          href="/ins-001/ins-001-2/"
           style={{
             color: 'var(--gold)',
             fontFamily: 'var(--font-mono)',

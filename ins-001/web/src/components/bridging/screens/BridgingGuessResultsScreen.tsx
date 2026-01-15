@@ -335,7 +335,7 @@ export const BridgingGuessResultsScreen: React.FC<BridgingGuessResultsScreenProp
       </Panel>
 
       <div className="btn-group" style={{ justifyContent: 'center' }}>
-        <Button variant="primary" onClick={() => (window.location.href = '/ins-001-2')}>
+        <Button variant="primary" onClick={() => (window.location.href = '/ins-001/ins-001-2/')}>
           Find Your Own Common Ground
         </Button>
       </div>
