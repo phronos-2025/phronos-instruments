@@ -706,7 +706,7 @@ async def create_bridging_share(
             .eq("id", game_id) \
             .execute()
 
-    share_url = f"{FRONTEND_URL}/ins-001-2/join/{share_code}"
+    share_url = f"{FRONTEND_URL}/ins-001/ins-001-2/join/{share_code}"
 
     return CreateBridgingShareResponse(
         share_code=share_code,
