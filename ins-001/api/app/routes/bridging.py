@@ -356,12 +356,14 @@ async def submit_bridging_clues(
 
     async def get_lexical_union():
         try:
+            n_clues = len(clues_clean)
             if precomputed and precomputed.lexical_bridge and len(precomputed.lexical_bridge) > 0:
-                bridge = precomputed.lexical_bridge
-                embs = precomputed.lexical_embeddings or await cache.get_embeddings_batch(bridge)
+                # Slice to match participant's concept count
+                bridge = precomputed.lexical_bridge[:n_clues]
+                embs = precomputed.lexical_embeddings[:n_clues] if precomputed.lexical_embeddings else await cache.get_embeddings_batch(bridge)
                 return bridge, embs
             else:
-                bridge = await find_lexical_union(anchor, target, len(clues_clean), supabase)
+                bridge = await find_lexical_union(anchor, target, n_clues, supabase)
                 if bridge and len(bridge) > 0:
                     embs = await cache.get_embeddings_batch(bridge)
                     return bridge, embs
@@ -374,14 +376,16 @@ async def submit_bridging_clues(
         if not is_haiku_game:
             return None, None
         try:
+            n_clues = len(clues_clean)
             if precomputed and precomputed.haiku_clues and len(precomputed.haiku_clues) > 0:
-                clues = precomputed.haiku_clues
-                embs = precomputed.haiku_embeddings or await cache.get_embeddings_batch(clues)
+                # Slice to match participant's concept count
+                clues = precomputed.haiku_clues[:n_clues]
+                embs = precomputed.haiku_embeddings[:n_clues] if precomputed.haiku_embeddings else await cache.get_embeddings_batch(clues)
                 return clues, embs
             else:
-                haiku_result = await haiku_build_bridge(anchor, target, num_clues=len(clues_clean))
+                haiku_result = await haiku_build_bridge(anchor, target, num_clues=n_clues)
                 if haiku_result.get("clues") and len(haiku_result["clues"]) > 0:
-                    clues = haiku_result["clues"]
+                    clues = haiku_result["clues"][:n_clues]
                     embs = await cache.get_embeddings_batch(clues)
                     return clues, embs
                 return None, None

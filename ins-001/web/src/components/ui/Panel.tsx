@@ -11,11 +11,12 @@ interface PanelProps {
   meta?: string;
   children: React.ReactNode;
   className?: string;
+  style?: React.CSSProperties;
 }
 
-export const Panel: React.FC<PanelProps> = ({ title, meta, children, className = '' }) => {
+export const Panel: React.FC<PanelProps> = ({ title, meta, children, className = '', style }) => {
   return (
-    <div className={`panel ${className}`}>
+    <div className={`panel ${className}`} style={style}>
       {(title || meta) && (
         <div className="panel-header">
           {title && <span className="panel-title">{title}</span>}

@@ -67,6 +67,9 @@ export interface SubmitCluesResponse {
   clues: string[];
   divergence_score: number;
   status: GameStatus;
+  // New unified scoring (matches INS-001.2)
+  relevance?: number;  // 0-1 scale: how connected to seed
+  spread?: number;     // 0-100 scale: DAT-style divergence
   llm_guesses?: string[];
   convergence_score?: number;
   guess_similarities?: number[];
@@ -112,6 +115,9 @@ export interface GameResponse {
   guesses?: string[];
   divergence_score?: number;
   convergence_score?: number;
+  // New unified scoring (matches INS-001.2)
+  relevance?: number;  // 0-1 scale: how connected to seed
+  spread?: number;     // 0-100 scale: DAT-style divergence
   guess_similarities?: number[];
   status: GameStatus;
   created_at: string;

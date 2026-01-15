@@ -26,7 +26,7 @@ from app.services.embeddings import (
 )
 # Performance optimization: Use cached embeddings
 from app.services.cache import EmbeddingCache
-from app.services.scoring import compute_divergence, compute_convergence
+from app.services.scoring import compute_divergence, compute_convergence, score_radiation
 from app.services.llm import llm_guess
 from app.services.profiles import update_user_profile
 from app.config import is_blocked_word, SUPABASE_URL, SUPABASE_SERVICE_KEY
@@ -179,6 +179,8 @@ async def get_game(
         guesses=game.get("guesses"),
         divergence_score=game.get("divergence_score"),
         convergence_score=game.get("convergence_score"),
+        relevance=game.get("relevance"),
+        spread=game.get("spread"),
         guess_similarities=guess_similarities,
         status=game["status"],
         created_at=game["created_at"],
@@ -276,6 +278,7 @@ async def submit_clues(
         return embeddings
 
     # Run everything we can in parallel
+    # Always get seed embedding for new scoring system
     if is_llm_game:
         # All three in parallel: embeddings (clues + seed), floor fetch, LLM guesses
         all_embeddings, floor_embeddings, llm_guesses = await asyncio.gather(
@@ -286,19 +289,34 @@ async def submit_clues(
         clue_embeddings = all_embeddings[:len(clues_clean)]
         seed_emb = all_embeddings[len(clues_clean)]
     else:
-        # Just embeddings and floor fetch in parallel
+        # Embeddings (clues + seed) and floor fetch in parallel
+        # We need seed embedding for the new scoring system
+        async def get_clues_and_seed_embeddings():
+            texts = [f"{c} (in context: {clue_context})" for c in clues_clean]
+            texts.append(f"{seed_word} (in context: {clue_context})")
+            return await cache.get_embeddings_batch(texts)
+
         all_embeddings, floor_embeddings = await asyncio.gather(
-            get_all_embeddings(),
+            get_clues_and_seed_embeddings(),
             get_floor_embeddings()
         )
-        clue_embeddings = all_embeddings
+        clue_embeddings = all_embeddings[:len(clues_clean)]
+        seed_emb = all_embeddings[len(clues_clean)]
         llm_guesses = None
 
+    # Use new scoring system: score_radiation returns relevance (0-1) and divergence (0-100)
+    radiation_scores = score_radiation(clue_embeddings, seed_emb)
+    relevance_score = radiation_scores["relevance"]  # 0-1 scale
+    spread_score = radiation_scores["divergence"]    # 0-100 scale (DAT-style)
+
+    # For backwards compatibility, also compute legacy divergence_score
     divergence_score = compute_divergence(clue_embeddings, floor_embeddings)
 
     update_data = {
         "clues": clues_clean,
-        "divergence_score": divergence_score,
+        "divergence_score": divergence_score,  # Legacy: 0-1 scale
+        "relevance": relevance_score,          # New: 0-1 scale
+        "spread": spread_score,                # New: 0-100 scale (DAT-style)
         "status": "pending_guess"
     }
 
@@ -336,6 +354,8 @@ async def submit_clues(
         clues=clues_clean,
         divergence_score=divergence_score,
         status=GameStatus.COMPLETED if llm_guesses else GameStatus.PENDING_GUESS,
+        relevance=relevance_score,
+        spread=spread_score,
         llm_guesses=llm_guesses,
         convergence_score=convergence_score,
         guess_similarities=guess_similarities

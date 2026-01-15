@@ -1,7 +1,8 @@
 /**
  * Results Screen
  *
- * Barbell visualization for divergence/convergence metrics,
+ * Connected dot plot visualization for relevance/spread metrics,
+ * matching INS-001.2 design with rows for You, Haiku, and Statistical.
  * "Unregistered Record" panel with progress, footer links
  */
 
@@ -16,16 +17,16 @@ interface ResultsScreenProps {
   game: GameResponse;
 }
 
-// Barbell row component (adapted from BridgingResultsScreen)
-interface BarbellRowProps {
+// Dot plot row component (matching INS-001.2 BridgingResultsScreen)
+interface DotPlotRowProps {
   label: string;
   concepts: string[];
-  divergence: number;
-  convergence: number;
+  relevance: number;
+  spread: number;
   isYou?: boolean;
 }
 
-function BarbellRow({ label, concepts, divergence, convergence, isYou }: BarbellRowProps) {
+function DotPlotRow({ label, concepts, relevance, spread, isYou }: DotPlotRowProps) {
   const scale = (val: number) => Math.min(100, Math.max(0, val));
 
   return (
@@ -92,8 +93,8 @@ function BarbellRow({ label, concepts, divergence, convergence, isYou }: Barbell
           <div
             style={{
               position: 'absolute',
-              left: `${Math.min(scale(divergence), scale(convergence))}%`,
-              width: `${Math.abs(scale(convergence) - scale(divergence))}%`,
+              left: `${Math.min(scale(relevance), scale(spread))}%`,
+              width: `${Math.abs(scale(spread) - scale(relevance))}%`,
               top: '50%',
               height: '2px',
               backgroundColor: 'var(--gold)',
@@ -102,11 +103,11 @@ function BarbellRow({ label, concepts, divergence, convergence, isYou }: Barbell
             }}
           />
 
-          {/* Divergence dot (filled) */}
+          {/* Relevance dot (filled) */}
           <div
             style={{
               position: 'absolute',
-              left: `${scale(divergence)}%`,
+              left: `${scale(relevance)}%`,
               top: '50%',
               transform: 'translate(-50%, -50%)',
               width: '12px',
@@ -116,11 +117,11 @@ function BarbellRow({ label, concepts, divergence, convergence, isYou }: Barbell
             }}
           />
 
-          {/* Convergence dot (hollow) */}
+          {/* Spread dot (hollow) */}
           <div
             style={{
               position: 'absolute',
-              left: `${scale(convergence)}%`,
+              left: `${scale(spread)}%`,
               top: '50%',
               transform: 'translate(-50%, -50%)',
               width: '12px',
@@ -136,7 +137,7 @@ function BarbellRow({ label, concepts, divergence, convergence, isYou }: Barbell
           <span
             style={{
               position: 'absolute',
-              left: `${scale(divergence)}%`,
+              left: `${scale(relevance)}%`,
               bottom: '-16px',
               transform: 'translateX(-50%)',
               fontFamily: 'var(--font-mono)',
@@ -144,12 +145,12 @@ function BarbellRow({ label, concepts, divergence, convergence, isYou }: Barbell
               color: 'var(--gold)',
             }}
           >
-            {Math.round(divergence)}
+            {Math.round(relevance)}
           </span>
           <span
             style={{
               position: 'absolute',
-              left: `${scale(convergence)}%`,
+              left: `${scale(spread)}%`,
               bottom: '-16px',
               transform: 'translateX(-50%)',
               fontFamily: 'var(--font-mono)',
@@ -157,7 +158,7 @@ function BarbellRow({ label, concepts, divergence, convergence, isYou }: Barbell
               color: 'var(--faded)',
             }}
           >
-            {Math.round(convergence)}
+            {Math.round(spread)}
           </span>
         </div>
       </div>
@@ -172,23 +173,32 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
 
   if (!game) return null;
 
-  // Convert scores to 0-100 scale for display
-  const divergenceDisplay = (game.divergence_score ?? 0) * 100;
-  const convergenceDisplay = (game.convergence_score ?? 0) * 100;
+  // Use new unified scoring if available, otherwise fall back to legacy mapping
+  // New API: relevance (0-1), spread (0-100 DAT-style)
+  // Legacy: divergence_score (0-1), convergence_score (0-1)
+  const spreadDisplay = game.spread ?? (game.divergence_score ?? 0) * 100;
+  const relevanceDisplay = game.relevance !== undefined
+    ? game.relevance * 100  // Convert 0-1 to 0-100 for display
+    : (game.convergence_score ?? 0) * 100;  // Legacy fallback
 
-  const divergenceInterpretation =
-    game.divergence_score && game.divergence_score < 0.3
-      ? 'Conventional'
-      : game.divergence_score && game.divergence_score < 0.6
-      ? 'Moderate'
-      : 'High';
+  // Haiku data (from LLM guesses - we'll show the guesses as Haiku's "clues")
+  const hasHaikuData = game.recipient_type === 'llm' && game.guesses && game.guesses.length > 0;
+  // For Haiku, we use guess similarities as a proxy for relevance
+  const haikuRelevance = game.guess_similarities
+    ? (game.guess_similarities.reduce((a, b) => a + b, 0) / game.guess_similarities.length) * 100
+    : 0;
+  // Haiku spread is estimated from variance of similarities (low variance = low spread)
+  const haikuSpread = game.guess_similarities && game.guess_similarities.length > 1
+    ? Math.min(100, Math.max(0,
+        (1 - Math.max(...game.guess_similarities) + Math.min(...game.guess_similarities)) * 100
+      ))
+    : 50;
 
-  const convergenceInterpretation =
-    game.convergence_score && game.convergence_score < 0.4
-      ? 'Low'
-      : game.convergence_score && game.convergence_score < 0.7
-      ? 'Partial'
-      : 'Strong';
+  const spreadInterpretation =
+    spreadDisplay < 30 ? 'Low' : spreadDisplay < 60 ? 'Moderate' : 'High';
+
+  const relevanceInterpretation =
+    relevanceDisplay < 40 ? 'Weak' : relevanceDisplay < 70 ? 'Moderate' : 'Strong';
 
   // Format guesses for display as pills with shaded bars
   const formatGuess = (guess: string, index: number) => {
@@ -266,7 +276,7 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
                 backgroundColor: 'var(--gold)',
               }}
             />
-            <span>Divergence</span>
+            <span>Relevance</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <div
@@ -279,7 +289,7 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
                 boxSizing: 'border-box',
               }}
             />
-            <span>Convergence</span>
+            <span>Spread</span>
           </div>
         </div>
 
@@ -322,25 +332,38 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
           </div>
         </div>
 
-        {/* Barbell visualization */}
+        {/* Dot plot visualization - rows for You, Haiku, Statistical */}
         <div style={{ marginTop: 'var(--space-md)' }}>
-          <BarbellRow
+          {/* Your row */}
+          <DotPlotRow
             label="You"
             concepts={game.clues || []}
-            divergence={divergenceDisplay}
-            convergence={convergenceDisplay}
+            relevance={relevanceDisplay}
+            spread={spreadDisplay}
             isYou
           />
+
+          {/* Haiku row */}
+          {hasHaikuData && (
+            <DotPlotRow
+              label="Haiku"
+              concepts={game.guesses || []}
+              relevance={haikuRelevance}
+              spread={haikuSpread}
+            />
+          )}
+
+          {/* Statistical row - using noise floor as baseline */}
+          {game.noise_floor && game.noise_floor.length > 0 && (
+            <DotPlotRow
+              label="Statistical"
+              concepts={game.noise_floor.slice(0, 5).map(w => w.word)}
+              relevance={game.noise_floor.reduce((sum, w) => sum + w.similarity * 100, 0) / game.noise_floor.length}
+              spread={50} // Noise floor is designed to have moderate spread
+            />
+          )}
         </div>
       </Panel>
-
-      {game.recipient_type === 'llm' && game.guesses && game.guesses.length > 0 && (
-        <Panel title="Claude's Guesses" meta={`${game.guesses.length} attempts`}>
-          <div className="noise-words">
-            {game.guesses.map((guess, idx) => formatGuess(guess, idx))}
-          </div>
-        </Panel>
-      )}
 
       <Panel
         className=""
@@ -358,12 +381,11 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
             lineHeight: '1.7',
           }}
         >
-          Your associations show {divergenceInterpretation.toLowerCase()} divergence (
-          {game.divergence_score?.toFixed(2) || 'N/A'}) from the predictable semantic
-          neighborhood,
-          {game.convergence_score !== undefined &&
-            ` indicating ${convergenceInterpretation.toLowerCase()} communication effectiveness.`}
-          {game.convergence_score === undefined && ' indicating unexpected pathways.'}
+          Your associations show {spreadInterpretation.toLowerCase()} spread ({Math.round(spreadDisplay)})
+          with {relevanceInterpretation.toLowerCase()} relevance ({Math.round(relevanceDisplay)}) to the target concept.
+          {spreadDisplay > 60 && relevanceDisplay > 50 && ' This indicates creative but valid associations.'}
+          {spreadDisplay < 40 && relevanceDisplay > 50 && ' This indicates conventional, predictable associations.'}
+          {relevanceDisplay < 40 && ' The associations may be too distant from the target concept.'}
         </div>
       </Panel>
 

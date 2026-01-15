@@ -101,8 +101,11 @@ class SubmitCluesResponse(BaseModel):
     """Response after submitting clues."""
     game_id: str
     clues: list[str]
-    divergence_score: float
+    divergence_score: float  # Legacy: 0-1 scale (distance from noise floor)
     status: GameStatus
+    # New unified scoring (matches INS-001.2)
+    relevance: Optional[float] = None  # 0-1 scale: how connected to seed
+    spread: Optional[float] = None     # 0-100 scale: DAT-style divergence
     # If LLM game, includes LLM guesses immediately
     llm_guesses: Optional[list[str]] = None
     convergence_score: Optional[float] = None
@@ -137,8 +140,11 @@ class GameResponse(BaseModel):
     noise_floor: list[NoiseFloorWord]
     clues: Optional[list[str]]
     guesses: Optional[list[str]]
-    divergence_score: Optional[float]
-    convergence_score: Optional[float]
+    divergence_score: Optional[float]  # Legacy: 0-1 scale
+    convergence_score: Optional[float]  # Legacy: 0-1 scale
+    # New unified scoring (matches INS-001.2)
+    relevance: Optional[float] = None  # 0-1 scale: how connected to seed
+    spread: Optional[float] = None     # 0-100 scale: DAT-style divergence
     guess_similarities: Optional[list[float]] = None  # Semantic similarity for each guess
     status: GameStatus
     created_at: datetime

@@ -369,7 +369,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
       </p>
       <h1 className="title">Common Ground Analysis</h1>
 
-      <Panel>
+      <Panel style={{ background: 'var(--bg-deep)' }}>
         {/* Semantic axis */}
         <div
           style={{
