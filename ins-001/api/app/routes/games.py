@@ -728,6 +728,8 @@ async def submit_bridging_bridge(
         print(f"submit_bridging_bridge: Service debug query failed: {e}")
 
     # Now try with user's client (subject to RLS)
+    # Accept games in "pending_guess" status OR "completed" status without recipient_input
+    # (LLM games are marked completed after sender clues, but human recipient can still join and submit)
     try:
         print(f"submit_bridging_bridge: Querying with user client...")
         result = supabase.table("games") \
@@ -735,10 +737,23 @@ async def submit_bridging_bridge(
             .eq("id", game_id) \
             .eq("recipient_id", user["id"]) \
             .eq("game_type", "bridging") \
-            .eq("status", "pending_guess") \
             .single() \
             .execute()
         print(f"submit_bridging_bridge: User query succeeded, got data: {result.data is not None}")
+
+        # Validate game state
+        if result.data:
+            status = result.data.get("status")
+            recipient_input = result.data.get("recipient_input")
+
+            # Allow pending_guess OR completed-without-recipient-input
+            if status == "pending_guess":
+                print(f"submit_bridging_bridge: Game is pending_guess, allowing submission")
+            elif status == "completed" and not recipient_input:
+                print(f"submit_bridging_bridge: Game is completed but no recipient input yet, allowing submission")
+            else:
+                print(f"submit_bridging_bridge: Invalid state - status={status}, has_recipient_input={recipient_input is not None}")
+                raise HTTPException(status_code=400, detail={"error": "Game already has recipient input or is in wrong state"})
     except APIError as e:
         print(f"submit_bridging_bridge: User query failed with APIError: {e}")
         raise HTTPException(status_code=404, detail={"error": "Game not found or not in correct state"})
