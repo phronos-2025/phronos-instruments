@@ -310,7 +310,7 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
     setShareError(null);
     try {
       const response = await api.share.createToken(game.game_id);
-      const url = `${window.location.origin}/ins-001-1/join/${response.token}`;
+      const url = `${window.location.origin}/ins-001/ins-001-1/join/${response.token}`;
       setShareUrl(url);
     } catch (err) {
       setShareError(err instanceof Error ? err.message : 'Failed to create share link');
