@@ -1,0 +1,79 @@
+---
+/**
+ * User Profile Page
+ *
+ * Shows user's cognitive profile, game history, and data rights information.
+ */
+
+export const prerender = false;
+
+import '../styles/global.css';
+import '../styles/components.css';
+import LandingNav from '../components/landing/LandingNav.astro';
+import LandingFooter from '../components/landing/LandingFooter.astro';
+import { ProfilePage } from '../components/profile/ProfilePage';
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Primary Meta Tags -->
+    <title>Profile | Phronos Instruments</title>
+    <meta name="title" content="Profile | Phronos Instruments" />
+    <meta name="description" content="View your cognitive profile and game history on Phronos Instruments." />
+    <meta name="robots" content="noindex, nofollow" />
+
+    <!-- Favicons -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/favicon.png" />
+
+    <!-- Theme Color -->
+    <meta name="theme-color" content="#0D0D0D" />
+    <meta name="msapplication-TileColor" content="#0D0D0D" />
+  </head>
+  <body>
+    <LandingNav />
+
+    <main class="profile-container">
+      <ProfilePage client:load />
+    </main>
+
+    <LandingFooter />
+  </body>
+</html>
+
+<style>
+  body {
+    min-height: 100vh;
+    background: var(--bg-deep);
+    position: relative;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image:
+      linear-gradient(var(--grid-color) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+    background-size: var(--grid-size) var(--grid-size);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .profile-container {
+    position: relative;
+    z-index: 1;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 144px var(--space-lg) var(--space-xl);
+    min-height: 100vh;
+  }
+</style>

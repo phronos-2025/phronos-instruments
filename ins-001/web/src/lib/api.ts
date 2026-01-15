@@ -358,6 +358,63 @@ export interface BridgingGameResponseV2 {
   completed_at?: string;
 }
 
+// ============================================
+// User & Profile Types
+// ============================================
+
+export interface UserResponse {
+  user_id: string;
+  display_name?: string;
+  is_anonymous: boolean;
+  email?: string;
+  games_played: number;
+  profile_ready: boolean;
+  terms_accepted_at?: string;
+  created_at: string;
+}
+
+export interface ProfileResponse {
+  user_id: string;
+  games_played: number;
+  divergence_mean?: number;
+  divergence_std?: number;
+  divergence_n: number;
+  network_convergence_mean?: number;
+  network_games: number;
+  stranger_convergence_mean?: number;
+  stranger_games: number;
+  llm_convergence_mean?: number;
+  llm_games: number;
+  radiation_games: number;
+  bridging_games: number;
+  semantic_portability?: number;
+  consistency_score?: number;
+  archetype?: string;
+  profile_ready: boolean;
+  games_until_ready: number;
+}
+
+export interface GameHistoryItem {
+  game_id: string;
+  game_type: 'radiation' | 'bridging';
+  seed_word?: string;
+  anchor_word?: string;
+  target_word?: string;
+  divergence?: number;
+  relevance?: number;
+  convergence?: number;
+  status: string;
+  created_at: string;
+  completed_at?: string;
+}
+
+export interface GameHistoryResponse {
+  games: GameHistoryItem[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 // Helper to get auth headers
 async function getAuthHeaders(): Promise<HeadersInit> {
   // Check for existing session
@@ -585,6 +642,24 @@ export const api = {
       apiCall(`/api/v1/bridging/${id}/bridge`, {
         method: 'POST',
         body: JSON.stringify(data),
+      }),
+  },
+
+  // User & Profile API
+  users: {
+    getMe: (): Promise<UserResponse> =>
+      apiCall('/api/v1/users/me'),
+
+    getProfile: (): Promise<ProfileResponse> =>
+      apiCall('/api/v1/users/me/profile'),
+
+    getGameHistory: (limit = 20, offset = 0): Promise<GameHistoryResponse> =>
+      apiCall(`/api/v1/users/me/games?limit=${limit}&offset=${offset}`),
+
+    acceptTerms: (): Promise<{ accepted: boolean }> =>
+      apiCall('/api/v1/users/me/accept-terms', {
+        method: 'POST',
+        body: JSON.stringify({ accepted: true }),
       }),
   },
 };

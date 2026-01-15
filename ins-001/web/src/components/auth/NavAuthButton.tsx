@@ -20,20 +20,22 @@ const NavAuthButtonInner: React.FC<NavAuthButtonProps> = ({ variant = 'desktop' 
   const isRegistered = user?.email && !user?.is_anonymous;
 
   if (isRegistered) {
-    // Show user email
+    // Show user email as link to profile
     if (variant === 'mobile') {
       return (
         <div className="nav-mobile-auth-user">
-          <span className="nav-mobile-auth-email">{user?.email}</span>
+          <a href="/profile" className="nav-mobile-auth-email nav-profile-link">
+            {user?.email}
+          </a>
         </div>
       );
     }
 
     return (
       <div className="nav-auth-user">
-        <span className="nav-auth-email" title={user?.email || ''}>
+        <a href="/profile" className="nav-auth-email nav-profile-link" title={`${user?.email} - View Profile`}>
           {user?.email && user.email.length > 20 ? user.email.slice(0, 17) + '...' : user?.email}
-        </span>
+        </a>
       </div>
     );
   }

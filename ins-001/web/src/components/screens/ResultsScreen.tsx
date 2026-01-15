@@ -705,20 +705,7 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
       </div>
 
       <footer className="footer">
-        <div>
-          <a href="/methods" style={{ color: 'var(--faded)', textDecoration: 'none' }}>
-            Methodology
-          </a>{' '}
-          ·{' '}
-          <a href="/about" style={{ color: 'var(--faded)', textDecoration: 'none' }}>
-            About Phronos
-          </a>{' '}
-          ·{' '}
-          <a href="/constitution" style={{ color: 'var(--faded)', textDecoration: 'none' }}>
-            Constitution
-          </a>
-        </div>
-        <div>© 2026 Phronos Observatory</div>
+        <div>© 2026 Phronos.org</div>
       </footer>
 
       <MagicLinkModal isOpen={showInitModal} onClose={() => setShowInitModal(false)} />

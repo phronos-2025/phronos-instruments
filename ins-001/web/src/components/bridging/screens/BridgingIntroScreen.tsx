@@ -4,20 +4,49 @@
  * Introduces the bridging game concept and gets user consent.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useBridgingSenderState } from '../../../lib/bridging-state';
 import { Panel } from '../../ui/Panel';
 import { Button } from '../../ui/Button';
 import { ProgressBar } from '../../ui/ProgressBar';
+import { api } from '../../../lib/api';
 
 export const BridgingIntroScreen: React.FC = () => {
   const { dispatch } = useBridgingSenderState();
   const [consentAccepted, setConsentAccepted] = useState(false);
+  const [termsAcceptedAt, setTermsAcceptedAt] = useState<string | null>(null);
+  const [checkingConsent, setCheckingConsent] = useState(true);
+
+  // Check if user has already accepted terms
+  useEffect(() => {
+    const checkTerms = async () => {
+      try {
+        const user = await api.users.getMe();
+        if (user.terms_accepted_at) {
+          setTermsAcceptedAt(user.terms_accepted_at);
+          setConsentAccepted(true);
+        }
+      } catch {
+        // Ignore errors - user may not be authenticated yet
+      } finally {
+        setCheckingConsent(false);
+      }
+    };
+    checkTerms();
+  }, []);
 
   const handleBegin = () => {
     if (consentAccepted) {
       dispatch({ type: 'BEGIN' });
     }
+  };
+
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
   };
 
   return (
@@ -145,12 +174,13 @@ export const BridgingIntroScreen: React.FC = () => {
             type="checkbox"
             checked={consentAccepted}
             onChange={(e) => setConsentAccepted(e.target.checked)}
+            disabled={checkingConsent}
             style={{
               marginTop: '4px',
               accentColor: 'var(--gold)',
               width: '16px',
               height: '16px',
-              cursor: 'pointer',
+              cursor: checkingConsent ? 'wait' : 'pointer',
             }}
           />
           <span
@@ -189,6 +219,11 @@ export const BridgingIntroScreen: React.FC = () => {
             </a>
             , and consent to the processing of my responses as described
             therein.
+            {termsAcceptedAt && (
+              <span style={{ display: 'block', marginTop: '4px', color: 'var(--active)', fontSize: '0.65rem' }}>
+                Previously accepted on {formatDate(termsAcceptedAt)}
+              </span>
+            )}
           </span>
         </label>
       </div>

@@ -159,7 +159,7 @@ export const AnchorTargetScreen: React.FC<AnchorTargetScreenProps> = ({
       const response = await api.bridging.create({
         anchor_word: anchorClean,
         target_word: targetClean,
-        recipient_type: 'haiku', // Default to Haiku for immediate feedback
+        recipient_type: 'llm', // Default to LLM (Haiku) for immediate feedback
       });
 
       dispatch({

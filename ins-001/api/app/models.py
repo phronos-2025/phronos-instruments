@@ -361,8 +361,10 @@ class UserResponse(BaseModel):
     user_id: str
     display_name: Optional[str]
     is_anonymous: bool
+    email: Optional[str] = None
     games_played: int  # Computed from view
     profile_ready: bool  # Computed from view
+    terms_accepted_at: Optional[datetime] = None
     created_at: datetime
 
 
@@ -396,6 +398,32 @@ class ProfileResponse(BaseModel):
     # Status
     profile_ready: bool
     games_until_ready: int
+
+
+class GameHistoryItem(BaseModel):
+    """Single game in history list."""
+    game_id: str
+    game_type: str  # 'radiation' or 'bridging'
+    # Seed/anchor info
+    seed_word: Optional[str] = None  # For radiation
+    anchor_word: Optional[str] = None  # For bridging
+    target_word: Optional[str] = None  # For bridging
+    # Scores
+    divergence: Optional[float] = None
+    relevance: Optional[float] = None
+    convergence: Optional[float] = None
+    # Meta
+    status: str
+    created_at: datetime
+    completed_at: Optional[datetime] = None
+
+
+class GameHistoryResponse(BaseModel):
+    """Paginated game history."""
+    games: List[GameHistoryItem]
+    total: int
+    limit: int
+    offset: int
 
 
 # ============================================

@@ -6,12 +6,15 @@ Schema Version: 2.0 - Uses user_profiles VIEW for computed fields.
 Handles user info and profile endpoints.
 """
 
-from fastapi import APIRouter, HTTPException, Depends
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Depends, Query
 from postgrest.exceptions import APIError
 from app.models import (
     UserResponse,
     ProfileResponse,
     AcceptTermsRequest,
+    GameHistoryItem,
+    GameHistoryResponse,
     ErrorResponse
 )
 from app.middleware.auth import get_authenticated_client
@@ -62,8 +65,10 @@ async def get_current_user(
         user_id=u["id"],
         display_name=u.get("display_name"),
         is_anonymous=u["is_anonymous"],
+        email=user.get("email"),
         games_played=profile.get("games_played", 0) or 0,
         profile_ready=profile.get("profile_ready", False) or False,
+        terms_accepted_at=u.get("terms_accepted_at"),
         created_at=u["created_at"]
     )
 
@@ -127,3 +132,59 @@ async def accept_terms(
         .execute()
 
     return {"accepted": True}
+
+
+@router.get("/me/games", response_model=GameHistoryResponse)
+async def get_game_history(
+    auth = Depends(get_authenticated_client),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0)
+):
+    """
+    Get user's game history.
+
+    Returns paginated list of games the user has played (as sender).
+    """
+    supabase, user = auth
+
+    # Get total count
+    count_result = supabase.table("games") \
+        .select("id", count="exact") \
+        .eq("sender_id", user["id"]) \
+        .execute()
+    total = count_result.count or 0
+
+    # Get games with pagination
+    games_result = supabase.table("games") \
+        .select("id, game_type, setup, sender_scores, status, created_at, completed_at") \
+        .eq("sender_id", user["id"]) \
+        .order("created_at", desc=True) \
+        .range(offset, offset + limit - 1) \
+        .execute()
+
+    games = []
+    for g in games_result.data or []:
+        setup = g.get("setup") or {}
+        scores = g.get("sender_scores") or {}
+
+        item = GameHistoryItem(
+            game_id=g["id"],
+            game_type=g["game_type"],
+            seed_word=setup.get("seed_word"),
+            anchor_word=setup.get("anchor_word"),
+            target_word=setup.get("target_word"),
+            divergence=scores.get("divergence"),
+            relevance=scores.get("relevance"),
+            convergence=scores.get("convergence"),
+            status=g["status"],
+            created_at=g["created_at"],
+            completed_at=g.get("completed_at")
+        )
+        games.append(item)
+
+    return GameHistoryResponse(
+        games=games,
+        total=total,
+        limit=limit,
+        offset=offset
+    )

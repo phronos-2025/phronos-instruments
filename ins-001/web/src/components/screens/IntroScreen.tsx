@@ -1,24 +1,53 @@
 /**
  * Intro Screen
- * 
+ *
  * Matches mockup: subtitle, title, description, 3-column "How It Works" grid,
  * "What this measures" panel, consent checkbox, "Begin Assessment" CTA
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useGameState } from '../../lib/state';
 import { Panel } from '../ui/Panel';
 import { Button } from '../ui/Button';
 import { ProgressBar } from '../ui/ProgressBar';
+import { api } from '../../lib/api';
 
 export const IntroScreen: React.FC = () => {
   const { dispatch } = useGameState();
   const [consentAccepted, setConsentAccepted] = useState(false);
-  
+  const [termsAcceptedAt, setTermsAcceptedAt] = useState<string | null>(null);
+  const [checkingConsent, setCheckingConsent] = useState(true);
+
+  // Check if user has already accepted terms
+  useEffect(() => {
+    const checkTerms = async () => {
+      try {
+        const user = await api.users.getMe();
+        if (user.terms_accepted_at) {
+          setTermsAcceptedAt(user.terms_accepted_at);
+          setConsentAccepted(true);
+        }
+      } catch {
+        // Ignore errors - user may not be authenticated yet
+      } finally {
+        setCheckingConsent(false);
+      }
+    };
+    checkTerms();
+  }, []);
+
   const handleBegin = () => {
     if (consentAccepted) {
       dispatch({ type: 'BEGIN' });
     }
+  };
+
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
   };
   
   return (
@@ -75,7 +104,8 @@ export const IntroScreen: React.FC = () => {
             type="checkbox"
             checked={consentAccepted}
             onChange={(e) => setConsentAccepted(e.target.checked)}
-            style={{ marginTop: '4px', accentColor: 'var(--gold)', width: '16px', height: '16px', cursor: 'pointer' }}
+            disabled={checkingConsent}
+            style={{ marginTop: '4px', accentColor: 'var(--gold)', width: '16px', height: '16px', cursor: checkingConsent ? 'wait' : 'pointer' }}
           />
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--faded)', lineHeight: '1.5' }}>
             I agree to the{' '}
@@ -97,6 +127,11 @@ export const IntroScreen: React.FC = () => {
               Privacy Policy
             </a>
             , and consent to the processing of my responses as described therein.
+            {termsAcceptedAt && (
+              <span style={{ display: 'block', marginTop: '4px', color: 'var(--active)', fontSize: '0.65rem' }}>
+                Previously accepted on {formatDate(termsAcceptedAt)}
+              </span>
+            )}
           </span>
         </label>
       </div>
