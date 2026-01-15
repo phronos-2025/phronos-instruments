@@ -31,49 +31,7 @@ router = APIRouter()
 
 
 # ============================================
-# FORWARDED ROUTES (to unified games router)
-# ============================================
-
-@router.post("/", response_model=CreateBridgingGameResponse)
-async def create_bridging_game(
-    request: CreateBridgingGameRequest,
-    auth = Depends(get_authenticated_client)
-):
-    """Create a new bridging game."""
-    return await games_create_bridging(request, auth)
-
-
-@router.get("/{game_id}", response_model=BridgingGameResponse)
-async def get_bridging_game(
-    game_id: str,
-    auth = Depends(get_authenticated_client)
-):
-    """Get bridging game details."""
-    return await games_get_bridging(game_id, auth)
-
-
-@router.post("/{game_id}/clues", response_model=SubmitBridgingCluesResponse)
-async def submit_bridging_clues(
-    game_id: str,
-    request: SubmitBridgingCluesRequest,
-    auth = Depends(get_authenticated_client)
-):
-    """Submit clues for a bridging game."""
-    return await games_submit_clues(game_id, request, auth)
-
-
-@router.post("/{game_id}/bridge", response_model=SubmitBridgingBridgeResponse)
-async def submit_bridging_bridge(
-    game_id: str,
-    request: SubmitBridgingBridgeRequest,
-    auth = Depends(get_authenticated_client)
-):
-    """Submit recipient's bridge (V2: bridge-vs-bridge)."""
-    return await games_submit_bridge(game_id, request, auth)
-
-
-# ============================================
-# UTILITY ROUTES (not in games router)
+# UTILITY ROUTES (must be defined BEFORE parameterized routes)
 # ============================================
 
 @router.get("/suggest", response_model=SuggestWordResponse)
@@ -179,3 +137,46 @@ async def get_semantic_distance(
             "distance": 78.0,
             "interpretation": "average"
         }
+
+
+# ============================================
+# FORWARDED ROUTES (to unified games router)
+# These MUST come AFTER static routes like /suggest and /distance
+# ============================================
+
+@router.post("/", response_model=CreateBridgingGameResponse)
+async def create_bridging_game(
+    request: CreateBridgingGameRequest,
+    auth = Depends(get_authenticated_client)
+):
+    """Create a new bridging game."""
+    return await games_create_bridging(request, auth)
+
+
+@router.get("/{game_id}", response_model=BridgingGameResponse)
+async def get_bridging_game(
+    game_id: str,
+    auth = Depends(get_authenticated_client)
+):
+    """Get bridging game details."""
+    return await games_get_bridging(game_id, auth)
+
+
+@router.post("/{game_id}/clues", response_model=SubmitBridgingCluesResponse)
+async def submit_bridging_clues(
+    game_id: str,
+    request: SubmitBridgingCluesRequest,
+    auth = Depends(get_authenticated_client)
+):
+    """Submit clues for a bridging game."""
+    return await games_submit_clues(game_id, request, auth)
+
+
+@router.post("/{game_id}/bridge", response_model=SubmitBridgingBridgeResponse)
+async def submit_bridging_bridge(
+    game_id: str,
+    request: SubmitBridgingBridgeRequest,
+    auth = Depends(get_authenticated_client)
+):
+    """Submit recipient's bridge (V2: bridge-vs-bridge)."""
+    return await games_submit_bridge(game_id, request, auth)
