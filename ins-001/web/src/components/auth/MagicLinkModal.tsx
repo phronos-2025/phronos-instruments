@@ -26,19 +26,32 @@ export const MagicLinkModal: React.FC<MagicLinkModalProps> = ({ isOpen, onClose 
     e.preventDefault();
     setIsLoading(true);
     setError(null);
-    
+
     try {
-      // Store the current path to return to after authentication
-      const returnPath = window.location.pathname;
+      // Check if user is currently anonymous
+      const { data: { user } } = await supabase.auth.getUser();
 
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?returnTo=${encodeURIComponent(returnPath)}`
-        }
-      });
+      if (user?.is_anonymous) {
+        // For anonymous users, use updateUser to link email while preserving user ID
+        // This keeps all existing games linked to this user
+        const { error } = await supabase.auth.updateUser(
+          { email },
+          { emailRedirectTo: `${window.location.origin}/auth/callback?returnTo=${encodeURIComponent(window.location.pathname)}` }
+        );
 
-      if (error) throw error;
+        if (error) throw error;
+      } else {
+        // For non-anonymous users (shouldn't happen but fallback)
+        const returnPath = window.location.pathname;
+        const { error } = await supabase.auth.signInWithOtp({
+          email,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback?returnTo=${encodeURIComponent(returnPath)}`
+          }
+        });
+
+        if (error) throw error;
+      }
 
       setSent(true);
     } catch (err) {

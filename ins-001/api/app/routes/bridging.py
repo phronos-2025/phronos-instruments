@@ -15,6 +15,7 @@ from app.models import (
     SubmitBridgingBridgeRequest, SubmitBridgingBridgeResponse,
     BridgingGameResponse, GameStatus, RecipientType,
     SuggestWordResponse, CreateBridgingShareResponse,
+    JoinBridgingGameResponseV2,
     ErrorResponse,
 )
 from app.middleware.auth import get_authenticated_client
@@ -137,6 +138,83 @@ async def get_semantic_distance(
             "distance": 78.0,
             "interpretation": "average"
         }
+
+
+@router.post("/join-v2/{share_code}", response_model=JoinBridgingGameResponseV2)
+async def join_bridging_game_v2(
+    share_code: str,
+    auth = Depends(get_authenticated_client)
+):
+    """
+    Join a bridging game via share code (V2: bridge-vs-bridge).
+
+    Looks up game by share_code, assigns recipient, and returns game info
+    for the recipient to create their own bridge.
+    """
+    supabase, user = auth
+
+    # Find game by share_code in setup JSONB
+    try:
+        result = supabase.table("games") \
+            .select("*") \
+            .eq("game_type", "bridging") \
+            .execute()
+
+        # Filter for matching share_code in setup
+        game = None
+        for g in result.data or []:
+            setup = g.get("setup", {})
+            if setup.get("share_code") == share_code:
+                game = g
+                break
+
+        if not game:
+            raise HTTPException(
+                status_code=404,
+                detail={"error": "Game not found", "detail": "Invalid or expired share code"}
+            )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"join_bridging_game_v2 error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "Failed to join game"}
+        )
+
+    # Check if game already has a recipient (and it's not this user)
+    if game.get("recipient_id") and game["recipient_id"] != user["id"]:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "Game already has a recipient"}
+        )
+
+    # Prevent sender from joining their own game
+    if game["sender_id"] == user["id"]:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "Cannot join your own game"}
+        )
+
+    # Assign recipient if not already set
+    if not game.get("recipient_id"):
+        supabase.table("games").update({
+            "recipient_id": user["id"],
+            "recipient_type": "human"
+        }).eq("id", game["id"]).execute()
+
+    # Get setup data
+    setup = game.get("setup", {})
+    sender_input = game.get("sender_input", {})
+    clues = sender_input.get("clues", [])
+
+    return JoinBridgingGameResponseV2(
+        game_id=game["id"],
+        anchor_word=setup.get("anchor_word", ""),
+        target_word=setup.get("target_word", ""),
+        sender_clue_count=len(clues)
+    )
 
 
 # ============================================

@@ -20,6 +20,14 @@ CREATE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW EXECUTE FUNCTION sync_user_anonymous_status();
 
+-- Also sync on UPDATE (for anonymous-to-registered conversion)
+DROP TRIGGER IF EXISTS on_auth_user_updated ON auth.users;
+CREATE TRIGGER on_auth_user_updated
+    AFTER UPDATE OF is_anonymous ON auth.users
+    FOR EACH ROW
+    WHEN (OLD.is_anonymous IS DISTINCT FROM NEW.is_anonymous)
+    EXECUTE FUNCTION sync_user_anonymous_status();
+
 -- Get noise floor by embedding (for open seed mode)
 CREATE OR REPLACE FUNCTION get_noise_floor_by_embedding(
     seed_embedding halfvec(1536),

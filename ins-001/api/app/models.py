@@ -248,6 +248,14 @@ class CreateBridgingShareResponse(BaseModel):
     share_url: str
 
 
+class JoinBridgingGameResponseV2(BaseModel):
+    """Response when joining a bridging game via share code (V2: bridge-vs-bridge)."""
+    game_id: str
+    anchor_word: str
+    target_word: str
+    sender_clue_count: int
+
+
 class SubmitBridgingBridgeRequest(BaseModel):
     """Request to submit recipient's bridge (V2: bridge-vs-bridge)."""
     clues: list[str] = Field(min_length=1, max_length=5)

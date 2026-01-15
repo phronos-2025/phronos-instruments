@@ -592,14 +592,10 @@ async def submit_bridging_clues(
 
     async def get_lexical_bridge():
         try:
-            result = supabase.rpc("get_statistical_union", {
-                "anchor_word": anchor,
-                "target_word": target,
-                "k": len(clues_clean)
-            }).execute()
-            return [row["word"] for row in result.data] if result.data else []
+            from app.services.scoring_bridging import find_lexical_union
+            return await find_lexical_union(anchor, target, len(clues_clean), supabase)
         except Exception as e:
-            print(f"Warning: get_statistical_union failed: {e}")
+            print(f"Warning: find_lexical_union failed: {e}")
             return []  # Return empty list as fallback
 
     # Parallel execution
