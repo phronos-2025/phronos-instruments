@@ -12,8 +12,8 @@ from pathlib import Path
 # ============================================
 
 APP_ENV = os.environ.get("APP_ENV", "development")
-APP_URL = os.environ.get("APP_URL", "http://localhost:8000")  # API URL
-FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:4321")  # Frontend URL for share links
+APP_URL = os.environ.get("APP_URL", "http://localhost:8000").rstrip('/')  # API URL
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:4321").rstrip('/')  # Frontend URL for share links
 
 # Supabase
 SUPABASE_URL = os.environ["SUPABASE_URL"]

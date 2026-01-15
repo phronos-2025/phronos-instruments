@@ -434,6 +434,21 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
           </div>
         </div>
 
+        {/* Section: Your Clues */}
+        <div
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.6rem',
+            color: 'var(--faded)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+            marginBottom: 'var(--space-xs)',
+            marginTop: 'var(--space-md)',
+          }}
+        >
+          Your Clues
+        </div>
+
         {/* Axis scale */}
         <div style={{ marginLeft: '92px', marginRight: '12px', marginBottom: 'var(--space-sm)' }}>
           <div
@@ -484,7 +499,26 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
             isYou
           />
 
-          {/* Haiku row */}
+          {/* Section: Guesses from your clues */}
+          {(hasHaikuData || (game.noise_floor && game.noise_floor.length > 0)) && (
+            <div
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.6rem',
+                color: 'var(--faded)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                marginBottom: 'var(--space-xs)',
+                marginTop: 'var(--space-lg)',
+                paddingTop: 'var(--space-md)',
+                borderTop: '1px solid var(--border)',
+              }}
+            >
+              Guesses (from your clues)
+            </div>
+          )}
+
+          {/* Haiku row - these are GUESSES of the target, not clues */}
           {hasHaikuData && (
             <DotPlotRow
               label="Haiku"
@@ -496,12 +530,29 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
 
           {/* Statistical row - using noise floor as baseline */}
           {game.noise_floor && game.noise_floor.length > 0 && (
-            <DotPlotRow
-              label="Statistical"
-              concepts={game.noise_floor.slice(0, 5).map(w => w.word)}
-              relevance={game.noise_floor.reduce((sum, w) => sum + w.similarity * 100, 0) / game.noise_floor.length}
-              spread={50} // Noise floor is designed to have moderate spread
-            />
+            <>
+              <div
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '0.6rem',
+                  color: 'var(--faded)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  marginBottom: 'var(--space-xs)',
+                  marginTop: 'var(--space-lg)',
+                  paddingTop: 'var(--space-md)',
+                  borderTop: '1px solid var(--border)',
+                }}
+              >
+                Noise Floor (predictable associations)
+              </div>
+              <DotPlotRow
+                label="Statistical"
+                concepts={game.noise_floor.slice(0, 5).map(w => w.word)}
+                relevance={game.noise_floor.reduce((sum, w) => sum + w.similarity * 100, 0) / game.noise_floor.length}
+                spread={50} // Noise floor is designed to have moderate spread
+              />
+            </>
           )}
 
           {/* Human row */}
@@ -530,11 +581,23 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
             lineHeight: '1.7',
           }}
         >
-          Your associations show {spreadInterpretation.toLowerCase()} spread ({Math.round(spreadDisplay)})
-          with {relevanceInterpretation.toLowerCase()} relevance ({Math.round(relevanceDisplay)}) to the target concept.
-          {spreadDisplay > 60 && relevanceDisplay > 50 && ' This indicates creative but valid associations.'}
-          {spreadDisplay < 40 && relevanceDisplay > 50 && ' This indicates conventional, predictable associations.'}
-          {relevanceDisplay < 40 && ' The associations may be too distant from the target concept.'}
+          <p style={{ marginBottom: 'var(--space-sm)' }}>
+            Your clues show {spreadInterpretation.toLowerCase()} spread ({Math.round(spreadDisplay)})
+            with {relevanceInterpretation.toLowerCase()} relevance ({Math.round(relevanceDisplay)}) to the target concept.
+            {spreadDisplay > 60 && relevanceDisplay > 50 && ' This indicates creative but valid associations.'}
+            {spreadDisplay < 40 && relevanceDisplay > 50 && ' This indicates conventional, predictable associations.'}
+            {relevanceDisplay < 40 && ' The associations may be too distant from the target concept.'}
+          </p>
+          {hasHaikuData && (
+            <p style={{ marginBottom: 0, fontSize: '0.8rem' }}>
+              Haiku guessed "{game.guesses?.join(', ')}" from your clues —
+              {haikuRelevance > 70
+                ? ' accurately inferring the target.'
+                : haikuRelevance > 40
+                  ? ' getting close to the target.'
+                  : ' struggling to identify the target.'}
+            </p>
+          )}
         </div>
       </Panel>
 
