@@ -25,9 +25,12 @@ CREATE POLICY model_versions_public_read ON model_versions
 CREATE POLICY games_sender ON games
     FOR ALL USING (sender_id = auth.uid());
 
--- Games: recipient can read
-CREATE POLICY games_recipient ON games
+-- Games: recipient can read and update (for submitting their bridge/guesses)
+CREATE POLICY games_recipient_select ON games
     FOR SELECT USING (recipient_id = auth.uid());
+
+CREATE POLICY games_recipient_update ON games
+    FOR UPDATE USING (recipient_id = auth.uid());
 
 -- Share tokens: public read (needed for join flow)
 CREATE POLICY share_tokens_public_read ON share_tokens

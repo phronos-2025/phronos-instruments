@@ -158,8 +158,8 @@ function DotPlotRow({ label, concepts, relevance, spread, isYou, anchorWord, tar
           <div
             style={{
               position: 'absolute',
-              left: `${scale(relevance)}%`,
-              width: `${Math.max(0, scale(spread) - scale(relevance))}%`,
+              left: `${Math.min(scale(relevance), scale(spread))}%`,
+              width: `${Math.abs(scale(spread) - scale(relevance))}%`,
               top: '50%',
               height: '2px',
               backgroundColor: 'var(--gold)',
