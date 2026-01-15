@@ -1,7 +1,7 @@
 ---
 /**
  * Instrument Layout - Full Width Container
- * 
+ *
  * Matches mockup: fixed navigation, full-width content
  */
 
@@ -13,9 +13,24 @@ interface Props {
   title: string;
   version?: string;
   status?: 'live' | 'calibrating';
+  description?: string;
+  keywords?: string;
+  canonicalPath?: string;
 }
 
-const { id, title, version = '0.1', status = 'live' } = Astro.props;
+const {
+  id,
+  title,
+  version = '0.1',
+  status = 'live',
+  description,
+  keywords,
+  canonicalPath
+} = Astro.props;
+
+const pageDescription = description || `${id} ${title} - Measure how you think. A Phronos cognitive assessment instrument.`;
+const pageKeywords = keywords || `${title.toLowerCase()}, cognitive assessment, Phronos instruments, cognition measurement, semantic cartography`;
+const canonicalUrl = canonicalPath ? `https://instruments.phronos.org${canonicalPath}` : undefined;
 ---
 
 <!doctype html>
@@ -23,9 +38,40 @@ const { id, title, version = '0.1', status = 'live' } = Astro.props;
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Primary Meta Tags -->
+    <title>{title} | Phronos Instruments</title>
+    <meta name="title" content={`${title} | Phronos Instruments`} />
+    <meta name="description" content={pageDescription} />
+    <meta name="keywords" content={pageKeywords} />
+    <meta name="author" content="Phronos" />
+    <meta name="robots" content="index, follow" />
+
+    <!-- Canonical URL -->
+    {canonicalUrl && <link rel="canonical" href={canonicalUrl} />}
+
+    <!-- Favicons -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="description" content={`${id} ${title} - Measure how you think`} />
-    <title>{title} | Phronos</title>
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/favicon.png" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    {canonicalUrl && <meta property="og:url" content={canonicalUrl} />}
+    <meta property="og:title" content={`${id} ${title} | Phronos Instruments`} />
+    <meta property="og:description" content={pageDescription} />
+    <meta property="og:site_name" content="Phronos Instruments" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    {canonicalUrl && <meta property="twitter:url" content={canonicalUrl} />}
+    <meta property="twitter:title" content={`${id} ${title} | Phronos Instruments`} />
+    <meta property="twitter:description" content={pageDescription} />
+
+    <!-- Theme Color -->
+    <meta name="theme-color" content="#0D0D0D" />
+    <meta name="msapplication-TileColor" content="#0D0D0D" />
+
     <meta name="page-version" content="instrument-layout-v2.0" />
   </head>
   <body>
