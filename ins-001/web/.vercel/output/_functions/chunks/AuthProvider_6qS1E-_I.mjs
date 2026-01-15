@@ -1,6 +1,6 @@
 import { jsx } from 'react/jsx-runtime';
 import { createContext, useState, useEffect, useContext } from 'react';
-import { s as supabase } from './Button_DFORBRMv.mjs';
+import { s as supabase } from './Button_Cz7FVuKP.mjs';
 
 const AuthContext = createContext({
   session: null,

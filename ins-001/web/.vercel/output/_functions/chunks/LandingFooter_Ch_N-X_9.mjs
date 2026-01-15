@@ -2,8 +2,8 @@ import { e as createComponent, m as maybeRenderHead, n as renderComponent, l as 
 import 'piccolore';
 import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
 import { useState } from 'react';
-import { A as AuthProvider, u as useAuth } from './AuthProvider_DqxnARqy.mjs';
-import { M as MagicLinkModal } from './MagicLinkModal_CKjFIbjs.mjs';
+import { A as AuthProvider, u as useAuth } from './AuthProvider_6qS1E-_I.mjs';
+import { M as MagicLinkModal } from './MagicLinkModal_D2gjYZK1.mjs';
 /* empty css                         */
 import 'clsx';
 

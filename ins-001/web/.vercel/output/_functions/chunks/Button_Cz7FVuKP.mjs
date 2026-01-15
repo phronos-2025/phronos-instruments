@@ -1,17 +1,19 @@
-import { createClient } from '@supabase/supabase-js';
 import { jsxs, jsx } from 'react/jsx-runtime';
 import 'react';
 
-const supabaseUrl = undefined                                   ;
-const supabaseAnonKey = undefined                                        ;
-{
-  throw new Error("Missing Supabase environment variables: PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY");
+function getSupabaseClient() {
+  {
+    throw new Error("Missing Supabase environment variables: PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY");
+  }
 }
-const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true
+const supabase = new Proxy({}, {
+  get(_, prop) {
+    const client = getSupabaseClient();
+    const value = client[prop];
+    if (typeof value === "function") {
+      return value.bind(client);
+    }
+    return value;
   }
 });
 

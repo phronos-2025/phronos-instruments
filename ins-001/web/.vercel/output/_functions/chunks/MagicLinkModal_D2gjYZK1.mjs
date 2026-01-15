@@ -1,6 +1,6 @@
 import { jsx, jsxs } from 'react/jsx-runtime';
 import { useState } from 'react';
-import { P as Panel, B as Button, s as supabase } from './Button_DFORBRMv.mjs';
+import { P as Panel, B as Button, s as supabase } from './Button_Cz7FVuKP.mjs';
 
 const MagicLinkModal = ({ isOpen, onClose }) => {
   const [email, setEmail] = useState("");

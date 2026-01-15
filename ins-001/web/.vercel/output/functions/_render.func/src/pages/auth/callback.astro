@@ -31,16 +31,21 @@ import '../../styles/global.css';
 
       const statusEl = document.getElementById('status');
 
+      function showStatus(message: string, isError = false) {
+        if (statusEl) {
+          statusEl.textContent = message;
+          if (isError) {
+            statusEl.style.color = 'var(--alert)';
+          }
+        }
+      }
+
       async function handleCallback() {
         try {
-          console.log('[Auth Callback] Starting...');
-          console.log('[Auth Callback] URL hash:', window.location.hash);
-          console.log('[Auth Callback] URL search:', window.location.search);
 
           // Get the return path from query params (set when magic link was requested)
           const searchParams = new URLSearchParams(window.location.search);
           const returnTo = searchParams.get('returnTo') || '/';
-          console.log('[Auth Callback] Return path:', returnTo);
 
           // Check if we have a hash fragment with access_token or error
           const hash = window.location.hash;
@@ -51,12 +56,10 @@ import '../../styles/global.css';
           const errorDescription = params.get('error_description');
 
           if (errorCode) {
-            console.log('[Auth Callback] Error in hash:', errorCode, errorDescription);
             const message = errorDescription
               ? decodeURIComponent(errorDescription.replace(/\+/g, ' '))
               : 'Authentication failed';
-            statusEl.textContent = message;
-            statusEl.style.color = 'var(--alert)';
+            showStatus(message, true);
 
             setTimeout(() => {
               window.location.href = returnTo;
@@ -65,30 +68,22 @@ import '../../styles/global.css';
           }
 
           if (hash && hash.includes('access_token')) {
-            console.log('[Auth Callback] Found access_token in hash');
             const accessToken = params.get('access_token');
             const refreshToken = params.get('refresh_token');
 
-            console.log('[Auth Callback] Access token exists:', !!accessToken);
-            console.log('[Auth Callback] Refresh token exists:', !!refreshToken);
-
             if (accessToken && refreshToken) {
-              console.log('[Auth Callback] Setting session...');
               // Set the session manually
               const { data, error } = await supabase.auth.setSession({
                 access_token: accessToken,
                 refresh_token: refreshToken
               });
 
-              console.log('[Auth Callback] setSession result:', { data, error });
-
               if (error) {
                 throw error;
               }
 
               if (data.session) {
-                console.log('[Auth Callback] Session established, redirecting...');
-                statusEl.textContent = 'Signed in successfully! Redirecting...';
+                showStatus('Signed in successfully! Redirecting...');
 
                 // Clear the hash from URL for cleaner look
                 window.history.replaceState(null, '', window.location.pathname);
@@ -99,32 +94,24 @@ import '../../styles/global.css';
                 return;
               }
             }
-          } else {
-            console.log('[Auth Callback] No access_token in hash');
           }
 
           // Fallback: check if there's already a session
-          console.log('[Auth Callback] Checking existing session...');
           const { data: { session }, error } = await supabase.auth.getSession();
-
-          console.log('[Auth Callback] getSession result:', { session, error });
 
           if (error) {
             throw error;
           }
 
           if (session) {
-            console.log('[Auth Callback] Existing session found, redirecting...');
-            statusEl.textContent = 'Signed in successfully! Redirecting...';
+            showStatus('Signed in successfully! Redirecting...');
 
             setTimeout(() => {
               window.location.href = returnTo;
             }, 1500);
           } else {
-            console.log('[Auth Callback] No session found');
             // No session found - might be expired or invalid link
-            statusEl.textContent = 'Link expired or invalid. Redirecting...';
-            statusEl.style.color = 'var(--alert)';
+            showStatus('Link expired or invalid. Redirecting...', true);
 
             setTimeout(() => {
               window.location.href = returnTo;
@@ -132,16 +119,27 @@ import '../../styles/global.css';
           }
         } catch (err) {
           console.error('Auth callback error:', err);
-          statusEl.textContent = `Error: ${err.message}`;
-          statusEl.style.color = 'var(--alert)';
+          const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+          showStatus(`Error: ${errorMessage}`, true);
 
+          // returnTo might not be defined if error happened early
           setTimeout(() => {
-            window.location.href = returnTo;
+            window.location.href = '/';
           }, 3000);
         }
       }
 
-      handleCallback();
+      handleCallback().catch((err) => {
+        console.error('Unhandled auth callback error:', err);
+        const statusEl = document.getElementById('status');
+        if (statusEl) {
+          statusEl.textContent = 'Authentication error. Redirecting...';
+          statusEl.style.color = 'var(--alert)';
+        }
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 2000);
+      });
     </script>
 
     <style>

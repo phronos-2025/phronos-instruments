@@ -1,6 +1,6 @@
 import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
 import { useRef, useEffect, useState } from 'react';
-import { u as useAuth } from './AuthProvider_DqxnARqy.mjs';
+import { u as useAuth } from './AuthProvider_6qS1E-_I.mjs';
 
 const COLORS = {
   light: {

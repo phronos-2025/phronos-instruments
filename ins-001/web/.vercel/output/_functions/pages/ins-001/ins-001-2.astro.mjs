@@ -1,14 +1,14 @@
 import { e as createComponent, n as renderComponent, r as renderTemplate } from '../../chunks/astro/server_CE_9OsnW.mjs';
 import 'piccolore';
-import { a as api, $ as $$InstrumentLayout } from '../../chunks/api_BU-QsgYZ.mjs';
+import { a as api, $ as $$InstrumentLayout } from '../../chunks/api_Dy06Aq6W.mjs';
 import { jsxs, jsx } from 'react/jsx-runtime';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { a as useBridgingSenderState, b as BridgingSenderProvider } from '../../chunks/bridging-state_-XJ2qkac.mjs';
-import { A as AuthProvider } from '../../chunks/AuthProvider_DqxnARqy.mjs';
-import { N as Navigation } from '../../chunks/Navigation_CCvfDsjT.mjs';
-import { P as Panel, B as Button, s as supabase } from '../../chunks/Button_DFORBRMv.mjs';
+import { A as AuthProvider } from '../../chunks/AuthProvider_6qS1E-_I.mjs';
+import { N as Navigation } from '../../chunks/Navigation_CH610L6S.mjs';
+import { P as Panel, B as Button, s as supabase } from '../../chunks/Button_Cz7FVuKP.mjs';
 import { P as ProgressBar, S as ShareLinkBox } from '../../chunks/ShareLinkBox_DYxLMesC.mjs';
-import { M as MagicLinkModal } from '../../chunks/MagicLinkModal_CKjFIbjs.mjs';
+import { M as MagicLinkModal } from '../../chunks/MagicLinkModal_D2gjYZK1.mjs';
 export { renderers } from '../../renderers.mjs';
 
 const BridgingIntroScreen = () => {
