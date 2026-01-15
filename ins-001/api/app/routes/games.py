@@ -103,12 +103,12 @@ def _parse_embedding(embedding, word: str) -> list[float] | None:
 
 def _extract_radiation_response(game: dict) -> RadiationGameResponse:
     """Extract radiation game response from unified game record."""
-    setup = game.get("setup", {})
-    sender_input = game.get("sender_input", {})
-    recipient_input = game.get("recipient_input", {})
-    sender_scores = game.get("sender_scores", {})
-    recipient_scores = game.get("recipient_scores", {})
-    baselines = game.get("baselines", {})
+    setup = game.get("setup") or {}
+    sender_input = game.get("sender_input") or {}
+    recipient_input = game.get("recipient_input") or {}
+    sender_scores = game.get("sender_scores") or {}
+    recipient_scores = game.get("recipient_scores") or {}
+    baselines = game.get("baselines") or {}
 
     return RadiationGameResponse(
         game_id=game["id"],
@@ -146,12 +146,12 @@ def _extract_radiation_response(game: dict) -> RadiationGameResponse:
 
 def _extract_bridging_response(game: dict) -> BridgingGameResponse:
     """Extract bridging game response from unified game record."""
-    setup = game.get("setup", {})
-    sender_input = game.get("sender_input", {})
-    recipient_input = game.get("recipient_input", {})
-    sender_scores = game.get("sender_scores", {})
-    recipient_scores = game.get("recipient_scores", {})
-    baselines = game.get("baselines", {})
+    setup = game.get("setup") or {}
+    sender_input = game.get("sender_input") or {}
+    recipient_input = game.get("recipient_input") or {}
+    sender_scores = game.get("sender_scores") or {}
+    recipient_scores = game.get("recipient_scores") or {}
+    baselines = game.get("baselines") or {}
 
     return BridgingGameResponse(
         game_id=game["id"],
@@ -445,10 +445,10 @@ async def submit_radiation_guesses(
         raise HTTPException(status_code=404, detail={"error": "Game not found or not in correct state"})
 
     game = result.data
-    setup = game.get("setup", {})
-    sender_input = game.get("sender_input", {})
+    setup = game.get("setup") or {}
+    sender_input = game.get("sender_input") or {}
     seed_word = setup.get("seed_word", "")
-    clues = sender_input.get("clues", [])
+    clues = sender_input.get("clues") or []
 
     # Compute convergence
     seed_emb = await get_contextual_embedding(seed_word, clues)
@@ -728,13 +728,13 @@ async def submit_bridging_bridge(
         raise HTTPException(status_code=404, detail={"error": "Game not found or not in correct state"})
 
     game = result.data
-    setup = game.get("setup", {})
-    sender_input = game.get("sender_input", {})
-    sender_scores = game.get("sender_scores", {})
-    baselines = game.get("baselines", {})
+    setup = game.get("setup") or {}
+    sender_input = game.get("sender_input") or {}
+    sender_scores = game.get("sender_scores") or {}
+    baselines = game.get("baselines") or {}
     anchor = setup.get("anchor_word", "")
     target = setup.get("target_word", "")
-    sender_clues = sender_input.get("clues", [])
+    sender_clues = sender_input.get("clues") or []
 
     cache = EmbeddingCache.get_instance()
 
