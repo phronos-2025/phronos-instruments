@@ -7,6 +7,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { PhronosLogo } from './PhronosLogo';
+import { useAuth } from '../auth/AuthProvider';
 
 interface NavigationProps {
   instrumentId?: string;
@@ -18,6 +19,11 @@ export const Navigation: React.FC<NavigationProps> = ({
   instrumentTitle = 'SIGNAL'
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { user } = useAuth();
+
+  // Check if user is registered (has email, not anonymous)
+  const isRegistered = user?.email && !user?.is_anonymous;
+  const displayEmail = user?.email ? (user.email.length > 20 ? user.email.slice(0, 17) + '...' : user.email) : null;
 
   // Lock body scroll when mobile menu is open
   useEffect(() => {
@@ -54,9 +60,18 @@ export const Navigation: React.FC<NavigationProps> = ({
           <li><a href="https://instruments.phronos.org" className="nav-link nav-link-active">Instruments</a></li>
         </ul>
 
-        <div className="nav-status">
-          <span className="status-dot"></span>
-          <span className="status-text">{instrumentId} {instrumentTitle}</span>
+        <div className="nav-right">
+          {isRegistered && (
+            <div className="nav-user">
+              <span className="nav-user-email" title={user?.email || ''}>
+                {displayEmail}
+              </span>
+            </div>
+          )}
+          <div className="nav-status">
+            <span className="status-dot"></span>
+            <span className="status-text">{instrumentId} {instrumentTitle}</span>
+          </div>
         </div>
 
         <button
@@ -99,6 +114,12 @@ export const Navigation: React.FC<NavigationProps> = ({
             Instruments
           </a>
         </div>
+
+        {isRegistered && (
+          <div className="nav-mobile-user">
+            <span className="nav-mobile-user-email">{user?.email}</span>
+          </div>
+        )}
 
         <div className="nav-mobile-status">
           <span className="status-dot"></span>

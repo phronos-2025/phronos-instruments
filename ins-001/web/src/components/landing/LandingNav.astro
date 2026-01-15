@@ -5,6 +5,7 @@
  */
 
 import { PhronosLogo } from '../ui/PhronosLogo';
+import { NavAuthButton } from '../auth/NavAuthButton';
 ---
 
 <nav class="nav">
@@ -20,9 +21,7 @@ import { PhronosLogo } from '../ui/PhronosLogo';
     <li><a href="/" class="nav-link active">Instruments</a></li>
   </ul>
 
-  <a href="https://phronos.substack.com/subscribe" class="nav-subscribe nav-subscribe-desktop">
-    Subscribe
-  </a>
+  <NavAuthButton client:load variant="desktop" />
 
   <button class="nav-hamburger" aria-label="Open menu">
     <span></span>
@@ -51,9 +50,7 @@ import { PhronosLogo } from '../ui/PhronosLogo';
     <a href="/" class="nav-mobile-link active">Instruments</a>
   </div>
 
-  <a href="https://phronos.substack.com/subscribe" class="nav-mobile-subscribe">
-    Subscribe
-  </a>
+  <NavAuthButton client:load variant="mobile" />
 </div>
 
 <script>
@@ -327,5 +324,34 @@ import { PhronosLogo } from '../ui/PhronosLogo';
   .nav-mobile-subscribe:hover {
     background: var(--gold);
     border-color: var(--gold);
+  }
+
+  /* Auth User Display */
+  .nav-auth-user {
+    display: flex;
+    align-items: center;
+  }
+
+  .nav-auth-email {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--active);
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .nav-mobile-auth-user {
+    margin-top: auto;
+    padding: var(--space-md);
+    text-align: center;
+    border-top: 1px solid var(--faded-light);
+  }
+
+  .nav-mobile-auth-email {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--active);
   }
 </style>
