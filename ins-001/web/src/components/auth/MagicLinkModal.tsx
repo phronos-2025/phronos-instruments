@@ -34,33 +34,29 @@ export const MagicLinkModal: React.FC<MagicLinkModalProps> = ({ isOpen, onClose 
       // Check if user is currently anonymous
       const { data: { user } } = await supabase.auth.getUser();
 
-      if (user?.is_anonymous) {
-        // For anonymous users, use updateUser to link email while preserving user ID
-        // This keeps all existing games linked to this user
-        const { error } = await supabase.auth.updateUser(
-          { email },
-          { emailRedirectTo: `${window.location.origin}/auth/callback?returnTo=${encodeURIComponent(window.location.pathname)}` }
-        );
+      // Store the current anonymous user ID for game transfer after sign-in
+      if (user?.is_anonymous && user.id) {
+        localStorage.setItem('pendingGameTransfer', user.id);
+        console.log('handleSubmit: Stored pendingGameTransfer =', user.id);
+      }
 
-        if (error) {
-          // Check if the error is because email already exists
-          if (error.message.includes('already been registered') || error.message.includes('already exists')) {
-            setEmailExists(true);
-            return;
-          }
-          throw error;
+      // Always use signInWithOtp to send a proper magic link email
+      // For anonymous users, the callback will handle linking/transferring games
+      const returnPath = window.location.pathname;
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback?returnTo=${encodeURIComponent(returnPath)}`
         }
-      } else {
-        // For non-anonymous users (shouldn't happen but fallback)
-        const returnPath = window.location.pathname;
-        const { error } = await supabase.auth.signInWithOtp({
-          email,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback?returnTo=${encodeURIComponent(returnPath)}`
-          }
-        });
+      });
 
-        if (error) throw error;
+      if (error) {
+        // Check if the error is because email already exists (user needs to sign in)
+        if (error.message.includes('already been registered') || error.message.includes('already exists')) {
+          setEmailExists(true);
+          return;
+        }
+        throw error;
       }
 
       setSent(true);
