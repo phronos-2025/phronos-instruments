@@ -361,7 +361,14 @@ async def submit_radiation_clues(
     radiation_scores = score_radiation(clue_embeddings, seed_emb)
     divergence_raw = compute_divergence(clue_embeddings, floor_embeddings)
 
+    # Build sender input with optional timing data
     sender_input = {"clues": clues_clean}
+    if request.clue_timings:
+        sender_input["clue_timings"] = [
+            {"word": t.word, "first_entered_ms": t.first_entered_ms, "last_modified_ms": t.last_modified_ms}
+            for t in request.clue_timings
+        ]
+
     sender_scores = {
         "divergence": radiation_scores["divergence"],  # 0-100 DAT-style
         "divergence_raw": divergence_raw,  # Legacy 0-1
@@ -621,7 +628,14 @@ async def submit_bridging_clues(
     # Score sender's clues
     sender_scores_dict = score_bridging(clue_embeddings, anchor_emb, target_emb)
 
+    # Build sender input with optional timing data
     sender_input = {"clues": clues_clean}
+    if request.clue_timings:
+        sender_input["clue_timings"] = [
+            {"word": t.word, "first_entered_ms": t.first_entered_ms, "last_modified_ms": t.last_modified_ms}
+            for t in request.clue_timings
+        ]
+
     sender_scores = {
         "relevance": sender_scores_dict["relevance"],
         "relevance_percentile": sender_scores_dict.get("relevance_percentile"),
@@ -785,9 +799,17 @@ async def submit_bridging_bridge(
     recipient_scores_dict = score_bridging(recipient_embs, anchor_emb, target_emb)
     bridge_sim = compute_bridge_similarity(sender_embs, recipient_embs)
 
+    # Build recipient input with optional timing data
+    recipient_input = {"clues": clues_clean}
+    if request.clue_timings:
+        recipient_input["clue_timings"] = [
+            {"word": t.word, "first_entered_ms": t.first_entered_ms, "last_modified_ms": t.last_modified_ms}
+            for t in request.clue_timings
+        ]
+
     # Update game
     supabase.table("games").update({
-        "recipient_input": {"clues": clues_clean},
+        "recipient_input": recipient_input,
         "recipient_scores": {
             "relevance": recipient_scores_dict["relevance"],
             "divergence": recipient_scores_dict["divergence"],

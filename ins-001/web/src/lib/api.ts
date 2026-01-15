@@ -48,8 +48,15 @@ export interface CreateGameResponse {
   seed_in_vocabulary?: boolean;
 }
 
+export interface ClueTiming {
+  word: string;
+  first_entered_ms: number;
+  last_modified_ms: number;
+}
+
 export interface SubmitCluesRequest {
   clues: string[];
+  clue_timings?: ClueTiming[];
 }
 
 export interface SubmitCluesResponse {
@@ -136,6 +143,7 @@ export interface CreateBridgingGameResponse {
 
 export interface SubmitBridgingCluesRequest {
   clues: string[];
+  clue_timings?: ClueTiming[];
 }
 
 export interface SubmitBridgingCluesResponse {
@@ -292,6 +300,7 @@ export interface JoinBridgingGameResponseV2 {
 
 export interface SubmitBridgingBridgeRequest {
   clues: string[];
+  clue_timings?: ClueTiming[];
 }
 
 export interface SubmitBridgingBridgeResponse {

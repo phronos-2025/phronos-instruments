@@ -5,9 +5,10 @@
  * Real-time validation with visual feedback (green check / red X).
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useBridgingSenderState } from '../../../lib/bridging-state';
 import { api } from '../../../lib/api';
+import type { ClueTiming } from '../../../lib/api';
 import { Button } from '../../ui/Button';
 import { ProgressBar } from '../../ui/ProgressBar';
 
@@ -60,6 +61,11 @@ interface ConceptValidation {
   error?: string;
 }
 
+interface ConceptTiming {
+  firstEnteredMs: number | null;
+  lastModifiedMs: number | null;
+}
+
 export const BridgingStepsScreen: React.FC<BridgingStepsScreenProps> = ({
   gameId,
   anchor,
@@ -70,11 +76,40 @@ export const BridgingStepsScreen: React.FC<BridgingStepsScreenProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Timing tracking
+  const screenLoadTime = useRef<number>(Date.now());
+  const [timings, setTimings] = useState<ConceptTiming[]>([
+    { firstEnteredMs: null, lastModifiedMs: null },
+    { firstEnteredMs: null, lastModifiedMs: null },
+    { firstEnteredMs: null, lastModifiedMs: null },
+    { firstEnteredMs: null, lastModifiedMs: null },
+    { firstEnteredMs: null, lastModifiedMs: null },
+  ]);
+
+  // Reset screen load time when component mounts
+  useEffect(() => {
+    screenLoadTime.current = Date.now();
+  }, []);
+
   const updateStep = (index: number, value: string) => {
     const newSteps = [...steps];
     newSteps[index] = value;
     setSteps(newSteps);
     setError(null); // Clear error when user types
+
+    // Update timing
+    const now = Date.now() - screenLoadTime.current;
+    setTimings(prev => {
+      const newTimings = [...prev];
+      if (value.trim() && newTimings[index].firstEnteredMs === null) {
+        // First character typed
+        newTimings[index] = { firstEnteredMs: now, lastModifiedMs: now };
+      } else if (value.trim()) {
+        // Subsequent modifications
+        newTimings[index] = { ...newTimings[index], lastModifiedMs: now };
+      }
+      return newTimings;
+    });
   };
 
   // Validate each concept in real-time
@@ -138,12 +173,23 @@ export const BridgingStepsScreen: React.FC<BridgingStepsScreenProps> = ({
 
     try {
       // Get only valid filled concepts
-      const validConcepts = steps
-        .filter((_, i) => validations[i].status === 'valid')
-        .map((c) => c.trim().toLowerCase());
+      const validIndices = steps
+        .map((_, i) => i)
+        .filter(i => validations[i].status === 'valid');
+
+      const validConcepts = validIndices.map(i => steps[i].trim().toLowerCase());
+
+      // Build timing data for valid concepts
+      const clueTimings: ClueTiming[] = validIndices
+        .map(i => ({
+          word: steps[i].trim().toLowerCase(),
+          first_entered_ms: timings[i].firstEnteredMs ?? 0,
+          last_modified_ms: timings[i].lastModifiedMs ?? 0,
+        }));
 
       const response = await api.bridging.submitClues(gameId, {
         clues: validConcepts,
+        clue_timings: clueTimings,
       });
 
       // If Haiku game and completed, go to results

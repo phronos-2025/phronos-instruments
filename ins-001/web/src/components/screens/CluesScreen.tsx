@@ -4,10 +4,10 @@
  * Noise floor visualization, 1-5 concept inputs with morphological validation
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useGameState } from '../../lib/state';
 import { api } from '../../lib/api';
-import type { NoiseFloorWord } from '../../lib/api';
+import type { NoiseFloorWord, ClueTiming } from '../../lib/api';
 import { Panel } from '../ui/Panel';
 import { Button } from '../ui/Button';
 import { ProgressBar } from '../ui/ProgressBar';
@@ -62,6 +62,11 @@ interface ConceptValidation {
   error?: string;
 }
 
+interface ConceptTiming {
+  firstEnteredMs: number | null;
+  lastModifiedMs: number | null;
+}
+
 export const CluesScreen: React.FC<CluesScreenProps> = ({
   gameId,
   noiseFloor,
@@ -72,11 +77,40 @@ export const CluesScreen: React.FC<CluesScreenProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Timing tracking
+  const screenLoadTime = useRef<number>(Date.now());
+  const [timings, setTimings] = useState<ConceptTiming[]>([
+    { firstEnteredMs: null, lastModifiedMs: null },
+    { firstEnteredMs: null, lastModifiedMs: null },
+    { firstEnteredMs: null, lastModifiedMs: null },
+    { firstEnteredMs: null, lastModifiedMs: null },
+    { firstEnteredMs: null, lastModifiedMs: null },
+  ]);
+
+  // Reset screen load time when component mounts
+  useEffect(() => {
+    screenLoadTime.current = Date.now();
+  }, []);
+
   const updateConcept = (index: number, value: string) => {
     const newConcepts = [...concepts];
     newConcepts[index] = value;
     setConcepts(newConcepts);
     setError(null);
+
+    // Update timing
+    const now = Date.now() - screenLoadTime.current;
+    setTimings(prev => {
+      const newTimings = [...prev];
+      if (value.trim() && newTimings[index].firstEnteredMs === null) {
+        // First character typed
+        newTimings[index] = { firstEnteredMs: now, lastModifiedMs: now };
+      } else if (value.trim()) {
+        // Subsequent modifications
+        newTimings[index] = { ...newTimings[index], lastModifiedMs: now };
+      }
+      return newTimings;
+    });
   };
 
   // Validate each concept in real-time
@@ -146,13 +180,24 @@ export const CluesScreen: React.FC<CluesScreenProps> = ({
 
     try {
       // Get only valid filled concepts (warnings are still valid)
-      const validConcepts = concepts
-        .filter((_, i) => validations[i].status === 'valid' || validations[i].status === 'warning')
-        .map((c) => c.trim());
+      const validIndices = concepts
+        .map((_, i) => i)
+        .filter(i => validations[i].status === 'valid' || validations[i].status === 'warning');
 
-      // Submit clues
+      const validConcepts = validIndices.map(i => concepts[i].trim());
+
+      // Build timing data for valid concepts
+      const clueTimings: ClueTiming[] = validIndices
+        .map(i => ({
+          word: concepts[i].trim(),
+          first_entered_ms: timings[i].firstEnteredMs ?? 0,
+          last_modified_ms: timings[i].lastModifiedMs ?? 0,
+        }));
+
+      // Submit clues with timing
       await api.games.submitClues(gameId, {
-        clues: validConcepts
+        clues: validConcepts,
+        clue_timings: clueTimings
       });
 
       // Fetch full game data and go directly to results (skip share screen)

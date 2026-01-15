@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://instruments.phronos.org/sitemap-index.xml

@@ -124,9 +124,17 @@ class CreateRadiationGameResponse(BaseModel):
     seed_in_vocabulary: Optional[bool] = None
 
 
+class ClueTiming(BaseModel):
+    """Timing data for a single clue entry."""
+    word: str
+    first_entered_ms: int = Field(ge=0, description="Time in ms from screen load to first character typed")
+    last_modified_ms: int = Field(ge=0, description="Time in ms from screen load to last modification")
+
+
 class SubmitRadiationCluesRequest(BaseModel):
     """Request to submit clues for a radiation game."""
     clues: list[str] = Field(min_length=1, max_length=10)
+    clue_timings: Optional[list[ClueTiming]] = Field(None, description="Timing data for each clue")
 
 
 class SubmitRadiationCluesResponse(BaseModel):
@@ -218,6 +226,7 @@ class CreateBridgingGameResponse(BaseModel):
 class SubmitBridgingCluesRequest(BaseModel):
     """Request to submit clues for a bridging game."""
     clues: list[str] = Field(min_length=1, max_length=5)
+    clue_timings: Optional[list[ClueTiming]] = Field(None, description="Timing data for each clue")
 
 
 class SubmitBridgingCluesResponse(BaseModel):
@@ -259,6 +268,7 @@ class JoinBridgingGameResponseV2(BaseModel):
 class SubmitBridgingBridgeRequest(BaseModel):
     """Request to submit recipient's bridge (V2: bridge-vs-bridge)."""
     clues: list[str] = Field(min_length=1, max_length=5)
+    clue_timings: Optional[list[ClueTiming]] = Field(None, description="Timing data for each clue")
 
 
 class SubmitBridgingBridgeResponse(BaseModel):
@@ -507,6 +517,7 @@ class RadiationSetup(BaseModel):
 class RadiationSenderInput(BaseModel):
     """JSONB schema for radiation sender input."""
     clues: list[str]
+    clue_timings: Optional[list[dict]] = None  # [{word, first_entered_ms, last_modified_ms}]
 
 
 class RadiationRecipientInput(BaseModel):
@@ -523,11 +534,13 @@ class BridgingSetup(BaseModel):
 class BridgingSenderInput(BaseModel):
     """JSONB schema for bridging sender input."""
     clues: list[str]
+    clue_timings: Optional[list[dict]] = None  # [{word, first_entered_ms, last_modified_ms}]
 
 
 class BridgingRecipientInput(BaseModel):
     """JSONB schema for bridging recipient input (V2: bridge-vs-bridge)."""
     clues: list[str]
+    clue_timings: Optional[list[dict]] = None  # [{word, first_entered_ms, last_modified_ms}]
 
 
 # ============================================

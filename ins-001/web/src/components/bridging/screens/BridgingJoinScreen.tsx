@@ -5,12 +5,18 @@
  * Their union is then compared to the sender's union.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useBridgingRecipientState } from '../../../lib/bridging-state';
 import { api } from '../../../lib/api';
+import type { ClueTiming } from '../../../lib/api';
 import { supabase } from '../../../lib/supabase';
 import { Panel } from '../../ui/Panel';
 import { Button } from '../../ui/Button';
+
+interface ConceptTiming {
+  firstEnteredMs: number | null;
+  lastModifiedMs: number | null;
+}
 
 interface BridgingJoinScreenProps {
   shareCode: string;
@@ -39,6 +45,16 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
   const [isLoading, setIsLoading] = useState(!initialGameId);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Timing tracking
+  const screenLoadTime = useRef<number>(Date.now());
+  const [timings, setTimings] = useState<ConceptTiming[]>([
+    { firstEnteredMs: null, lastModifiedMs: null },
+    { firstEnteredMs: null, lastModifiedMs: null },
+    { firstEnteredMs: null, lastModifiedMs: null },
+    { firstEnteredMs: null, lastModifiedMs: null },
+    { firstEnteredMs: null, lastModifiedMs: null },
+  ]);
 
   // Join game on mount using V2 endpoint
   useEffect(() => {
@@ -98,6 +114,20 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
     const newSteps = [...steps];
     newSteps[index] = value;
     setSteps(newSteps);
+
+    // Update timing
+    const now = Date.now() - screenLoadTime.current;
+    setTimings(prev => {
+      const newTimings = [...prev];
+      if (value.trim() && newTimings[index].firstEnteredMs === null) {
+        // First character typed
+        newTimings[index] = { firstEnteredMs: now, lastModifiedMs: now };
+      } else if (value.trim()) {
+        // Subsequent modifications
+        newTimings[index] = { ...newTimings[index], lastModifiedMs: now };
+      }
+      return newTimings;
+    });
   };
 
   // Get non-empty steps
@@ -128,8 +158,20 @@ export const BridgingJoinScreen: React.FC<BridgingJoinScreenProps> = ({
     setError(null);
 
     try {
+      // Build timing data for filled steps
+      const filledIndices = steps
+        .map((_, i) => i)
+        .filter(i => steps[i].trim().length > 0);
+
+      const clueTimings: ClueTiming[] = filledIndices.map(i => ({
+        word: steps[i].trim().toLowerCase(),
+        first_entered_ms: timings[i].firstEnteredMs ?? 0,
+        last_modified_ms: timings[i].lastModifiedMs ?? 0,
+      }));
+
       const response = await api.bridging.submitBridge(gameId, {
         clues: filledSteps.map((c) => c.trim().toLowerCase()),
+        clue_timings: clueTimings,
       });
 
       dispatch({
