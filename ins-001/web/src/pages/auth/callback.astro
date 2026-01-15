@@ -44,7 +44,41 @@ import '../../styles/global.css';
 
       async function handleCallback() {
         try {
-          // Supabase will automatically detect and process the hash fragment
+          // Check if we have a hash fragment with access_token
+          const hash = window.location.hash;
+
+          if (hash && hash.includes('access_token')) {
+            // Parse the hash fragment
+            const params = new URLSearchParams(hash.substring(1));
+            const accessToken = params.get('access_token');
+            const refreshToken = params.get('refresh_token');
+
+            if (accessToken && refreshToken) {
+              // Set the session manually
+              const { data, error } = await supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken
+              });
+
+              if (error) {
+                throw error;
+              }
+
+              if (data.session) {
+                statusEl.textContent = 'Signed in successfully! Redirecting...';
+
+                // Clear the hash from URL for cleaner look
+                window.history.replaceState(null, '', window.location.pathname);
+
+                setTimeout(() => {
+                  window.location.href = '/';
+                }, 1500);
+                return;
+              }
+            }
+          }
+
+          // Fallback: check if there's already a session
           const { data: { session }, error } = await supabase.auth.getSession();
 
           if (error) {
@@ -54,7 +88,6 @@ import '../../styles/global.css';
           if (session) {
             statusEl.textContent = 'Signed in successfully! Redirecting...';
 
-            // Redirect to the main app after a brief delay
             setTimeout(() => {
               window.location.href = '/';
             }, 1500);
