@@ -152,6 +152,14 @@ export const BridgingIntroScreen: React.FC = () => {
           <strong>Relevance</strong> — How connected your clues are to both anchor
           and target. High relevance indicates clues in the shared semantic
           neighborhood.
+          <br />
+          <br />
+          <span style={{ fontSize: '0.65rem' }}>
+            <a href="https://phronos.org/methods/semantic-association-metrics/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--gold)', textDecoration: 'none', borderBottom: '1px dotted' }}>MTH-002</a>
+            {' '}· How scores are calculated |{' '}
+            <a href="https://phronos.org/library/digital-validity/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--gold)', textDecoration: 'none', borderBottom: '1px dotted' }}>LIB-002</a>
+            {' '}· The theory behind it
+          </span>
         </div>
       </Panel>
 

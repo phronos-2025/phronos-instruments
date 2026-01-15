@@ -94,7 +94,13 @@ export const IntroScreen: React.FC = () => {
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--faded)' }}>
           <strong style={{ color: 'var(--text-light)' }}>What this measures:</strong><br /><br />
           <strong>Divergence</strong> — How far your associations venture from the predictable. High divergence indicates unexpected semantic paths.<br /><br />
-          <strong>Convergence</strong> — How accurately others can decode your associations. High convergence indicates effective communication of meaning.
+          <strong>Convergence</strong> — How accurately others can decode your associations. High convergence indicates effective communication of meaning.<br /><br />
+          <span style={{ fontSize: '0.65rem' }}>
+            <a href="https://phronos.org/methods/semantic-association-metrics/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--gold)', textDecoration: 'none', borderBottom: '1px dotted' }}>MTH-002</a>
+            {' '}· How scores are calculated |{' '}
+            <a href="https://phronos.org/library/digital-validity/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--gold)', textDecoration: 'none', borderBottom: '1px dotted' }}>LIB-002</a>
+            {' '}· The theory behind it
+          </span>
         </div>
       </Panel>
       
