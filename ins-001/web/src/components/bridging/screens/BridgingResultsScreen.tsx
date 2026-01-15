@@ -13,12 +13,49 @@
 
 import React, { useState } from 'react';
 import { useBridgingSenderState } from '../../../lib/bridging-state';
+import { useAuth } from '../../auth/AuthProvider';
 import { Panel } from '../../ui/Panel';
 import { Button } from '../../ui/Button';
 import { ShareLinkBox } from '../../ui/ShareLinkBox';
 import { MagicLinkModal } from '../../auth/MagicLinkModal';
 import { api } from '../../../lib/api';
 import type { BridgingGameResponse } from '../../../lib/api';
+
+// Morphological variant detection (mirrors CluesScreen logic)
+function getWordStem(word: string): string {
+  word = word.toLowerCase();
+  const suffixes = [
+    'ically', 'ation', 'ness', 'ment', 'able', 'ible', 'tion',
+    'sion', 'ally', 'ful', 'less', 'ing', 'ity', 'ous', 'ive',
+    'est', 'ier', 'ies', 'ied', 'ly', 'ed', 'er', 'en', 'es', 's'
+  ];
+  for (const suffix of suffixes) {
+    if (word.endsWith(suffix) && word.length > suffix.length + 2) {
+      return word.slice(0, -suffix.length);
+    }
+  }
+  return word;
+}
+
+function isMorphologicalVariant(word1: string, word2: string): boolean {
+  const w1 = word1.toLowerCase();
+  const w2 = word2.toLowerCase();
+
+  // Exact match
+  if (w1 === w2) return true;
+
+  // One is substring of the other (catches most plurals/verb forms)
+  if (w1.startsWith(w2) || w2.startsWith(w1)) {
+    if (Math.abs(w1.length - w2.length) <= 4) {
+      return true;
+    }
+  }
+
+  // Same stem
+  if (getWordStem(w1) === getWordStem(w2)) return true;
+
+  return false;
+}
 
 interface BridgingResultsScreenProps {
   game: BridgingGameResponse;
@@ -30,11 +67,21 @@ interface DotPlotRowProps {
   relevance: number;
   spread: number;
   isYou?: boolean;
+  anchorWord?: string;
+  targetWord?: string;
 }
 
 // Single row in the connected dot plot
-function DotPlotRow({ label, concepts, relevance, spread, isYou }: DotPlotRowProps) {
+function DotPlotRow({ label, concepts, relevance, spread, isYou, anchorWord, targetWord }: DotPlotRowProps) {
   const scale = (val: number) => Math.min(100, Math.max(0, val));
+
+  // Check if a concept is morphologically similar to anchor or target
+  const isMorphologicallySimilarToSeeds = (concept: string): boolean => {
+    if (!anchorWord && !targetWord) return false;
+    if (anchorWord && isMorphologicalVariant(concept, anchorWord)) return true;
+    if (targetWord && isMorphologicalVariant(concept, targetWord)) return true;
+    return false;
+  };
 
   return (
     <div style={{ marginBottom: 'var(--space-lg)' }}>
@@ -50,7 +97,18 @@ function DotPlotRow({ label, concepts, relevance, spread, isYou }: DotPlotRowPro
           marginLeft: '92px', // 80px label + 12px gap (--space-sm)
         }}
       >
-        {concepts.join(' · ')}
+        {concepts.map((concept, idx) => {
+          const hasWarning = isMorphologicallySimilarToSeeds(concept);
+          return (
+            <span key={idx}>
+              {idx > 0 && ' · '}
+              <span style={hasWarning ? { color: 'var(--gold)', opacity: 0.6 } : undefined}>
+                {concept}
+                {hasWarning && ' ⚠'}
+              </span>
+            </span>
+          );
+        })}
       </div>
 
       {/* Row with label, track, and delta */}
@@ -300,10 +358,14 @@ function HumanDataRow({
   concepts,
   relevance,
   spread,
+  anchorWord,
+  targetWord,
 }: {
   concepts: string[];
   relevance: number;
   spread: number;
+  anchorWord?: string;
+  targetWord?: string;
 }) {
   return (
     <DotPlotRow
@@ -311,6 +373,8 @@ function HumanDataRow({
       concepts={concepts}
       relevance={relevance}
       spread={spread}
+      anchorWord={anchorWord}
+      targetWord={targetWord}
     />
   );
 }
@@ -319,12 +383,14 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
   game,
 }) => {
   const { dispatch } = useBridgingSenderState();
-  const [shareUrl, setShareUrl] = useState<string | null>(
-    game.share_code ? `${window.location.origin}/ins-001-2/join/${game.share_code}` : null
-  );
+  const { user } = useAuth();
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [isCreatingShare, setIsCreatingShare] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
   const [showInitModal, setShowInitModal] = useState(false);
+
+  // Check if user is registered (has email and not anonymous)
+  const isRegistered = user?.email && !user?.is_anonymous;
 
   // Metrics (with fallback to old field names)
   const relevance = game.relevance ?? game.binding_score ?? 0;
@@ -480,6 +546,8 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
               concepts={haikuClues}
               relevance={haikuRelevance <= 1 ? haikuRelevance * 100 : haikuRelevance}
               spread={haikuSpread}
+              anchorWord={game.anchor_word}
+              targetWord={game.target_word}
             />
           )}
 
@@ -490,6 +558,8 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
               concepts={lexicalUnion}
               relevance={lexicalRelevance <= 1 ? lexicalRelevance * 100 : lexicalRelevance}
               spread={lexicalSpread}
+              anchorWord={game.anchor_word}
+              targetWord={game.target_word}
             />
           )}
 
@@ -499,6 +569,8 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
               concepts={recipientClues}
               relevance={recipientRelevance <= 1 ? recipientRelevance * 100 : recipientRelevance}
               spread={recipientSpread}
+              anchorWord={game.anchor_word}
+              targetWord={game.target_word}
             />
           ) : (
             <HumanShareRow
@@ -594,27 +666,33 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
         </div>
       </Panel>
 
-      {/* Unregistered Record Panel */}
+      {/* Registration Status Panel */}
       <Panel style={{ borderColor: 'var(--gold)', background: 'linear-gradient(to bottom, var(--card-bg), rgba(176, 141, 85, 0.05))', marginTop: 'var(--space-md)' }}>
         <div className="panel-header" style={{ borderBottomColor: 'var(--gold-dim)' }}>
-          <span className="panel-title" style={{ color: 'var(--gold)' }}>Unregistered Record</span>
+          <span className="panel-title" style={{ color: 'var(--gold)' }}>
+            {isRegistered ? 'Registered Record' : 'Unregistered Record'}
+          </span>
           <span className="panel-meta">Session ID: #{game.game_id?.slice(0, 4).toUpperCase() || '----'}</span>
         </div>
         <div className="panel-content">
           <div style={{ display: 'flex', gap: 'var(--space-md)', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: '200px' }}>
               <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-light)', marginBottom: 'var(--space-xs)' }}>
-                Save your scores to your permanent cognitive profile.
+                {isRegistered
+                  ? `Linked to ${user?.email}`
+                  : 'Save your scores to your permanent cognitive profile.'}
               </p>
             </div>
 
-            <Button
-              variant="primary"
-              style={{ fontSize: '0.65rem', padding: '10px 20px' }}
-              onClick={() => setShowInitModal(true)}
-            >
-              Initialize ID
-            </Button>
+            {!isRegistered && (
+              <Button
+                variant="primary"
+                style={{ fontSize: '0.65rem', padding: '10px 20px' }}
+                onClick={() => setShowInitModal(true)}
+              >
+                Initialize ID
+              </Button>
+            )}
           </div>
         </div>
       </Panel>

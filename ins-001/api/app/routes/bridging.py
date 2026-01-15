@@ -14,7 +14,7 @@ from app.models import (
     SubmitBridgingCluesRequest, SubmitBridgingCluesResponse,
     SubmitBridgingBridgeRequest, SubmitBridgingBridgeResponse,
     BridgingGameResponse, GameStatus, RecipientType,
-    SuggestWordResponse,
+    SuggestWordResponse, CreateBridgingShareResponse,
     ErrorResponse,
 )
 from app.middleware.auth import get_authenticated_client
@@ -180,3 +180,58 @@ async def submit_bridging_bridge(
 ):
     """Submit recipient's bridge (V2: bridge-vs-bridge)."""
     return await games_submit_bridge(game_id, request, auth)
+
+
+@router.post("/{game_id}/share", response_model=CreateBridgingShareResponse)
+async def create_bridging_share(
+    game_id: str,
+    auth = Depends(get_authenticated_client)
+):
+    """
+    Get or create a share link for a bridging game.
+
+    Returns the share URL for inviting a human to compare their bridge.
+    """
+    from app.config import FRONTEND_URL
+    from postgrest.exceptions import APIError
+    import secrets
+
+    supabase, user = auth
+
+    # Get the game
+    try:
+        result = supabase.table("games") \
+            .select("*") \
+            .eq("id", game_id) \
+            .eq("sender_id", user["id"]) \
+            .single() \
+            .execute()
+    except APIError:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "Game not found or not owned by you"}
+        )
+
+    if not result.data:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "Game not found or not owned by you"}
+        )
+
+    game = result.data
+    setup = game.get("setup", {})
+    share_code = setup.get("share_code")
+
+    # If no share code exists, generate one
+    if not share_code:
+        share_code = secrets.token_hex(4)
+        setup["share_code"] = share_code
+        supabase.table("games").update({"setup": setup}).eq("id", game_id).execute()
+
+    # Construct the share URL with correct path
+    share_url = f"{FRONTEND_URL}/ins-001/ins-001-2/join/{share_code}"
+
+    return CreateBridgingShareResponse(
+        share_code=share_code,
+        share_url=share_url
+    )

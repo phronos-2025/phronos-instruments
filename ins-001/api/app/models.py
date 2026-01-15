@@ -242,6 +242,12 @@ class SubmitBridgingCluesResponse(BaseModel):
     share_code: Optional[str] = None
 
 
+class CreateBridgingShareResponse(BaseModel):
+    """Response after creating a bridging share link."""
+    share_code: str
+    share_url: str
+
+
 class SubmitBridgingBridgeRequest(BaseModel):
     """Request to submit recipient's bridge (V2: bridge-vs-bridge)."""
     clues: list[str] = Field(min_length=1, max_length=5)

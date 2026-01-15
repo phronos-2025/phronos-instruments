@@ -87,7 +87,7 @@ export const BridgingShareScreen: React.FC<BridgingShareScreenProps> = ({
   };
 
   const handleCopy = async () => {
-    const url = shareUrl || `${window.location.origin}/ins-001-2/join/${shareCode}`;
+    const url = shareUrl || `${window.location.origin}/ins-001/ins-001-2/join/${shareCode}`;
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
@@ -349,7 +349,7 @@ export const BridgingShareScreen: React.FC<BridgingShareScreenProps> = ({
             <input
               type="text"
               readOnly
-              value={shareUrl || `${window.location.origin}/ins-001-2/join/${shareCode}`}
+              value={shareUrl || `${window.location.origin}/ins-001/ins-001-2/join/${shareCode}`}
               style={{
                 flex: 1,
                 background: 'transparent',
