@@ -19,13 +19,16 @@ export const MagicLinkModal: React.FC<MagicLinkModalProps> = ({ isOpen, onClose 
   const [isLoading, setIsLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+  // Track if email is already registered (need to sign in instead)
+  const [emailExists, setEmailExists] = useState(false);
+
   if (!isOpen) return null;
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
+    setEmailExists(false);
 
     try {
       // Check if user is currently anonymous
@@ -39,7 +42,14 @@ export const MagicLinkModal: React.FC<MagicLinkModalProps> = ({ isOpen, onClose 
           { emailRedirectTo: `${window.location.origin}/auth/callback?returnTo=${encodeURIComponent(window.location.pathname)}` }
         );
 
-        if (error) throw error;
+        if (error) {
+          // Check if the error is because email already exists
+          if (error.message.includes('already been registered') || error.message.includes('already exists')) {
+            setEmailExists(true);
+            return;
+          }
+          throw error;
+        }
       } else {
         // For non-anonymous users (shouldn't happen but fallback)
         const returnPath = window.location.pathname;
@@ -53,6 +63,29 @@ export const MagicLinkModal: React.FC<MagicLinkModalProps> = ({ isOpen, onClose 
         if (error) throw error;
       }
 
+      setSent(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send magic link');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle sign-in for existing account
+  const handleSignIn = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const returnPath = window.location.pathname;
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback?returnTo=${encodeURIComponent(returnPath)}`
+        }
+      });
+
+      if (error) throw error;
       setSent(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send magic link');
@@ -77,11 +110,46 @@ export const MagicLinkModal: React.FC<MagicLinkModalProps> = ({ isOpen, onClose 
           {sent ? (
             <div>
               <p style={{ marginBottom: '1rem', color: 'var(--faded)' }}>
-                Check your email for a magic link to convert your anonymous account to a registered account.
+                Check your email for a magic link to sign in.
               </p>
               <div className="btn-group">
                 <Button variant="primary" onClick={onClose}>
                   Close
+                </Button>
+              </div>
+            </div>
+          ) : emailExists ? (
+            <div>
+              <p style={{ marginBottom: '1rem', color: 'var(--faded)' }}>
+                An account with <strong style={{ color: 'var(--gold)' }}>{email}</strong> already exists.
+              </p>
+              <p style={{ marginBottom: '1rem', color: 'var(--faded)', fontSize: 'var(--text-sm)' }}>
+                Sign in to access your existing profile. Note: this game session will not transfer to your account.
+              </p>
+
+              {error && (
+                <div style={{ color: 'var(--alert)', marginBottom: '1rem', fontSize: 'var(--text-sm)' }}>
+                  ◈ {error}
+                </div>
+              )}
+
+              <div className="btn-group">
+                <Button
+                  variant="primary"
+                  onClick={handleSignIn}
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Sending...' : 'Sign In Instead'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    setEmailExists(false);
+                    setEmail('');
+                  }}
+                >
+                  Use Different Email
                 </Button>
               </div>
             </div>
@@ -90,7 +158,7 @@ export const MagicLinkModal: React.FC<MagicLinkModalProps> = ({ isOpen, onClose 
               <p style={{ marginBottom: '1rem', color: 'var(--faded)' }}>
                 Convert your anonymous account to a registered account to save your profile.
               </p>
-              
+
               <input
                 type="email"
                 value={email}
@@ -101,13 +169,13 @@ export const MagicLinkModal: React.FC<MagicLinkModalProps> = ({ isOpen, onClose 
                 required
                 disabled={isLoading}
               />
-              
+
               {error && (
                 <div style={{ color: 'var(--alert)', marginBottom: '1rem', fontSize: 'var(--text-sm)' }}>
                   ◈ {error}
                 </div>
               )}
-              
+
               <div className="btn-group">
                 <Button
                   type="submit"

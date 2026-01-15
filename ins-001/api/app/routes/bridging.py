@@ -151,20 +151,28 @@ async def join_bridging_game_v2(
     Looks up game by share_code, assigns recipient, and returns game info
     for the recipient to create their own bridge.
     """
+    from postgrest.exceptions import APIError
+
     supabase, user = auth
 
     # Find game by share_code in setup JSONB
+    print(f"join_bridging_game_v2: Looking for share_code={share_code}")
     try:
-        result = supabase.table("games") \
+        # Query all bridging games and filter by share_code
+        all_games = supabase.table("games") \
             .select("*") \
             .eq("game_type", "bridging") \
             .execute()
 
-        # Filter for matching share_code in setup
+        print(f"join_bridging_game_v2: Found {len(all_games.data or [])} bridging games")
+
         game = None
-        for g in result.data or []:
+        for g in all_games.data or []:
             setup = g.get("setup", {})
-            if setup.get("share_code") == share_code:
+            g_share_code = setup.get("share_code")
+            if g_share_code:
+                print(f"join_bridging_game_v2: Game {g['id'][:8]} has share_code={g_share_code}")
+            if g_share_code == share_code:
                 game = g
                 break
 
@@ -174,13 +182,15 @@ async def join_bridging_game_v2(
                 detail={"error": "Game not found", "detail": "Invalid or expired share code"}
             )
 
+        print(f"join_bridging_game_v2: Found game {game['id']}")
+
     except HTTPException:
         raise
     except Exception as e:
         print(f"join_bridging_game_v2 error: {e}")
         raise HTTPException(
             status_code=500,
-            detail={"error": "Failed to join game"}
+            detail={"error": "Failed to join game", "detail": str(e)}
         )
 
     # Check if game already has a recipient (and it's not this user)
