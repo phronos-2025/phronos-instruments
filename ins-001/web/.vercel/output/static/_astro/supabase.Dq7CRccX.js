@@ -1,1 +1,0 @@
-function r(){throw new Error("Missing Supabase environment variables: PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY")}const o=new Proxy({},{get(s,t){const e=r(),n=e[t];return typeof n=="function"?n.bind(e):n}});export{o as s};
