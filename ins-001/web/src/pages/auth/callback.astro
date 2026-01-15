@@ -1,0 +1,144 @@
+---
+/**
+ * Auth Callback Page
+ *
+ * Handles magic link redirects from Supabase.
+ * Processes the #access_token in the URL hash and establishes the session.
+ */
+export const prerender = false;
+
+import '../../styles/global.css';
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Signing in... | Phronos Instruments</title>
+  </head>
+  <body>
+    <div class="callback-container">
+      <div class="callback-content">
+        <div class="spinner"></div>
+        <p class="status" id="status">Verifying your identity...</p>
+      </div>
+    </div>
+
+    <script type="module">
+      import { createClient } from '@supabase/supabase-js';
+
+      const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+
+      const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true
+        }
+      });
+
+      const statusEl = document.getElementById('status');
+
+      async function handleCallback() {
+        try {
+          // Supabase will automatically detect and process the hash fragment
+          const { data: { session }, error } = await supabase.auth.getSession();
+
+          if (error) {
+            throw error;
+          }
+
+          if (session) {
+            statusEl.textContent = 'Signed in successfully! Redirecting...';
+
+            // Redirect to the main app after a brief delay
+            setTimeout(() => {
+              window.location.href = '/';
+            }, 1500);
+          } else {
+            // No session found - might be expired or invalid link
+            statusEl.textContent = 'Link expired or invalid. Redirecting...';
+            statusEl.style.color = 'var(--alert)';
+
+            setTimeout(() => {
+              window.location.href = '/';
+            }, 2000);
+          }
+        } catch (err) {
+          console.error('Auth callback error:', err);
+          statusEl.textContent = `Error: ${err.message}`;
+          statusEl.style.color = 'var(--alert)';
+
+          setTimeout(() => {
+            window.location.href = '/';
+          }, 3000);
+        }
+      }
+
+      handleCallback();
+    </script>
+
+    <style>
+      body {
+        min-height: 100vh;
+        background: var(--bg-deep);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0;
+      }
+
+      body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-image:
+          linear-gradient(var(--grid-color) 1px, transparent 1px),
+          linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+        background-size: var(--grid-size) var(--grid-size);
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      .callback-container {
+        position: relative;
+        z-index: 1;
+        text-align: center;
+      }
+
+      .callback-content {
+        background: var(--bg);
+        border: 1px solid var(--faded-light);
+        padding: 3rem;
+        max-width: 400px;
+      }
+
+      .spinner {
+        width: 32px;
+        height: 32px;
+        border: 2px solid var(--faded-light);
+        border-top-color: var(--gold);
+        border-radius: 50%;
+        margin: 0 auto 1.5rem;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+
+      .status {
+        font-family: var(--font-mono);
+        font-size: var(--text-sm);
+        color: var(--faded);
+        margin: 0;
+      }
+    </style>
+  </body>
+</html>
