@@ -57,8 +57,8 @@ router = APIRouter()
 async def get_current_model_versions(supabase) -> dict:
     """Get current model version IDs from system_config."""
     config = supabase.table("system_config").select("key, value").execute()
-    config_dict = {row["key"]: json.loads(row["value"]) if isinstance(row["value"], str) else row["value"]
-                   for row in config.data}
+    # JSONB values are auto-parsed by Supabase client, no need for json.loads
+    config_dict = {row["key"]: row["value"] for row in config.data}
 
     # Get model version IDs
     embedding_model = config_dict.get("embedding_model", "text-embedding-3-small")
