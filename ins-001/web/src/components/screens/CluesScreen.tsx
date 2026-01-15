@@ -110,15 +110,18 @@ export const CluesScreen: React.FC<CluesScreenProps> = ({
         }
       }
 
-      // Check if in noise floor (warning, not invalid)
+      // Check if in noise floor or morphologically similar to noise floor (warning, not invalid)
       const isInNoiseFloor = noiseFloor.some(
         item => item.word.toLowerCase() === trimmed
+      );
+      const isMorphologicallySimilarToNoiseFloor = noiseFloor.some(
+        item => isMorphologicalVariant(trimmed, item.word.toLowerCase())
       );
 
       // Valid - add to filled list for duplicate checking
       filledSoFar.push(trimmed);
 
-      if (isInNoiseFloor) {
+      if (isInNoiseFloor || isMorphologicallySimilarToNoiseFloor) {
         return { status: 'warning' as ValidationStatus };
       }
 

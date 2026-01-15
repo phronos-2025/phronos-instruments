@@ -97,12 +97,23 @@ async def join_game(
     - Returns game details (WITHOUT seed_word for security)
     """
     supabase, user = auth
-    
+
     # Call SQL function (handles all validation and locking)
-    result = supabase.rpc("join_game_via_token", {
-        "share_token_input": token
-    }).execute()
-    
+    try:
+        result = supabase.rpc("join_game_via_token", {
+            "share_token_input": token
+        }).execute()
+    except APIError as e:
+        # PostgreSQL function raises custom errors (P0001) for validation failures
+        error_message = e.message if hasattr(e, 'message') else str(e)
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "Failed to join game",
+                "detail": error_message
+            }
+        )
+
     if not result.data or len(result.data) == 0:
         raise HTTPException(
             status_code=400,
