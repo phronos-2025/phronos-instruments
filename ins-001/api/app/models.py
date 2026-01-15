@@ -1,11 +1,14 @@
 """
 API Models - INS-001 Semantic Associations
 
-DO NOT MODIFY FIELD NAMES - these are the exact API contract.
+Schema Version: 2.0 (JSONB-based unified games table)
+
+This file defines the API contract. The internal JSONB structures are
+flexible, but API responses maintain stable field names.
 """
 
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, Any
 from datetime import datetime
 from enum import Enum
 
@@ -14,13 +17,21 @@ from enum import Enum
 # ENUMS
 # ============================================
 
+class GameType(str, Enum):
+    """Types of games within INS-001."""
+    RADIATION = "radiation"
+    BRIDGING = "bridging"
+
+
 class RecipientType(str, Enum):
+    """Who the game is played with."""
     NETWORK = "network"
     STRANGER = "stranger"
     LLM = "llm"
 
 
 class GameStatus(str, Enum):
+    """Game lifecycle status."""
     PENDING_CLUES = "pending_clues"
     PENDING_GUESS = "pending_guess"
     COMPLETED = "completed"
@@ -28,7 +39,7 @@ class GameStatus(str, Enum):
 
 
 # ============================================
-# EMBEDDINGS
+# SHARED COMPONENTS
 # ============================================
 
 class NoiseFloorWord(BaseModel):
@@ -37,10 +48,39 @@ class NoiseFloorWord(BaseModel):
     similarity: float = Field(ge=0, le=1)
 
 
+class SenderScores(BaseModel):
+    """Scores computed for sender's input."""
+    divergence: float = Field(ge=0, le=100, description="DAT-style spread score (0-100)")
+    divergence_raw: Optional[float] = Field(None, ge=0, le=1, description="Legacy 0-1 scale")
+    relevance: Optional[float] = Field(None, ge=0, le=1, description="Mean similarity to anchors")
+    relevance_percentile: Optional[float] = Field(None, ge=0, le=100)
+
+
+class RecipientScores(BaseModel):
+    """Scores computed for recipient's input."""
+    convergence: Optional[float] = Field(None, ge=0, le=1, description="Best guess similarity")
+    best_guess: Optional[str] = None
+    similarity: Optional[float] = None
+    # Bridging-specific
+    relevance: Optional[float] = None
+    divergence: Optional[float] = None
+    bridge_similarity: Optional[float] = None
+
+
+class BaselineScores(BaseModel):
+    """Baseline comparison scores (LLM, lexical)."""
+    llm: Optional[dict] = None  # {clues, guesses, convergence, relevance, divergence, model}
+    lexical: Optional[dict] = None  # {path, relevance, divergence}
+
+
+# ============================================
+# EMBEDDINGS
+# ============================================
+
 class NoiseFloorRequest(BaseModel):
     """Request to generate noise floor for a seed word."""
     seed_word: str = Field(min_length=1, max_length=50)
-    sense_context: Optional[list[str]] = None  # For polysemous words
+    sense_context: Optional[list[str]] = None
 
 
 class NoiseFloorResponse(BaseModel):
@@ -48,7 +88,7 @@ class NoiseFloorResponse(BaseModel):
     seed_word: str
     words: list[NoiseFloorWord]
     is_polysemous: bool = False
-    sense_options: Optional[list[str]] = None  # If polysemous, available senses
+    sense_options: Optional[list[str]] = None
 
 
 class ValidateWordRequest(BaseModel):
@@ -63,122 +103,253 @@ class ValidateWordResponse(BaseModel):
 
 
 # ============================================
-# GAMES
+# RADIATION GAMES (INS-001.1)
 # ============================================
 
-class CreateGameRequest(BaseModel):
-    """Request to create a new game."""
-    # Seed word: any word allowed (blocklist checked at route level)
-    # Only enforce length limits, not vocabulary membership
-    seed_word: str = Field(
-        min_length=1, 
-        max_length=50,
-        description="The target word. Can be any word, not just vocabulary."
-    )
-    seed_word_sense: Optional[str] = None  # For polysemous words: "flying mammal"
+class CreateRadiationGameRequest(BaseModel):
+    """Request to create a radiation game."""
+    seed_word: str = Field(min_length=1, max_length=50)
+    seed_word_sense: Optional[str] = None
     recipient_type: RecipientType
 
 
-class CreateGameResponse(BaseModel):
-    """Response after creating a game."""
+class CreateRadiationGameResponse(BaseModel):
+    """Response after creating a radiation game."""
     game_id: str
     seed_word: str
     noise_floor: list[NoiseFloorWord]
     status: GameStatus
-    # For polysemous words - if set, game not created yet
     is_polysemous: bool = False
     sense_options: Optional[list[str]] = None
-    # For analytics
     seed_in_vocabulary: Optional[bool] = None
 
 
-class SubmitCluesRequest(BaseModel):
-    """Request to submit clues for a game."""
+class SubmitRadiationCluesRequest(BaseModel):
+    """Request to submit clues for a radiation game."""
     clues: list[str] = Field(min_length=1, max_length=10)
 
 
-class SubmitCluesResponse(BaseModel):
-    """Response after submitting clues."""
+class SubmitRadiationCluesResponse(BaseModel):
+    """Response after submitting radiation clues."""
     game_id: str
     clues: list[str]
-    divergence_score: float  # Legacy: 0-1 scale (distance from noise floor)
+    # Scores
+    divergence: float  # 0-100 DAT-style
+    divergence_score: float  # Legacy 0-1 for backwards compat
+    relevance: Optional[float] = None
+    spread: Optional[float] = None
     status: GameStatus
-    # New unified scoring (matches INS-001.2)
-    relevance: Optional[float] = None  # 0-1 scale: how connected to seed
-    spread: Optional[float] = None     # 0-100 scale: DAT-style divergence
-    # If LLM game, includes LLM guesses immediately
+    # LLM results (if LLM game)
     llm_guesses: Optional[list[str]] = None
     convergence_score: Optional[float] = None
-    guess_similarities: Optional[list[float]] = None  # Semantic similarity for each guess
+    guess_similarities: Optional[list[float]] = None
 
 
-class SubmitGuessesRequest(BaseModel):
+class SubmitRadiationGuessesRequest(BaseModel):
     """Request to submit guesses (human recipient)."""
     guesses: list[str] = Field(min_length=1, max_length=5)
 
 
-class SubmitGuessesResponse(BaseModel):
+class SubmitRadiationGuessesResponse(BaseModel):
     """Response after submitting guesses."""
     game_id: str
     guesses: list[str]
     convergence_score: float
     exact_match: bool
-    seed_word: str  # Revealed here AFTER guessing (security fix)
+    seed_word: str  # Revealed AFTER guessing
     status: GameStatus
-    guess_similarities: Optional[list[float]] = None  # Semantic similarity for each guess
+    guess_similarities: Optional[list[float]] = None
 
 
-class GameResponse(BaseModel):
-    """Full game state."""
+class RadiationGameResponse(BaseModel):
+    """Full radiation game state."""
     game_id: str
+    game_type: str = "radiation"
     sender_id: str
     recipient_id: Optional[str]
     recipient_type: RecipientType
+    # Setup
     seed_word: str
     seed_word_sense: Optional[str]
-    seed_in_vocabulary: bool  # Whether seed was in vocabulary at creation
+    seed_in_vocabulary: bool
     noise_floor: list[NoiseFloorWord]
+    # Input
     clues: Optional[list[str]]
     guesses: Optional[list[str]]
-    divergence_score: Optional[float]  # Legacy: 0-1 scale
-    convergence_score: Optional[float]  # Legacy: 0-1 scale
-    # New unified scoring (matches INS-001.2)
-    relevance: Optional[float] = None  # 0-1 scale: how connected to seed
-    spread: Optional[float] = None     # 0-100 scale: DAT-style divergence
-    guess_similarities: Optional[list[float]] = None  # Semantic similarity for each guess
+    # Scores
+    divergence: Optional[float] = None  # 0-100 DAT-style
+    divergence_score: Optional[float] = None  # Legacy 0-1
+    convergence_score: Optional[float] = None
+    relevance: Optional[float] = None
+    spread: Optional[float] = None
+    guess_similarities: Optional[list[float]] = None
+    # Baselines
+    llm_guesses: Optional[list[str]] = None
+    llm_convergence: Optional[float] = None
+    # Status
     status: GameStatus
     created_at: datetime
     expires_at: datetime
+    completed_at: Optional[datetime] = None
+    # Versioning
+    schema_version: int = 1
+    scoring_version: Optional[str] = None
+
+
+# ============================================
+# BRIDGING GAMES (INS-001.2)
+# ============================================
+
+class CreateBridgingGameRequest(BaseModel):
+    """Request to create a bridging game."""
+    anchor_word: str = Field(min_length=1, max_length=50)
+    target_word: str = Field(min_length=1, max_length=50)
+    recipient_type: RecipientType = RecipientType.LLM
+
+
+class CreateBridgingGameResponse(BaseModel):
+    """Response after creating a bridging game."""
+    game_id: str
+    anchor_word: str
+    target_word: str
+    status: GameStatus
+
+
+class SubmitBridgingCluesRequest(BaseModel):
+    """Request to submit clues for a bridging game."""
+    clues: list[str] = Field(min_length=1, max_length=5)
+
+
+class SubmitBridgingCluesResponse(BaseModel):
+    """Response after submitting bridging clues."""
+    game_id: str
+    clues: list[str]
+    # V3 unified scoring
+    relevance: float  # 0-1: mean min(sim_anchor, sim_target) per clue
+    relevance_percentile: Optional[float] = None  # 0-100: vs random baseline
+    divergence: float  # 0-100: DAT-style spread
+    # Baselines
+    lexical_bridge: Optional[list[str]] = None
+    lexical_relevance: Optional[float] = None
+    lexical_divergence: Optional[float] = None
+    # Haiku (if LLM recipient)
+    haiku_clues: Optional[list[str]] = None
+    haiku_relevance: Optional[float] = None
+    haiku_divergence: Optional[float] = None
+    haiku_bridge_similarity: Optional[float] = None
+    # Status
+    status: GameStatus
+    share_code: Optional[str] = None
+
+
+class SubmitBridgingBridgeRequest(BaseModel):
+    """Request to submit recipient's bridge (V2: bridge-vs-bridge)."""
+    clues: list[str] = Field(min_length=1, max_length=5)
+
+
+class SubmitBridgingBridgeResponse(BaseModel):
+    """Response after submitting recipient's bridge."""
+    game_id: str
+    # Recipient's bridge
+    recipient_clues: list[str]
+    recipient_relevance: float
+    recipient_divergence: float
+    # Sender's bridge (revealed)
+    sender_clues: list[str]
+    sender_relevance: float
+    sender_divergence: float
+    # Comparison
+    bridge_similarity: float
+    # Baselines
+    haiku_clues: Optional[list[str]] = None
+    haiku_relevance: Optional[float] = None
+    haiku_divergence: Optional[float] = None
+    lexical_bridge: Optional[list[str]] = None
+    lexical_relevance: Optional[float] = None
+    lexical_divergence: Optional[float] = None
+    # Anchors
+    anchor_word: str
+    target_word: str
+    status: GameStatus
+
+
+class BridgingGameResponse(BaseModel):
+    """Full bridging game state."""
+    game_id: str
+    game_type: str = "bridging"
+    sender_id: str
+    recipient_id: Optional[str]
+    recipient_type: RecipientType
+    # Setup
+    anchor_word: str
+    target_word: str
+    # Sender input/scores
+    clues: Optional[list[str]]
+    relevance: Optional[float] = None
+    relevance_percentile: Optional[float] = None
+    divergence: Optional[float] = None
+    # Recipient input/scores
+    recipient_clues: Optional[list[str]] = None
+    recipient_relevance: Optional[float] = None
+    recipient_divergence: Optional[float] = None
+    bridge_similarity: Optional[float] = None
+    # Baselines
+    haiku_clues: Optional[list[str]] = None
+    haiku_relevance: Optional[float] = None
+    haiku_divergence: Optional[float] = None
+    haiku_bridge_similarity: Optional[float] = None
+    lexical_bridge: Optional[list[str]] = None
+    lexical_relevance: Optional[float] = None
+    lexical_divergence: Optional[float] = None
+    # Status
+    status: GameStatus
+    share_code: Optional[str] = None
+    created_at: datetime
+    completed_at: Optional[datetime] = None
+    expires_at: datetime
+    # Versioning
+    schema_version: int = 1
+    scoring_version: Optional[str] = None
 
 
 # ============================================
 # SHARING
 # ============================================
 
-class CreateShareTokenRequest(BaseModel):
-    """Request to create a share token for a game."""
-    pass  # game_id is in URL path
-
-
 class CreateShareTokenResponse(BaseModel):
     """Response with share token."""
     token: str
     expires_at: datetime
-    share_url: str  # Full URL for sharing
-
-
-class JoinGameRequest(BaseModel):
-    """Request to join a game via token."""
-    pass  # token is in URL path
+    share_url: str
 
 
 class JoinGameResponse(BaseModel):
-    """Response after joining a game."""
+    """Response after joining a game via token."""
     game_id: str
-    clues: list[str]
-    noise_floor: list[NoiseFloorWord]  # Keep for context
-    sender_display_name: Optional[str]
-    # seed_word: REMOVED - revealed after guessing (security fix)
+    game_type: GameType
+    # For radiation: clues + noise_floor (NOT seed_word)
+    # For bridging: anchor + target + sender_clue_count
+    clues: Optional[list[str]] = None
+    noise_floor: Optional[list[NoiseFloorWord]] = None
+    anchor_word: Optional[str] = None
+    target_word: Optional[str] = None
+    sender_clue_count: Optional[int] = None
+    sender_display_name: Optional[str] = None
+
+
+# ============================================
+# SUGGESTIONS
+# ============================================
+
+class SuggestWordRequest(BaseModel):
+    """Request to suggest a distant word."""
+    from_word: Optional[str] = Field(default=None, max_length=50)
+
+
+class SuggestWordResponse(BaseModel):
+    """Response with suggested distant word."""
+    suggestion: str
+    from_word: Optional[str] = None
 
 
 # ============================================
@@ -190,39 +361,72 @@ class UserResponse(BaseModel):
     user_id: str
     display_name: Optional[str]
     is_anonymous: bool
-    games_played: int
-    profile_ready: bool
+    games_played: int  # Computed from view
+    profile_ready: bool  # Computed from view
     created_at: datetime
 
 
 class AcceptTermsRequest(BaseModel):
-    """Request to accept terms (anonymous users)."""
+    """Request to accept terms."""
     accepted: bool = True
 
 
 class ProfileResponse(BaseModel):
-    """Cognitive profile."""
+    """Cognitive profile (computed from view)."""
     user_id: str
-    
+    # Stats
+    games_played: int
     divergence_mean: Optional[float]
     divergence_std: Optional[float]
     divergence_n: int
-    
+    # Convergence by recipient type
     network_convergence_mean: Optional[float]
-    network_convergence_n: int
-    
+    network_games: int
     stranger_convergence_mean: Optional[float]
-    stranger_convergence_n: int
-    
+    stranger_games: int
     llm_convergence_mean: Optional[float]
-    llm_convergence_n: int
-    
+    llm_games: int
+    # Game type breakdown
+    radiation_games: int
+    bridging_games: int
+    # Derived metrics
     semantic_portability: Optional[float]
     consistency_score: Optional[float]
     archetype: Optional[str]
-    
+    # Status
     profile_ready: bool
-    games_until_ready: int  # How many more games needed
+    games_until_ready: int
+
+
+# ============================================
+# SYSTEM / CONFIG
+# ============================================
+
+class InstrumentResponse(BaseModel):
+    """Instrument info."""
+    id: str
+    name: str
+    description: Optional[str]
+    version: str
+    config: Optional[dict] = None
+
+
+class ModelVersionResponse(BaseModel):
+    """Model version info."""
+    id: str
+    model_type: str
+    model_name: str
+    model_version: str
+    config: Optional[dict] = None
+    deprecated_at: Optional[datetime] = None
+
+
+class SystemConfigResponse(BaseModel):
+    """System configuration."""
+    embedding_model: str
+    llm_model: str
+    scoring_version: str
+    schema_version: int
 
 
 # ============================================
@@ -236,313 +440,56 @@ class ErrorResponse(BaseModel):
 
 
 # ============================================
-# INS-001.2: BRIDGING GAMES
+# INTERNAL JSONB SCHEMAS (for documentation)
 # ============================================
 
-class BridgingRecipientType(str, Enum):
-    """Recipient types for bridging games."""
-    HUMAN = "human"
-    HAIKU = "haiku"
+class RadiationSetup(BaseModel):
+    """JSONB schema for radiation game setup."""
+    seed_word: str
+    seed_sense: Optional[str] = None
+    seed_in_vocabulary: bool = True
+    noise_floor: list[dict]  # [{word, similarity}]
 
 
-class BridgingGameStatus(str, Enum):
-    """Game status for bridging games."""
-    PENDING_CLUES = "pending_clues"
-    PENDING_GUESS = "pending_guess"
-    COMPLETED = "completed"
-    EXPIRED = "expired"
-
-
-class CreateBridgingGameRequest(BaseModel):
-    """Request to create a bridging game."""
-    anchor_word: str = Field(
-        min_length=1,
-        max_length=50,
-        description="The starting concept of the bridge"
-    )
-    target_word: str = Field(
-        min_length=1,
-        max_length=50,
-        description="The ending concept of the bridge"
-    )
-    recipient_type: BridgingRecipientType = BridgingRecipientType.HAIKU
-
-
-class CreateBridgingGameResponse(BaseModel):
-    """Response after creating a bridging game."""
-    game_id: str
-    anchor_word: str
-    target_word: str
-    status: BridgingGameStatus
-
-
-class SubmitBridgingCluesRequest(BaseModel):
-    """Request to submit clues for a bridging game."""
-    clues: list[str] = Field(
-        min_length=1,
-        max_length=5,
-        description="1-5 clue words connecting anchor and target"
-    )
-
-
-class SubmitBridgingCluesResponse(BaseModel):
-    """Response after submitting bridging clues."""
-    game_id: str
+class RadiationSenderInput(BaseModel):
+    """JSONB schema for radiation sender input."""
     clues: list[str]
 
-    # New unified scoring (V3) - Relevance + Spread (DAT-style)
-    relevance: Optional[float] = None           # 0-1: mean similarity to anchor+target
-    relevance_percentile: Optional[float] = None  # 0-100: percentile vs random baseline
-    divergence: Optional[float] = None          # 0-100: DAT-style spread score
 
-    # Legacy scoring fields (V2) - kept for backwards compatibility
-    divergence_score: float                     # Old divergence (angular, 0-100)
-    binding_score: float                        # Old binding (min-based, 0-100)
-
-    # Lexical union (statistical baseline)
-    lexical_bridge: Optional[list[str]] = None
-    lexical_relevance: Optional[float] = None   # New: relevance of lexical union
-    lexical_divergence: Optional[float] = None  # New: spread of lexical union
-    lexical_similarity: Optional[float] = None  # Legacy: similarity to user's union
-
-    status: BridgingGameStatus
-    share_code: Optional[str] = None
-
-    # V2/V3: If Haiku recipient, includes Haiku's union
-    haiku_clues: Optional[list[str]] = None
-    haiku_relevance: Optional[float] = None     # New: relevance of Haiku's union
-    haiku_divergence: Optional[float] = None    # Spread of Haiku's union
-    haiku_binding: Optional[float] = None       # Legacy: old binding score
-    haiku_bridge_similarity: Optional[float] = None  # Legacy: similarity to user's union
-
-    # Legacy fields (for backwards compat with old games)
-    haiku_guessed_anchor: Optional[str] = None
-    haiku_guessed_target: Optional[str] = None
-    haiku_reconstruction_score: Optional[float] = None
+class RadiationRecipientInput(BaseModel):
+    """JSONB schema for radiation recipient input."""
+    guesses: list[str]
 
 
-class SuggestWordRequest(BaseModel):
-    """Request to suggest a distant word."""
-    from_word: Optional[str] = Field(
-        default=None,
-        max_length=50,
-        description="Word to find distant suggestions from. If empty, returns random word."
-    )
+class BridgingSetup(BaseModel):
+    """JSONB schema for bridging game setup."""
+    anchor_word: str
+    target_word: str
 
 
-class SuggestWordResponse(BaseModel):
-    """Response with suggested distant word."""
-    suggestion: str
-    from_word: Optional[str] = None
-
-
-class CreateBridgingShareResponse(BaseModel):
-    """Response with share code for bridging game."""
-    share_code: str
-    share_url: str
-
-
-class JoinBridgingGameResponse(BaseModel):
-    """Response after joining a bridging game via share code."""
-    game_id: str
+class BridgingSenderInput(BaseModel):
+    """JSONB schema for bridging sender input."""
     clues: list[str]
-    # anchor_word and target_word NOT included - that's what recipient guesses
 
 
-class SubmitBridgingGuessRequest(BaseModel):
-    """Request to submit reconstruction guesses."""
-    guessed_anchor: str = Field(
-        min_length=1,
-        max_length=50,
-        description="Guess for the anchor word"
-    )
-    guessed_target: str = Field(
-        min_length=1,
-        max_length=50,
-        description="Guess for the target word"
-    )
-
-
-class SubmitBridgingGuessResponse(BaseModel):
-    """Response after submitting reconstruction guesses."""
-    game_id: str
-    guessed_anchor: str
-    guessed_target: str
-    reconstruction_score: float
-    anchor_similarity: float
-    target_similarity: float
-    order_swapped: bool
-    exact_anchor_match: bool
-    exact_target_match: bool
-    # Revealed after guessing
-    true_anchor: str
-    true_target: str
-    status: BridgingGameStatus
-
-
-class BridgingGameResponse(BaseModel):
-    """Full bridging game state."""
-    game_id: str
-    sender_id: str
-    recipient_id: Optional[str]
-    recipient_type: BridgingRecipientType
-    anchor_word: str
-    target_word: str
-    clues: Optional[list[str]]
-    # V3: Unified scoring (relevance + spread)
-    relevance: Optional[float] = None           # 0-1: mean similarity to anchor+target
-    relevance_percentile: Optional[float] = None  # 0-100: percentile vs random baseline
-    divergence: Optional[float] = None          # 0-100: DAT-style spread score
-    # Legacy scoring (V1/V2)
-    divergence_score: Optional[float]
-    binding_score: Optional[float] = None  # How well clues jointly relate to both endpoints
-    # Lexical union (statistical baseline)
-    lexical_bridge: Optional[list[str]] = None  # Equidistant concept set
-    lexical_relevance: Optional[float] = None   # V3: relevance of lexical union
-    lexical_divergence: Optional[float] = None  # V3: spread of lexical union
-    lexical_similarity: Optional[float] = None  # Legacy: similarity between user clues and lexical union
-    # Legacy V1: Recipient guesses
-    guessed_anchor: Optional[str]
-    guessed_target: Optional[str]
-    reconstruction_score: Optional[float]
-    anchor_similarity: Optional[float]
-    target_similarity: Optional[float]
-    order_swapped: Optional[bool]
-    exact_anchor_match: Optional[bool]
-    exact_target_match: Optional[bool]
-    # V2: Recipient's union
-    recipient_clues: Optional[list[str]] = None
-    recipient_relevance: Optional[float] = None   # V3: relevance
-    recipient_divergence: Optional[float] = None
-    recipient_binding: Optional[float] = None
-    bridge_similarity: Optional[float] = None
-    # Legacy V1: Haiku guesses
-    haiku_guessed_anchor: Optional[str]
-    haiku_guessed_target: Optional[str]
-    haiku_reconstruction_score: Optional[float]
-    # V2/V3: Haiku's union
-    haiku_clues: Optional[list[str]] = None
-    haiku_relevance: Optional[float] = None       # V3: relevance
-    haiku_divergence: Optional[float] = None
-    haiku_binding: Optional[float] = None
-    haiku_bridge_similarity: Optional[float] = None
-    # Statistical baseline (legacy)
-    statistical_guessed_anchor: Optional[str]
-    statistical_guessed_target: Optional[str]
-    statistical_baseline_score: Optional[float]
-    # State
-    status: BridgingGameStatus
-    share_code: Optional[str]
-    created_at: datetime
-    completed_at: Optional[datetime]
-
-
-class TriggerHaikuGuessResponse(BaseModel):
-    """Response after triggering Haiku reconstruction (legacy)."""
-    game_id: str
-    haiku_guessed_anchor: str
-    haiku_guessed_target: str
-    haiku_reconstruction_score: float
+class BridgingRecipientInput(BaseModel):
+    """JSONB schema for bridging recipient input (V2: bridge-vs-bridge)."""
+    clues: list[str]
 
 
 # ============================================
-# INS-001.2 v2: BRIDGE-VS-BRIDGE
+# LEGACY ALIASES (for backwards compatibility)
 # ============================================
 
-class SemanticDistanceResponse(BaseModel):
-    """Response with semantic distance between two words using DAT-style scoring."""
-    anchor: str
-    target: str
-    distance: float  # 0-100 scale (DAT convention: cosine distance × 100)
-    interpretation: str  # DAT norms: "identical", "close", "below average", "average", "above average", "distant"
+# These aliases allow old code to continue working
+CreateGameRequest = CreateRadiationGameRequest
+CreateGameResponse = CreateRadiationGameResponse
+SubmitCluesRequest = SubmitRadiationCluesRequest
+SubmitCluesResponse = SubmitRadiationCluesResponse
+SubmitGuessesRequest = SubmitRadiationGuessesRequest
+SubmitGuessesResponse = SubmitRadiationGuessesResponse
+GameResponse = RadiationGameResponse
 
-
-class JoinBridgingGameResponseV2(BaseModel):
-    """Response after joining a bridging game (v2: shows anchor + target)."""
-    game_id: str
-    anchor_word: str  # Recipient sees this
-    target_word: str  # Recipient sees this
-    sender_clue_count: int  # How many clues sender used
-
-
-class SubmitBridgingBridgeRequest(BaseModel):
-    """Request to submit recipient's bridge (their clues)."""
-    clues: list[str] = Field(
-        min_length=1,
-        max_length=5,
-        description="1-5 clue words forming recipient's bridge"
-    )
-
-
-class SubmitBridgingBridgeResponse(BaseModel):
-    """Response after submitting recipient's bridge."""
-    game_id: str
-    # Recipient's bridge
-    recipient_clues: list[str]
-    recipient_divergence: float
-    recipient_relevance: Optional[float] = None
-    # Sender's bridge (revealed after submission)
-    sender_clues: list[str]
-    sender_divergence: float
-    sender_relevance: Optional[float] = None
-    # Bridge comparison
-    bridge_similarity: float  # 0-100
-    centroid_similarity: Optional[float] = None
-    path_alignment: Optional[float] = None  # -1 to 1
-    # Haiku baseline (from sender's original game)
-    haiku_clues: Optional[list[str]] = None
-    haiku_relevance: Optional[float] = None
-    haiku_divergence: Optional[float] = None
-    # Statistical baseline (from sender's original game)
-    lexical_bridge: Optional[list[str]] = None
-    lexical_relevance: Optional[float] = None
-    lexical_divergence: Optional[float] = None
-    # Meta
-    anchor_word: str
-    target_word: str
-    status: BridgingGameStatus
-
-
-class TriggerHaikuBridgeResponse(BaseModel):
-    """Response after triggering Haiku to build its own bridge."""
-    game_id: str
-    haiku_clues: list[str]
-    haiku_divergence: float
-    haiku_bridge_similarity: float  # Compared to sender's bridge
-
-
-class BridgingGameResponseV2(BaseModel):
-    """Full bridging game state (v2: bridge-vs-bridge)."""
-    game_id: str
-    sender_id: str
-    recipient_id: Optional[str]
-    recipient_type: BridgingRecipientType
-    anchor_word: str
-    target_word: str
-    # Sender's bridge
-    clues: Optional[list[str]]
-    divergence_score: Optional[float]
-    binding_score: Optional[float] = None
-    # Recipient's bridge (v2)
-    recipient_clues: Optional[list[str]]
-    recipient_divergence: Optional[float]
-    recipient_binding: Optional[float] = None
-    bridge_similarity: Optional[float]
-    path_alignment: Optional[float]
-    # Haiku's bridge (v2)
-    haiku_clues: Optional[list[str]]
-    haiku_divergence: Optional[float]
-    haiku_binding: Optional[float] = None
-    haiku_bridge_similarity: Optional[float]
-    # Legacy fields (for old games)
-    guessed_anchor: Optional[str]
-    guessed_target: Optional[str]
-    reconstruction_score: Optional[float]
-    haiku_guessed_anchor: Optional[str]
-    haiku_guessed_target: Optional[str]
-    haiku_reconstruction_score: Optional[float]
-    # State
-    status: BridgingGameStatus
-    share_code: Optional[str]
-    created_at: datetime
-    completed_at: Optional[datetime]
+# Bridging legacy aliases
+BridgingRecipientType = RecipientType  # Was separate enum, now unified
+BridgingGameStatus = GameStatus  # Was separate enum, now unified

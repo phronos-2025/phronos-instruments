@@ -892,6 +892,43 @@ def test_compare_submissions():
     assert result["more_creative"] == True
 
 
+# ============================================
+# BRIDGING ALIASES AND HELPERS
+# ============================================
+
+# Alias for API consistency
+score_bridging = score_union
+
+
+def compute_bridge_similarity(
+    bridge1_embeddings: list[list[float]],
+    bridge2_embeddings: list[list[float]]
+) -> float:
+    """
+    Compute similarity between two bridges (sets of clue embeddings).
+
+    Uses centroid-based comparison: compute centroid of each bridge,
+    then return cosine similarity between centroids.
+
+    Args:
+        bridge1_embeddings: Embeddings for first bridge's clues
+        bridge2_embeddings: Embeddings for second bridge's clues
+
+    Returns:
+        Similarity score (0-1, where 1 = identical direction)
+    """
+    if not bridge1_embeddings or not bridge2_embeddings:
+        return 0.0
+
+    # Compute centroids
+    centroid1 = np.mean(np.array(bridge1_embeddings), axis=0)
+    centroid2 = np.mean(np.array(bridge2_embeddings), axis=0)
+
+    # Return similarity (convert from [-1, 1] to [0, 1] range)
+    sim = cosine_similarity(centroid1.tolist(), centroid2.tolist())
+    return float((sim + 1) / 2)  # Map [-1, 1] to [0, 1]
+
+
 def test_interpretation_helpers():
     """Test interpretation helper functions."""
     # Relevance interpretations
