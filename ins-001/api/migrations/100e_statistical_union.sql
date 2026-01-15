@@ -44,13 +44,15 @@ BEGIN
             LIMIT 500
         )
     )
-    SELECT DISTINCT ON (c.word)
+    SELECT
         c.word,
         ((1 - (c.embedding <=> anchor_emb)) + (1 - (c.embedding <=> target_emb)))::FLOAT as score,
         (1 - (c.embedding <=> anchor_emb))::FLOAT as sim_anchor,
         (1 - (c.embedding <=> target_emb))::FLOAT as sim_target
     FROM candidates c
-    ORDER BY c.word, score DESC;
+    GROUP BY c.word, c.embedding
+    ORDER BY score DESC
+    LIMIT k;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

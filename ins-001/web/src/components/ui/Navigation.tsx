@@ -63,9 +63,9 @@ export const Navigation: React.FC<NavigationProps> = ({
         <div className="nav-right">
           {isRegistered && (
             <div className="nav-user">
-              <span className="nav-user-email" title={user?.email || ''}>
+              <a href="/profile" className="nav-user-email" title={`${user?.email} - View Profile`}>
                 {displayEmail}
-              </span>
+              </a>
             </div>
           )}
           <div className="nav-status">
@@ -117,7 +117,9 @@ export const Navigation: React.FC<NavigationProps> = ({
 
         {isRegistered && (
           <div className="nav-mobile-user">
-            <span className="nav-mobile-user-email">{user?.email}</span>
+            <a href="/profile" className="nav-mobile-user-email" onClick={handleLinkClick}>
+              {user?.email}
+            </a>
           </div>
         )}
 
