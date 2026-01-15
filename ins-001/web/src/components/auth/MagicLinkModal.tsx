@@ -79,8 +79,12 @@ export const MagicLinkModal: React.FC<MagicLinkModalProps> = ({ isOpen, onClose 
     try {
       // Store the current anonymous user ID so we can transfer games after sign-in
       const { data: { user } } = await supabase.auth.getUser();
+      console.log('handleSignIn: Current user =', user?.id, 'is_anonymous =', user?.is_anonymous);
       if (user?.is_anonymous && user.id) {
         localStorage.setItem('pendingGameTransfer', user.id);
+        console.log('handleSignIn: Stored pendingGameTransfer =', user.id);
+      } else {
+        console.log('handleSignIn: User is not anonymous or no user ID, not storing transfer ID');
       }
 
       const returnPath = window.location.pathname;

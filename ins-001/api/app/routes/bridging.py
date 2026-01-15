@@ -222,7 +222,7 @@ async def join_bridging_game_v2(
     if not game.get("recipient_id"):
         service_client.table("games").update({
             "recipient_id": user["id"],
-            "recipient_type": "human"
+            "recipient_type": "stranger"  # Valid values: network, stranger, llm
         }).eq("id", game["id"]).execute()
 
     # Get setup data

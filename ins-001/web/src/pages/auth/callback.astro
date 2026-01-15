@@ -44,18 +44,25 @@ import '../../styles/global.css';
       // Transfer games from anonymous session to authenticated user
       async function transferPendingGames(): Promise<number> {
         const pendingTransferId = localStorage.getItem('pendingGameTransfer');
-        if (!pendingTransferId) return 0;
+        console.log('transferPendingGames: pendingTransferId =', pendingTransferId);
+
+        if (!pendingTransferId) {
+          console.log('transferPendingGames: No pending transfer ID found');
+          return 0;
+        }
 
         try {
+          console.log('transferPendingGames: Calling API to transfer games from', pendingTransferId);
           const result = await api.users.transferGames(pendingTransferId);
-          console.log('Game transfer result:', result);
+          console.log('transferPendingGames: API result =', result);
           return result.transferred_count;
         } catch (err) {
-          console.error('Failed to transfer games:', err);
+          console.error('transferPendingGames: Failed to transfer games:', err);
           return 0;
         } finally {
           // Always clear the pending transfer ID
           localStorage.removeItem('pendingGameTransfer');
+          console.log('transferPendingGames: Cleared pendingGameTransfer from localStorage');
         }
       }
 

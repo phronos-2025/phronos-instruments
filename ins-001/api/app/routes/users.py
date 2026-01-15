@@ -210,9 +210,11 @@ async def transfer_games_from_anonymous(
     supabase, user = auth
 
     anonymous_user_id = request.anonymous_user_id
+    print(f"transfer_games: Attempting to transfer from {anonymous_user_id} to {user['id']}")
 
     # Don't allow transferring to yourself
     if anonymous_user_id == user["id"]:
+        print(f"transfer_games: Rejected - same user ID")
         return TransferGamesResponse(
             transferred_count=0,
             message="Cannot transfer games from your own account"
@@ -227,12 +229,16 @@ async def transfer_games_from_anonymous(
             .execute()
 
         if not anon_user_result.data:
+            print(f"transfer_games: Anonymous user {anonymous_user_id} not found in users table")
             return TransferGamesResponse(
                 transferred_count=0,
                 message="Anonymous session not found"
             )
 
+        print(f"transfer_games: Found user, is_anonymous = {anon_user_result.data.get('is_anonymous')}")
+
         if not anon_user_result.data.get("is_anonymous", False):
+            print(f"transfer_games: Rejected - user {anonymous_user_id} is not anonymous")
             return TransferGamesResponse(
                 transferred_count=0,
                 message="Cannot transfer games from a registered account"
@@ -253,6 +259,7 @@ async def transfer_games_from_anonymous(
             .execute()
 
         games_count = count_result.count or 0
+        print(f"transfer_games: Found {games_count} games to transfer from {anonymous_user_id}")
 
         if games_count == 0:
             return TransferGamesResponse(
@@ -261,10 +268,11 @@ async def transfer_games_from_anonymous(
             )
 
         # Update all games to new owner
-        supabase.table("games") \
+        update_result = supabase.table("games") \
             .update({"sender_id": user["id"]}) \
             .eq("sender_id", anonymous_user_id) \
             .execute()
+        print(f"transfer_games: Update result = {update_result.data}")
 
         return TransferGamesResponse(
             transferred_count=games_count,
