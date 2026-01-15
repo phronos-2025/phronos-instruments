@@ -369,7 +369,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
       </p>
       <h1 className="title">Common Ground Analysis</h1>
 
-      <Panel style={{ background: 'var(--bg-deep)' }}>
+      <Panel>
         {/* Semantic axis */}
         <div
           style={{
@@ -508,6 +508,30 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
               onCreateShare={handleCreateShareLink}
             />
           )}
+        </div>
+      </Panel>
+
+      {/* Interpretation Panel */}
+      <Panel
+        style={{ background: 'transparent', borderColor: 'var(--faded-light)' }}
+      >
+        <div className="panel-header">
+          <span className="panel-title">Interpretation</span>
+        </div>
+        <div
+          className="panel-content"
+          style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: '0.9rem',
+            color: 'var(--faded)',
+            lineHeight: '1.7',
+          }}
+        >
+          Your bridging concepts show {spread < 30 ? 'low' : spread < 60 ? 'moderate' : 'high'} spread ({Math.round(spread)})
+          with {relevanceDisplay < 40 ? 'weak' : relevanceDisplay < 70 ? 'moderate' : 'strong'} relevance ({Math.round(relevanceDisplay)}) to the anchor-target pair.
+          {spread > 60 && relevanceDisplay > 50 && ' This indicates creative but valid conceptual bridges.'}
+          {spread < 40 && relevanceDisplay > 50 && ' This indicates conventional, predictable bridging.'}
+          {relevanceDisplay < 40 && ' The bridging concepts may be too distant from the semantic space between anchor and target.'}
         </div>
       </Panel>
 

@@ -24,12 +24,12 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-image: 
+  background-image:
     linear-gradient(var(--faded-ultra) 1px, transparent 1px),
     linear-gradient(90deg, var(--faded-ultra) 1px, transparent 1px);
   background-size: 20px 20px;
   pointer-events: none;
-  opacity: 0.5;
+  opacity: 0.25;
 }
 
 .panel-header {

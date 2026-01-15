@@ -8,9 +8,11 @@
 
 import React, { useState } from 'react';
 import { useGameState } from '../../lib/state';
+import { api } from '../../lib/api';
 import type { GameResponse } from '../../lib/api';
 import { Panel } from '../ui/Panel';
 import { Button } from '../ui/Button';
+import { ShareLinkBox } from '../ui/ShareLinkBox';
 import { MagicLinkModal } from '../auth/MagicLinkModal';
 
 interface ResultsScreenProps {
@@ -24,6 +26,127 @@ interface DotPlotRowProps {
   relevance: number;
   spread: number;
   isYou?: boolean;
+}
+
+// Human row placeholder for sharing
+function HumanShareRow({
+  shareUrl,
+  isCreatingShare,
+  shareError,
+  onCreateShare,
+}: {
+  shareUrl: string | null;
+  isCreatingShare: boolean;
+  shareError: string | null;
+  onCreateShare: () => void;
+}) {
+  return (
+    <div style={{ marginBottom: 'var(--space-lg)' }}>
+      {/* Placeholder concepts - offset to align with track, not label */}
+      <div
+        style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: '0.75rem',
+          color: 'var(--faded)',
+          marginBottom: 'var(--space-xs)',
+          letterSpacing: '0.02em',
+          fontStyle: 'italic',
+          textAlign: 'center',
+          marginLeft: '92px',
+        }}
+      >
+        compare your concepts
+      </div>
+
+      {/* Row with label, track placeholder, and share button */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
+        {/* Label */}
+        <div
+          style={{
+            width: '80px',
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.65rem',
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+            color: 'var(--text-light)',
+          }}
+        >
+          Human
+        </div>
+
+        {/* Track placeholder with dashed line */}
+        <div
+          style={{
+            flex: 1,
+            height: '32px',
+            position: 'relative',
+            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            borderRadius: '2px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {/* Dashed placeholder line */}
+          <div
+            style={{
+              position: 'absolute',
+              left: '10%',
+              right: '10%',
+              top: '50%',
+              height: '1px',
+              borderTop: '1px dashed var(--faded-light)',
+              transform: 'translateY(-50%)',
+            }}
+          />
+
+          {/* Button only shown when no share URL yet */}
+          {!shareUrl && (
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <Button
+                variant="secondary"
+                onClick={onCreateShare}
+                disabled={isCreatingShare}
+                style={{
+                  fontSize: '0.65rem',
+                  padding: '4px 12px',
+                }}
+              >
+                {isCreatingShare ? 'Creating...' : 'Create Share Link'}
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Share link shown below the track when created */}
+      {shareUrl && (
+        <div
+          style={{
+            marginTop: 'var(--space-sm)',
+            marginLeft: '92px',
+          }}
+        >
+          <ShareLinkBox url={shareUrl} />
+        </div>
+      )}
+
+      {shareError && (
+        <div
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.6rem',
+            color: 'var(--alert)',
+            marginTop: 'var(--space-xs)',
+            marginLeft: '92px',
+          }}
+        >
+          {shareError}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function DotPlotRow({ label, concepts, relevance, spread, isYou }: DotPlotRowProps) {
@@ -170,8 +293,26 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
   const { state, dispatch } = useGameState();
   const game = state.screen === 'results' ? state.game : null;
   const [showInitModal, setShowInitModal] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [isCreatingShare, setIsCreatingShare] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
 
   if (!game) return null;
+
+  const handleCreateShareLink = async () => {
+    if (!game.game_id) return;
+    setIsCreatingShare(true);
+    setShareError(null);
+    try {
+      const response = await api.share.createToken(game.game_id);
+      const url = `${window.location.origin}/ins-001-1/join/${response.share_token}`;
+      setShareUrl(url);
+    } catch (err) {
+      setShareError(err instanceof Error ? err.message : 'Failed to create share link');
+    } finally {
+      setIsCreatingShare(false);
+    }
+  };
 
   // Use new unified scoring if available, otherwise fall back to legacy mapping
   // New API: relevance (0-1), spread (0-100 DAT-style)
@@ -362,6 +503,14 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
               spread={50} // Noise floor is designed to have moderate spread
             />
           )}
+
+          {/* Human row */}
+          <HumanShareRow
+            shareUrl={shareUrl}
+            isCreatingShare={isCreatingShare}
+            shareError={shareError}
+            onCreateShare={handleCreateShareLink}
+          />
         </div>
       </Panel>
 
