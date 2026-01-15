@@ -151,26 +151,31 @@ async def join_bridging_game_v2(
     Looks up game by share_code, assigns recipient, and returns game info
     for the recipient to create their own bridge.
     """
-    from postgrest.exceptions import APIError
+    from supabase import create_client
+    from app.config import SUPABASE_URL, SUPABASE_SERVICE_KEY
 
     supabase, user = auth
+
+    # Use service client to bypass RLS when looking up games by share_code
+    # (recipient can't see the game until they're assigned as recipient)
+    if not SUPABASE_SERVICE_KEY:
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "Service key not configured"}
+        )
+
+    service_client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
     # Find game by share_code in setup JSONB
     print(f"join_bridging_game_v2: Looking for share_code={share_code}")
     try:
-        # First, let's see ALL games to debug
-        debug_all = supabase.table("games").select("id, game_type, setup").execute()
-        print(f"join_bridging_game_v2: Total games in DB: {len(debug_all.data or [])}")
-        for g in debug_all.data or []:
-            print(f"  - Game {g['id'][:8]}: type={g.get('game_type')}, setup={g.get('setup')}")
-
-        # Query all bridging games and filter by share_code
-        all_games = supabase.table("games") \
+        # Query all bridging games using service client (bypasses RLS)
+        all_games = service_client.table("games") \
             .select("*") \
             .eq("game_type", "bridging") \
             .execute()
 
-        print(f"join_bridging_game_v2: Found {len(all_games.data or [])} bridging games")
+        print(f"join_bridging_game_v2: Found {len(all_games.data or [])} bridging games (service client)")
 
         game = None
         for g in all_games.data or []:
@@ -213,9 +218,9 @@ async def join_bridging_game_v2(
             detail={"error": "Cannot join your own game"}
         )
 
-    # Assign recipient if not already set
+    # Assign recipient if not already set (use service client to bypass RLS)
     if not game.get("recipient_id"):
-        supabase.table("games").update({
+        service_client.table("games").update({
             "recipient_id": user["id"],
             "recipient_type": "human"
         }).eq("id", game["id"]).execute()
