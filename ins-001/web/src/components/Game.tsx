@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { GameProvider, useGameState } from '../lib/state';
+import { AuthProvider } from './auth/AuthProvider';
 import { Navigation } from './ui/Navigation';
 import { IntroScreen } from './screens/IntroScreen';
 import { SeedScreen } from './screens/SeedScreen';
@@ -37,9 +38,11 @@ function GameRouter() {
 
 export default function Game() {
   return (
-    <GameProvider>
-      <Navigation instrumentId="INS-001.1" instrumentTitle="SIGNAL" />
-      <GameRouter />
-    </GameProvider>
+    <AuthProvider>
+      <GameProvider>
+        <Navigation instrumentId="INS-001.1" instrumentTitle="SIGNAL" />
+        <GameRouter />
+      </GameProvider>
+    </AuthProvider>
   );
 }

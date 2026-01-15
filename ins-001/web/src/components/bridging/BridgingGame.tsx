@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { BridgingSenderProvider, useBridgingSenderState } from '../../lib/bridging-state';
+import { AuthProvider } from '../auth/AuthProvider';
 import { Navigation } from '../ui/Navigation';
 import { BridgingIntroScreen } from './screens/BridgingIntroScreen';
 import { AnchorTargetScreen } from './screens/AnchorTargetScreen';
@@ -49,9 +50,11 @@ function BridgingGameRouter() {
 
 export default function BridgingGame() {
   return (
-    <BridgingSenderProvider>
-      <Navigation instrumentId="INS-001.2" instrumentTitle="COMMON GROUND" />
-      <BridgingGameRouter />
-    </BridgingSenderProvider>
+    <AuthProvider>
+      <BridgingSenderProvider>
+        <Navigation instrumentId="INS-001.2" instrumentTitle="COMMON GROUND" />
+        <BridgingGameRouter />
+      </BridgingSenderProvider>
+    </AuthProvider>
   );
 }

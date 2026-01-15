@@ -670,9 +670,9 @@
 
 .nav-user-email {
   font-family: var(--font-mono);
-  font-size: 0.65rem;
-  color: var(--active);
-  max-width: 150px;
+  font-size: var(--text-sm);
+  color: var(--text-light);
+  max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -838,8 +838,8 @@
 
 .nav-mobile-user-email {
   font-family: var(--font-mono);
-  font-size: 0.75rem;
-  color: var(--active);
+  font-size: var(--text-sm);
+  color: var(--text-light);
 }
 
 .nav-mobile-status {

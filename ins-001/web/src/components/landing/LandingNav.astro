@@ -168,18 +168,17 @@ import { NavAuthButton } from '../auth/NavAuthButton';
     text-transform: uppercase;
     letter-spacing: 1px;
     color: var(--bg-deep);
-    background: var(--text-light);
-    border: 1px solid var(--text-light);
-    padding: 0.5rem 1rem; /* Match phronos-site: --space-sm: 0.5rem, --space-md: 1rem */
+    background: var(--gold);
+    border: 1px solid var(--gold);
+    padding: 0.5rem 1rem;
     cursor: pointer;
     transition: all var(--transition-default);
     text-decoration: none;
   }
 
   .nav-subscribe:hover {
-    background: var(--gold);
-    border-color: var(--gold);
-    color: var(--bg-deep);
+    box-shadow: var(--shadow-button-hover);
+    transform: translate(-2px, -2px);
   }
 
   /* Mobile */
@@ -312,18 +311,19 @@ import { NavAuthButton } from '../auth/NavAuthButton';
     text-transform: uppercase;
     letter-spacing: 1px;
     color: var(--bg-deep);
-    background: var(--text-light);
-    border: 1px solid var(--text-light);
+    background: var(--gold);
+    border: 1px solid var(--gold);
     padding: var(--space-md);
     text-align: center;
     text-decoration: none;
     display: block;
+    cursor: pointer;
     transition: all var(--transition-default);
   }
 
   .nav-mobile-subscribe:hover {
-    background: var(--gold);
-    border-color: var(--gold);
+    box-shadow: var(--shadow-button-hover);
+    transform: translate(-2px, -2px);
   }
 
   /* Auth User Display */
@@ -335,7 +335,7 @@ import { NavAuthButton } from '../auth/NavAuthButton';
   .nav-auth-email {
     font-family: var(--font-mono);
     font-size: var(--text-sm);
-    color: var(--active);
+    color: var(--text-light);
     max-width: 180px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -352,6 +352,6 @@ import { NavAuthButton } from '../auth/NavAuthButton';
   .nav-mobile-auth-email {
     font-family: var(--font-mono);
     font-size: var(--text-sm);
-    color: var(--active);
+    color: var(--text-light);
   }
 </style>
