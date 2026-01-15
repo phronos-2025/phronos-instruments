@@ -708,7 +708,28 @@ async def submit_bridging_bridge(
     supabase, user = auth
     clues_clean = [c.lower().strip() for c in request.clues]
 
+    print(f"submit_bridging_bridge: START - game_id={game_id}, user_id={user['id']}")
+
+    # Use service client to debug (bypasses RLS)
     try:
+        service_client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+        debug_result = service_client.table("games") \
+            .select("id, sender_id, recipient_id, status, game_type") \
+            .eq("id", game_id) \
+            .single() \
+            .execute()
+        if debug_result.data:
+            print(f"submit_bridging_bridge: Game state (service) = {debug_result.data}")
+            print(f"submit_bridging_bridge: recipient_id match? {debug_result.data.get('recipient_id')} == {user['id']} = {debug_result.data.get('recipient_id') == user['id']}")
+            print(f"submit_bridging_bridge: status is pending_guess? {debug_result.data.get('status')} == 'pending_guess' = {debug_result.data.get('status') == 'pending_guess'}")
+        else:
+            print(f"submit_bridging_bridge: Game {game_id} not found even with service client!")
+    except Exception as e:
+        print(f"submit_bridging_bridge: Service debug query failed: {e}")
+
+    # Now try with user's client (subject to RLS)
+    try:
+        print(f"submit_bridging_bridge: Querying with user client...")
         result = supabase.table("games") \
             .select("*") \
             .eq("id", game_id) \
@@ -717,7 +738,9 @@ async def submit_bridging_bridge(
             .eq("status", "pending_guess") \
             .single() \
             .execute()
-    except APIError:
+        print(f"submit_bridging_bridge: User query succeeded, got data: {result.data is not None}")
+    except APIError as e:
+        print(f"submit_bridging_bridge: User query failed with APIError: {e}")
         raise HTTPException(status_code=404, detail={"error": "Game not found or not in correct state"})
 
     if not result.data:

@@ -220,10 +220,14 @@ async def join_bridging_game_v2(
 
     # Assign recipient if not already set (use service client to bypass RLS)
     if not game.get("recipient_id"):
-        service_client.table("games").update({
+        print(f"join_bridging_game_v2: Assigning recipient_id={user['id']} to game {game['id']}")
+        update_result = service_client.table("games").update({
             "recipient_id": user["id"],
             "recipient_type": "stranger"  # Valid values: network, stranger, llm
         }).eq("id", game["id"]).execute()
+        print(f"join_bridging_game_v2: Update result = {update_result.data}")
+    else:
+        print(f"join_bridging_game_v2: Game already has recipient_id={game.get('recipient_id')}, user is {user['id']}")
 
     # Get setup data
     setup = game.get("setup", {})
@@ -278,6 +282,7 @@ async def submit_bridging_bridge(
     auth = Depends(get_authenticated_client)
 ):
     """Submit recipient's bridge (V2: bridge-vs-bridge)."""
+    print(f"bridging.py submit_bridging_bridge: game_id={game_id}, forwarding to games router")
     return await games_submit_bridge(game_id, request, auth)
 
 
