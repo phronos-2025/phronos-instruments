@@ -85,9 +85,9 @@ function DotPlotRow({ label, concepts, relevance, spread, isYou, anchorWord, tar
 
   return (
     <div className="dot-plot-row" style={{ marginBottom: 'var(--space-lg)' }}>
-      {/* Concepts above the track - centered on mobile */}
+      {/* Concepts above the track - aligned with track using axis-scale class */}
       <div
-        className="dot-plot-concepts"
+        className="dot-plot-concepts dot-plot-axis-scale"
         style={{
           fontFamily: 'var(--font-mono)',
           fontSize: '0.75rem',
@@ -249,9 +249,9 @@ function HumanShareRow({
 }) {
   return (
     <div className="dot-plot-row" style={{ marginBottom: 'var(--space-lg)' }}>
-      {/* Placeholder concepts - centered on mobile */}
+      {/* Placeholder concepts - aligned with track using axis-scale class */}
       <div
-        className="dot-plot-concepts"
+        className="dot-plot-concepts dot-plot-axis-scale"
         style={{
           fontFamily: 'var(--font-mono)',
           fontSize: '0.75rem',
@@ -440,8 +440,9 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
       <h1 className="title">Common Ground Analysis</h1>
 
       <Panel>
-        {/* Semantic axis */}
+        {/* Semantic axis - aligned with track (using axis-scale class for margin) */}
         <div
+          className="dot-plot-axis-scale"
           style={{
             fontFamily: 'var(--font-mono)',
             fontSize: '0.8rem',
@@ -453,8 +454,9 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
           {game.anchor_word} ←―――――――――――――――――――――→ {game.target_word}
         </div>
 
-        {/* Legend */}
+        {/* Legend - aligned with track (using axis-scale class for margin) */}
         <div
+          className="dot-plot-axis-scale"
           style={{
             display: 'flex',
             justifyContent: 'center',

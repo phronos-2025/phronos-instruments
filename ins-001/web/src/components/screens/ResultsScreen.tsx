@@ -43,9 +43,9 @@ function HumanShareRow({
 }) {
   return (
     <div className="dot-plot-row" style={{ marginBottom: 'var(--space-lg)' }}>
-      {/* Placeholder concepts - centered on mobile */}
+      {/* Placeholder concepts - aligned with track using axis-scale class */}
       <div
-        className="dot-plot-concepts"
+        className="dot-plot-concepts dot-plot-axis-scale"
         style={{
           fontFamily: 'var(--font-mono)',
           fontSize: '0.75rem',
@@ -156,9 +156,9 @@ function DotPlotRow({ label, concepts, relevance, spread, isYou }: DotPlotRowPro
 
   return (
     <div className="dot-plot-row" style={{ marginBottom: 'var(--space-lg)' }}>
-      {/* Concepts above the track - centered on mobile */}
+      {/* Concepts above the track - aligned with track using axis-scale class */}
       <div
-        className="dot-plot-concepts"
+        className="dot-plot-concepts dot-plot-axis-scale"
         style={{
           fontFamily: 'var(--font-mono)',
           fontSize: '0.75rem',
@@ -390,8 +390,9 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
       <p className="description">Your semantic association profile for this session.</p>
 
       <Panel>
-        {/* Target word display */}
+        {/* Target word display - aligned with track using axis-scale class */}
         <div
+          className="dot-plot-axis-scale"
           style={{
             fontFamily: 'var(--font-mono)',
             fontSize: '0.8rem',
@@ -403,8 +404,9 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
           Target: {game.seed_word}
         </div>
 
-        {/* Legend */}
+        {/* Legend - aligned with track using axis-scale class */}
         <div
+          className="dot-plot-axis-scale"
           style={{
             display: 'flex',
             justifyContent: 'center',
