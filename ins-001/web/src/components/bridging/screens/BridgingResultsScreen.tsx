@@ -24,10 +24,18 @@ import type { BridgingGameResponse } from '../../../lib/api';
 // Morphological variant detection (mirrors backend logic)
 function getWordStem(word: string): string {
   word = word.toLowerCase();
+  // Extended suffix list - includes Latin/Greek-derived endings
   const suffixes = [
-    'ically', 'ation', 'ness', 'ment', 'able', 'ible', 'tion',
-    'sion', 'ally', 'ical', 'ful', 'less', 'ing', 'ity', 'ous', 'ive',
-    'est', 'ier', 'ies', 'ied', 'ic', 'ly', 'ed', 'er', 'en', 'es', 's'
+    // Long compound suffixes (check first)
+    'isation', 'ization', 'istically', 'ologically', 'fulness',
+    'ically', 'iously', 'ously', 'atively', 'ively', 'ately',
+    // Medium suffixes
+    'ation', 'ition', 'ution', 'ture', 'ness', 'ment', 'able', 'ible',
+    'tion', 'sion', 'ally', 'ical', 'ious', 'eous', 'ance', 'ence',
+    'ful', 'less', 'ing', 'ity', 'ous', 'ive', 'ant', 'ent',
+    // Short suffixes (check last to avoid over-stripping)
+    'est', 'ier', 'ies', 'ied', 'ure', 'ate', 'ism', 'ist',
+    'al', 'ar', 'ic', 'ly', 'ed', 'er', 'en', 'es', 'um', 'us', 's'
   ];
   for (const suffix of suffixes) {
     if (word.endsWith(suffix) && word.length > suffix.length + 2) {
@@ -38,16 +46,23 @@ function getWordStem(word: string): string {
 }
 
 function normalizeStem(word: string): string {
-  // Normalize stem for Y→I transformations (mystery/mysteries/mysterious/mysteriously)
-  // Uses limited recursion for compound suffixes like "-ously" = "-ous" + "-ly"
+  // Normalize stem for Y→I transformations and compound suffixes
+  // Handles: mystery/mysteries/mysterious/mysteriously, legislation/legislative/legislature
   let stem = getWordStem(word.toLowerCase());
 
-  // Second pass: handle compound suffixes (e.g., mysteriously -> mysterious -> mysteri)
-  // Only do one more pass to avoid over-stemming (myster -> myst)
+  // Second pass: handle compound suffixes, but only if:
+  // - ends in 'i' (y→i transformation, e.g., mysteri from mysterious)
+  // - ends in 'at' (from -ative/-ation compounds, e.g., legislat from legislative)
   const secondStem = getWordStem(stem);
-  // Only accept second stemming if it ends in 'i' (indicating y→i transformation)
-  if (secondStem.endsWith('i')) {
-    stem = secondStem;
+  if (secondStem !== stem) {
+    if (secondStem.endsWith('i') || stem.endsWith('at')) {
+      stem = secondStem;
+      // Third pass for triple compounds (e.g., mysteriously -> mysterious -> mysteri)
+      const thirdStem = getWordStem(stem);
+      if (thirdStem !== stem && thirdStem.endsWith('i')) {
+        stem = thirdStem;
+      }
+    }
   }
 
   // Normalize y/i endings for comparison
@@ -71,7 +86,16 @@ function stripCommonPrefixes(word: string): string {
   return word;
 }
 
-function isMorphologicalVariant(word1: string, word2: string): boolean {
+function commonPrefixLength(s1: string, s2: string): number {
+  // Return the length of the common prefix between two strings
+  let i = 0;
+  while (i < s1.length && i < s2.length && s1[i] === s2[i]) {
+    i++;
+  }
+  return i;
+}
+
+function isMorphologicalVariant(word1: string, word2: string, minCommonPrefix: number = 5): boolean {
   const w1 = word1.toLowerCase();
   const w2 = word2.toLowerCase();
 
@@ -114,6 +138,24 @@ function isMorphologicalVariant(word1: string, word2: string): boolean {
     if (Math.abs(w1Stripped.length - w2Stripped.length) <= 4) {
       return true;
     }
+  }
+
+  // Check if stems share a common prefix of sufficient length
+  // This handles Latin root variants like legislation/legislative/legislature
+  const commonLen = commonPrefixLength(stem1, stem2);
+  const minStemLen = Math.min(stem1.length, stem2.length);
+
+  // If stems share 80%+ of the shorter stem's length (min 5 chars), consider them variants
+  if (commonLen >= minCommonPrefix && commonLen >= minStemLen * 0.8) {
+    return true;
+  }
+
+  // Also check stripped stems
+  const commonLenStripped = commonPrefixLength(stem1Stripped, stem2Stripped);
+  const minStemLenStripped = Math.min(stem1Stripped.length, stem2Stripped.length);
+
+  if (commonLenStripped >= minCommonPrefix && commonLenStripped >= minStemLenStripped * 0.8) {
+    return true;
   }
 
   return false;

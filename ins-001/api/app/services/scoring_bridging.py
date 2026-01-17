@@ -43,14 +43,26 @@ def _get_word_stem(word: str) -> str:
 
     Uses a basic approach: strip common suffixes to detect
     plurals, verb forms, and other variants.
+
+    Extended suffix list includes:
+    - Latin-derived endings: -ation, -ition, -ure, -ate, -um, -al
+    - Greek-derived endings: -ism, -ist, -ic
+    - Common English endings: -ness, -ment, -ful, -less, -ing, -ed, -er, -es, -s
     """
     word = word.lower()
 
     # Common suffixes to strip (order matters - check longer ones first)
     suffixes = [
-        'ically', 'ation', 'ness', 'ment', 'able', 'ible', 'tion',
-        'sion', 'ally', 'ical', 'ful', 'less', 'ing', 'ity', 'ous', 'ive',
-        'est', 'ier', 'ies', 'ied', 'ic', 'ly', 'ed', 'er', 'en', 'es', 's'
+        # Long compound suffixes (check first)
+        'isation', 'ization', 'istically', 'ologically', 'fulness',
+        'ically', 'iously', 'ously', 'atively', 'ively', 'ately',
+        # Medium suffixes
+        'ation', 'ition', 'ution', 'ture', 'ness', 'ment', 'able', 'ible',
+        'tion', 'sion', 'ally', 'ical', 'ious', 'eous', 'ance', 'ence',
+        'ful', 'less', 'ing', 'ity', 'ous', 'ive', 'ant', 'ent',
+        # Short suffixes (check last to avoid over-stripping)
+        'est', 'ier', 'ies', 'ied', 'ure', 'ate', 'ism', 'ist',
+        'al', 'ar', 'ic', 'ly', 'ed', 'er', 'en', 'es', 'um', 'us', 's'
     ]
 
     for suffix in suffixes:
@@ -62,27 +74,37 @@ def _get_word_stem(word: str) -> str:
 
 def _normalize_stem(word: str) -> str:
     """
-    Normalize a word stem for comparison, handling Y→I transformations.
+    Normalize a word stem for comparison, handling Y→I transformations
+    and compound suffixes.
 
     This handles cases like:
     - mystery → myster
     - mysteries → myster (strips 'ies')
     - mysterious → myster (strips 'ous', then 'i')
     - mysteriously → myster (strips 'ly', strips 'ous', then 'i')
+    - legislative → legislat (strips 'ive')
+    - legislature → legisla (strips 'ure')
 
-    Uses limited recursion for compound suffixes like "-ously" = "-ous" + "-ly"
+    Uses controlled iteration: only continue stripping if:
+    1. The current stem ends in 'i' (y→i transformation indicator), OR
+    2. The stem ends in 'at' (from -ative/-ation compounds)
     """
     stem = word.lower()
 
     # First pass: strip main suffix
     stem = _get_word_stem(stem)
 
-    # Second pass: handle compound suffixes (e.g., mysteriously -> mysterious -> mysteri)
-    # Only do one more pass to avoid over-stemming (myster -> myst)
+    # Second pass: handle compound suffixes, but only if:
+    # - ends in 'i' (y→i transformation, e.g., mysteri from mysterious)
+    # - ends in 'at' (from -ative/-ation compounds, e.g., legislat from legislative)
     second_stem = _get_word_stem(stem)
-    # Only accept second stemming if it ends in 'i' (indicating y→i transformation)
-    if second_stem.endswith('i'):
-        stem = second_stem
+    if second_stem != stem:
+        if second_stem.endswith('i') or stem.endswith('at'):
+            stem = second_stem
+            # Third pass for triple compounds (e.g., mysteriously -> mysterious -> mysteri)
+            third_stem = _get_word_stem(stem)
+            if third_stem != stem and third_stem.endswith('i'):
+                stem = third_stem
 
     # Normalize y/i endings for comparison
     # mystery → myster, mysteri → myster, myster → myster
@@ -115,7 +137,21 @@ def _strip_common_prefixes(word: str) -> str:
     return word
 
 
-def _is_morphological_variant(word1: str, word2: str) -> bool:
+def _common_prefix_length(s1: str, s2: str) -> int:
+    """
+    Return the length of the common prefix between two strings.
+
+    Examples:
+    - "legisl", "legislat" → 6 (common prefix "legisl")
+    - "maxim", "minim" → 1 (common prefix "m")
+    """
+    i = 0
+    while i < len(s1) and i < len(s2) and s1[i] == s2[i]:
+        i += 1
+    return i
+
+
+def _is_morphological_variant(word1: str, word2: str, min_common_prefix: int = 5) -> bool:
     """
     Check if two words are morphological variants of each other.
 
@@ -128,6 +164,13 @@ def _is_morphological_variant(word1: str, word2: str) -> bool:
     - mystery/mysteriously (chained suffixes)
     - certainty/uncertainty (prefix)
     - certainty/uncertain (prefix + suffix difference)
+    - legislation/legislative/legislature/legislate (Latin root variants)
+    - maximum/maximal (Latin root variants)
+
+    Args:
+        word1: First word to compare
+        word2: Second word to compare
+        min_common_prefix: Minimum shared prefix length for stem matching (default 5)
     """
     w1, w2 = word1.lower(), word2.lower()
 
@@ -176,6 +219,24 @@ def _is_morphological_variant(word1: str, word2: str) -> bool:
     if w1_stripped.startswith(w2_stripped) or w2_stripped.startswith(w1_stripped):
         if abs(len(w1_stripped) - len(w2_stripped)) <= 4:
             return True
+
+    # NEW: Check if stems share a common prefix of sufficient length
+    # This handles Latin root variants like:
+    # - legislation/legislative/legislature/legislate → all share "legisl" prefix
+    # - maximum/maximal → both stem to "maxim"
+    common_len = _common_prefix_length(stem1, stem2)
+    min_stem_len = min(len(stem1), len(stem2))
+
+    # If stems share 80%+ of the shorter stem's length (min 5 chars), consider them variants
+    if common_len >= min_common_prefix and common_len >= min_stem_len * 0.8:
+        return True
+
+    # Also check stripped stems
+    common_len_stripped = _common_prefix_length(stem1_stripped, stem2_stripped)
+    min_stem_len_stripped = min(len(stem1_stripped), len(stem2_stripped))
+
+    if common_len_stripped >= min_common_prefix and common_len_stripped >= min_stem_len_stripped * 0.8:
+        return True
 
     return False
 
@@ -674,9 +735,21 @@ def test_morphological_variants():
     assert _is_morphological_variant("possible", "impossible") == True
     assert _is_morphological_variant("agree", "disagree") == True
 
+    # Latin root variants (INS-001.2 statistical union fix)
+    # legislation family - all share "legisl" root
+    assert _is_morphological_variant("legislation", "legislative") == True
+    assert _is_morphological_variant("legislation", "legislature") == True
+    assert _is_morphological_variant("legislation", "legislate") == True
+    assert _is_morphological_variant("legislative", "legislature") == True
+    assert _is_morphological_variant("legislative", "legislate") == True
+    # maximum family - both stem to "maxim"
+    assert _is_morphological_variant("maximum", "maximal") == True
+
     # Non-variants should still return False
     assert _is_morphological_variant("mystery", "assurance") == False
     assert _is_morphological_variant("certainty", "doubtless") == False
+    assert _is_morphological_variant("law", "legislation") == False  # Different roots
+    assert _is_morphological_variant("maximum", "minimum") == False  # Different roots
 
 
 def test_word_stem():
@@ -684,6 +757,13 @@ def test_word_stem():
     assert _get_word_stem("running") == "runn"
     assert _get_word_stem("cats") == "cat"
     assert _get_word_stem("happiness") == "happi"
+    # Latin-derived suffixes
+    assert _get_word_stem("legislation") == "legisl"
+    assert _get_word_stem("legislative") == "legislat"
+    assert _get_word_stem("legislature") == "legisla"
+    assert _get_word_stem("legislate") == "legisl"
+    assert _get_word_stem("maximum") == "maxim"
+    assert _get_word_stem("maximal") == "maxim"
 
 
 def test_normalize_stem():
