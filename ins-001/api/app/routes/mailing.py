@@ -162,7 +162,7 @@ async def subscribe(
                 # Already subscribed and active
                 return SubscribeResponse(
                     success=True,
-                    message="You're already subscribed!",
+                    message="You're already subscribed with this email.",
                     already_subscribed=True
                 )
             else:
