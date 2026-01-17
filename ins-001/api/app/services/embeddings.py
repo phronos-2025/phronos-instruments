@@ -360,10 +360,11 @@ async def get_noise_floor(
     # Fetch more than k to allow for filtering phonetic/orthographic matches
     fetch_k = k * 2
 
+    import json
     result = supabase.rpc(
         "get_noise_floor_by_embedding",
         {
-            "seed_embedding": seed_emb,
+            "seed_embedding": json.dumps(seed_emb),  # RPC expects TEXT (JSON array)
             "seed_word": seed_word_clean,
             "k": fetch_k
         }
