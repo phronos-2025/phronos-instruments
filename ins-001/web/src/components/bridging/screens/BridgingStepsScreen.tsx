@@ -35,8 +35,19 @@ function getWordStem(word: string): string {
 }
 
 function normalizeStem(word: string): string {
-  // Normalize stem for Y→I transformations (mystery/mysteries/mysterious)
-  const stem = getWordStem(word);
+  // Normalize stem for Y→I transformations (mystery/mysteries/mysterious/mysteriously)
+  // Uses limited recursion for compound suffixes like "-ously" = "-ous" + "-ly"
+  let stem = getWordStem(word.toLowerCase());
+
+  // Second pass: handle compound suffixes (e.g., mysteriously -> mysterious -> mysteri)
+  // Only do one more pass to avoid over-stemming (myster -> myst)
+  const secondStem = getWordStem(stem);
+  // Only accept second stemming if it ends in 'i' (indicating y→i transformation)
+  if (secondStem.endsWith('i')) {
+    stem = secondStem;
+  }
+
+  // Normalize y/i endings for comparison
   if (stem.endsWith('y')) return stem.slice(0, -1);
   if (stem.endsWith('i')) return stem.slice(0, -1);
   return stem;
@@ -71,17 +82,36 @@ function isMorphologicalVariant(word1: string, word2: string): boolean {
     }
   }
 
-  // Check prefix-based variants (certainty/uncertainty)
+  // Get prefix-stripped versions
   const w1Stripped = stripCommonPrefixes(w1);
   const w2Stripped = stripCommonPrefixes(w2);
+
+  // Check prefix-based variants (certainty/uncertainty)
   if (w1Stripped === w2Stripped) return true;
   if (w1Stripped === w2 || w2Stripped === w1) return true;
 
-  // Same normalized stem (handles y→i transformations like mystery/mysteries/mysterious)
-  if (normalizeStem(w1) === normalizeStem(w2)) return true;
+  // Get normalized stems for all versions
+  const stem1 = normalizeStem(w1);
+  const stem2 = normalizeStem(w2);
+  const stem1Stripped = normalizeStem(w1Stripped);
+  const stem2Stripped = normalizeStem(w2Stripped);
 
-  // Also check normalized stems of prefix-stripped versions
-  if (normalizeStem(w1Stripped) === normalizeStem(w2Stripped)) return true;
+  // Same normalized stem (handles y→i transformations like mystery/mysteries/mysterious)
+  if (stem1 === stem2) return true;
+
+  // Check normalized stems of prefix-stripped versions
+  if (stem1Stripped === stem2Stripped) return true;
+
+  // Cross-check: stripped version matches other's stem (uncertain vs certainty)
+  if (w1Stripped === stem2 || w2Stripped === stem1) return true;
+  if (stem1Stripped === stem2 || stem2Stripped === stem1) return true;
+
+  // Check if one stripped version is substring of the other (within length limit)
+  if (w1Stripped.startsWith(w2Stripped) || w2Stripped.startsWith(w1Stripped)) {
+    if (Math.abs(w1Stripped.length - w2Stripped.length) <= 4) {
+      return true;
+    }
+  }
 
   return false;
 }

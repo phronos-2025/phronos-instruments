@@ -65,12 +65,24 @@ def _normalize_stem(word: str) -> str:
     Normalize a word stem for comparison, handling Y→I transformations.
 
     This handles cases like:
-    - mystery → mysteri (when suffix stripped)
-    - mysteries → myster (when 'ies' stripped)
+    - mystery → myster
+    - mysteries → myster (strips 'ies')
+    - mysterious → myster (strips 'ous', then 'i')
+    - mysteriously → myster (strips 'ly', strips 'ous', then 'i')
 
-    By normalizing trailing 'i' and 'y' variations.
+    Uses limited recursion for compound suffixes like "-ously" = "-ous" + "-ly"
     """
-    stem = _get_word_stem(word)
+    stem = word.lower()
+
+    # First pass: strip main suffix
+    stem = _get_word_stem(stem)
+
+    # Second pass: handle compound suffixes (e.g., mysteriously -> mysterious -> mysteri)
+    # Only do one more pass to avoid over-stemming (myster -> myst)
+    second_stem = _get_word_stem(stem)
+    # Only accept second stemming if it ends in 'i' (indicating y→i transformation)
+    if second_stem.endswith('i'):
+        stem = second_stem
 
     # Normalize y/i endings for comparison
     # mystery → myster, mysteri → myster, myster → myster
@@ -113,7 +125,9 @@ def _is_morphological_variant(word1: str, word2: str) -> bool:
     - happy/happiness (derivation)
     - mystery/mysteries (y→ie plural)
     - mystery/mysterious (y→i derivation)
+    - mystery/mysteriously (chained suffixes)
     - certainty/uncertainty (prefix)
+    - certainty/uncertain (prefix + suffix difference)
     """
     w1, w2 = word1.lower(), word2.lower()
 
@@ -127,21 +141,41 @@ def _is_morphological_variant(word1: str, word2: str) -> bool:
         if abs(len(w1) - len(w2)) <= 4:
             return True
 
-    # Check prefix-based variants (certainty/uncertainty)
+    # Get prefix-stripped versions
     w1_stripped = _strip_common_prefixes(w1)
     w2_stripped = _strip_common_prefixes(w2)
+
+    # Check prefix-based variants (certainty/uncertainty)
     if w1_stripped == w2_stripped:
         return True
     if w1_stripped == w2 or w2_stripped == w1:
         return True
 
+    # Get normalized stems for all versions
+    stem1 = _normalize_stem(w1)
+    stem2 = _normalize_stem(w2)
+    stem1_stripped = _normalize_stem(w1_stripped)
+    stem2_stripped = _normalize_stem(w2_stripped)
+
     # Same normalized stem (handles y→i transformations like mystery/mysteries/mysterious)
-    if _normalize_stem(w1) == _normalize_stem(w2):
+    if stem1 == stem2:
         return True
 
-    # Also check normalized stems of prefix-stripped versions
-    if _normalize_stem(w1_stripped) == _normalize_stem(w2_stripped):
+    # Check normalized stems of prefix-stripped versions
+    if stem1_stripped == stem2_stripped:
         return True
+
+    # Cross-check: stripped version matches other's stem (uncertain vs certainty)
+    # uncertain -> certain (stripped), certainty -> certain (stem)
+    if w1_stripped == stem2 or w2_stripped == stem1:
+        return True
+    if stem1_stripped == stem2 or stem2_stripped == stem1:
+        return True
+
+    # Check if one stripped version is substring of the other (within length limit)
+    if w1_stripped.startswith(w2_stripped) or w2_stripped.startswith(w1_stripped):
+        if abs(len(w1_stripped) - len(w2_stripped)) <= 4:
+            return True
 
     return False
 
@@ -617,10 +651,12 @@ def test_morphological_variants():
     # Y→I transformations (INS-001.2 bug fix)
     assert _is_morphological_variant("mystery", "mysteries") == True
     assert _is_morphological_variant("mystery", "mysterious") == True
+    assert _is_morphological_variant("mystery", "mysteriously") == True  # Chained suffixes
 
     # Prefix variants (INS-001.2 bug fix)
     assert _is_morphological_variant("certainty", "uncertainty") == True
     assert _is_morphological_variant("certain", "uncertain") == True
+    assert _is_morphological_variant("certainty", "uncertain") == True  # Prefix + suffix
     assert _is_morphological_variant("happy", "unhappy") == True
     assert _is_morphological_variant("possible", "impossible") == True
     assert _is_morphological_variant("agree", "disagree") == True
@@ -642,6 +678,7 @@ def test_normalize_stem():
     assert _normalize_stem("mystery") == "myster"
     assert _normalize_stem("mysteries") == "myster"
     assert _normalize_stem("mysterious") == "myster"
+    assert _normalize_stem("mysteriously") == "myster"  # Chained suffixes
 
 
 def test_strip_prefixes():
