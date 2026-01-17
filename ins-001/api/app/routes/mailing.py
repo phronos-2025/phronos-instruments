@@ -47,21 +47,70 @@ async def send_welcome_email(email: str, unsubscribe_token: str) -> bool:
             "to": email,
             "subject": "You're subscribed to Phronos updates",
             "html": f"""
-            <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; color: #1A1A1A;">
-                <h1 style="font-size: 24px; font-weight: 400; margin-bottom: 24px;">Welcome to Phronos</h1>
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            </head>
+            <body style="margin: 0; padding: 0; background-color: #FFFFFF;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #FFFFFF;">
+                    <tr>
+                        <td style="padding: 40px 20px;">
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width: 520px; margin: 0 auto;">
+                                <!-- Logo and Wordmark -->
+                                <tr>
+                                    <td style="padding-bottom: 32px;">
+                                        <a href="https://phronos.org" style="text-decoration: none; display: inline-block;">
+                                            <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                                                <tr>
+                                                    <td style="vertical-align: middle; padding-right: 10px;">
+                                                        <img src="https://phronos.org/favicon.png" alt="Phronos" width="28" height="28" style="display: block; border: 0;">
+                                                    </td>
+                                                    <td style="vertical-align: middle;">
+                                                        <span style="font-family: Georgia, 'Times New Roman', serif; font-size: 18px; font-weight: 400; color: #1A1A1A; letter-spacing: 0.5px;">Phronos</span>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </a>
+                                    </td>
+                                </tr>
 
-                <p style="font-size: 16px; line-height: 1.6; margin-bottom: 16px;">
-                    You're now subscribed to receive updates about our work.
-                </p>
+                                <!-- Divider -->
+                                <tr>
+                                    <td style="border-top: 1px solid #1A1A1A; padding-top: 32px;"></td>
+                                </tr>
 
-                <p style="font-size: 16px; line-height: 1.6; margin-bottom: 16px;">
-                    We'll send occasional emails about new dispatches, research findings, and instrument releases. No spam. Just signal.
-                </p>
+                                <!-- Content -->
+                                <tr>
+                                    <td style="font-family: Georgia, 'Times New Roman', serif; font-size: 16px; line-height: 1.7; color: #1A1A1A;">
+                                        <p style="margin: 0 0 20px 0;">
+                                            You're now subscribed to receive updates about our work.
+                                        </p>
+                                        <p style="margin: 0 0 20px 0;">
+                                            We'll send occasional emails about new dispatches, research findings, and instrument releases. No spam. Just signal.
+                                        </p>
+                                    </td>
+                                </tr>
 
-                <p style="font-size: 14px; color: #666; margin-top: 40px;">
-                    <a href="{unsubscribe_url}" style="color: #666;">Unsubscribe</a>
-                </p>
-            </div>
+                                <!-- Footer -->
+                                <tr>
+                                    <td style="padding-top: 48px; border-top: 1px solid #E5E5E5; margin-top: 32px;">
+                                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                                            <tr>
+                                                <td style="font-family: -apple-system, BlinkMacSystemFont, 'SF Mono', Consolas, monospace; font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.5px;">
+                                                    <a href="{unsubscribe_url}" style="color: #888; text-decoration: underline;">Unsubscribe</a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </body>
+            </html>
             """,
             "headers": {
                 "List-Unsubscribe": f"<{unsubscribe_url}>",
