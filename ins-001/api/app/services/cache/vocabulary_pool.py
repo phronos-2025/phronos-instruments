@@ -218,16 +218,24 @@ class VocabularyPool:
 
 
 # Fallback words if database is unavailable
+# Curated for semantic diversity and evocativeness
 FALLBACK_WORDS = [
-    "universe", "cosmos", "ocean", "mountain", "algorithm",
-    "symphony", "crystal", "whisper", "thunder", "horizon",
-    "paradox", "labyrinth", "enigma", "essence", "catalyst",
-    "zenith", "nebula", "fortress", "cascade", "phantom",
-    "quantum", "glacier", "volcano", "midnight", "twilight",
-    "harmony", "discord", "serenity", "chaos", "wisdom",
-    "ancient", "modern", "future", "memory", "destiny",
-    "shadow", "light", "fire", "water", "earth",
-    "storm", "calm", "dream", "reality", "illusion",
+    # Natural phenomena
+    "avalanche", "monsoon", "aurora", "eclipse", "erosion",
+    # Abstract concepts
+    "nostalgia", "vertigo", "paradox", "entropy", "epiphany",
+    # Evocative objects/places
+    "lighthouse", "archipelago", "labyrinth", "catacomb", "oasis",
+    # Sensory/emotional
+    "velvet", "thunder", "fragrance", "bitter", "luminous",
+    # Actions/processes
+    "dissolve", "unravel", "flourish", "collide", "emerge",
+    # Unusual/rich words
+    "gossamer", "obsidian", "vermillion", "chrysalis", "almanac",
+    # Conceptual
+    "threshold", "remnant", "catalyst", "cipher", "spectrum",
+    # Temporal
+    "twilight", "epoch", "perpetual", "fleeting", "vestige",
 ]
 
 

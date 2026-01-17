@@ -44,18 +44,61 @@ async def suggest_distant_word(
     """
     Suggest a random word from vocabulary.
 
-    Uses in-memory vocabulary pool for instant response (<50ms).
+    If from_word is provided (INS-001.2), suggests a semantically distant word
+    by sampling candidates and picking the most distant one.
+
+    Uses in-memory vocabulary pool for instant response (<100ms).
     """
     supabase, user = auth
+    from_word_clean = from_word.lower().strip() if from_word else None
 
-    # Use in-memory vocabulary pool for instant response
     pool = VocabularyPool.get_instance()
+
+    # INS-001.2: When from_word is provided, find a semantically distant word
+    if from_word_clean and pool.is_initialized and pool.size > 0:
+        try:
+            from app.services.cache import EmbeddingCache
+            cache = EmbeddingCache.get_instance()
+
+            # Sample 10 random candidates
+            candidates = pool.get_random_batch(10, allow_duplicates=False)
+            # Filter out the from_word itself
+            candidates = [c for c in candidates if c != from_word_clean]
+
+            if candidates:
+                # Get embeddings for from_word + all candidates in one batch
+                all_words = [from_word_clean] + candidates
+                embeddings = await cache.get_embeddings_batch(all_words)
+
+                from_embedding = embeddings[0]
+                candidate_embeddings = embeddings[1:]
+
+                # Find the most distant candidate (lowest similarity)
+                best_word = candidates[0]
+                best_distance = -1.0
+
+                for word, emb in zip(candidates, candidate_embeddings):
+                    sim = cosine_similarity(from_embedding, emb)
+                    distance = 1 - sim
+                    if distance > best_distance:
+                        best_distance = distance
+                        best_word = word
+
+                return SuggestWordResponse(
+                    suggestion=best_word,
+                    from_word=from_word_clean
+                )
+        except Exception as e:
+            print(f"suggest_distant_word semantic filtering error: {e}")
+            # Fall through to simple random
+
+    # INS-001.1 or fallback: Simple random word
     if pool.is_initialized and pool.size > 0:
         word = pool.get_random()
         if word:
             return SuggestWordResponse(
                 suggestion=word,
-                from_word=from_word.lower().strip() if from_word else None
+                from_word=from_word_clean
             )
 
     # Fallback: database query if pool not initialized
@@ -69,16 +112,16 @@ async def suggest_distant_word(
             word = result.data[0]["word"]
             return SuggestWordResponse(
                 suggestion=word,
-                from_word=from_word.lower().strip() if from_word else None
+                from_word=from_word_clean
             )
     except Exception as e:
         print(f"suggest_distant_word database error: {e}")
 
-    # Hardcoded fallback
-    fallback_words = ["ocean", "mountain", "whisper", "thunder", "crystal", "shadow"]
+    # Hardcoded fallback with more evocative words
+    from app.services.cache.vocabulary_pool import FALLBACK_WORDS
     return SuggestWordResponse(
-        suggestion=random.choice(fallback_words),
-        from_word=from_word.lower().strip() if from_word else None
+        suggestion=random.choice(FALLBACK_WORDS),
+        from_word=from_word_clean
     )
 
 
