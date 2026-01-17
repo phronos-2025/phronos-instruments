@@ -17,7 +17,7 @@ from app.models import (
     SubscriptionStatusResponse,
 )
 from app.middleware.auth import get_optional_client
-from app.config import RESEND_API_KEY, MAILING_FROM_EMAIL, FRONTEND_URL
+from app.config import RESEND_API_KEY, MAILING_FROM_EMAIL, MAIN_SITE_URL
 
 router = APIRouter()
 
@@ -40,7 +40,7 @@ async def send_welcome_email(email: str, unsubscribe_token: str) -> bool:
         import resend
         resend.api_key = RESEND_API_KEY
 
-        unsubscribe_url = f"{FRONTEND_URL}/unsubscribe?token={unsubscribe_token}"
+        unsubscribe_url = f"{MAIN_SITE_URL}/unsubscribe?token={unsubscribe_token}"
 
         resend.Emails.send({
             "from": MAILING_FROM_EMAIL,

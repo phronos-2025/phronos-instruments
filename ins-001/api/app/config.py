@@ -33,6 +33,7 @@ SENTRY_DSN = os.environ.get("SENTRY_DSN")
 # Email (Resend)
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
 MAILING_FROM_EMAIL = os.environ.get("MAILING_FROM_EMAIL", "updates@phronos.org")
+MAIN_SITE_URL = os.environ.get("MAIN_SITE_URL", "https://phronos.org").rstrip('/')  # Main Phronos site for mailing unsubscribe
 
 
 # ============================================
