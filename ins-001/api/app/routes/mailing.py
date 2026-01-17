@@ -105,11 +105,11 @@ async def subscribe(
         existing = supabase.table("mailing_list") \
             .select("id, is_active, unsubscribe_token, user_id") \
             .eq("email", email) \
-            .maybe_single() \
             .execute()
 
-        if existing.data:
-            if existing.data.get("is_active"):
+        if existing.data and len(existing.data) > 0:
+            existing_record = existing.data[0]
+            if existing_record.get("is_active"):
                 # Already subscribed and active
                 return SubscribeResponse(
                     success=True,
@@ -123,16 +123,16 @@ async def subscribe(
                     "updated_at": "now()"
                 }
                 # Link user if not already linked
-                if user_id and not existing.data.get("user_id"):
+                if user_id and not existing_record.get("user_id"):
                     update_data["user_id"] = user_id
 
                 supabase.table("mailing_list") \
                     .update(update_data) \
-                    .eq("id", existing.data["id"]) \
+                    .eq("id", existing_record["id"]) \
                     .execute()
 
                 # Send welcome email
-                await send_welcome_email(email, existing.data["unsubscribe_token"])
+                await send_welcome_email(email, existing_record["unsubscribe_token"])
 
                 return SubscribeResponse(
                     success=True,
@@ -203,16 +203,17 @@ async def unsubscribe(request: UnsubscribeRequest):
         result = supabase.table("mailing_list") \
             .select("id, email, is_active") \
             .eq("unsubscribe_token", request.token) \
-            .maybe_single() \
             .execute()
 
-        if not result.data:
+        if not result.data or len(result.data) == 0:
             raise HTTPException(
                 status_code=404,
                 detail={"error": "Invalid unsubscribe token"}
             )
 
-        if not result.data.get("is_active"):
+        record = result.data[0]
+
+        if not record.get("is_active"):
             return UnsubscribeResponse(
                 success=True,
                 message="You're already unsubscribed."
@@ -224,7 +225,7 @@ async def unsubscribe(request: UnsubscribeRequest):
                 "is_active": False,
                 "updated_at": "now()"
             }) \
-            .eq("id", result.data["id"]) \
+            .eq("id", record["id"]) \
             .execute()
 
         return UnsubscribeResponse(
@@ -263,19 +264,20 @@ async def get_subscription_status(
         result = supabase.table("mailing_list") \
             .select("email, is_active, subscribed_at") \
             .eq("email", email) \
-            .maybe_single() \
             .execute()
 
-        if not result.data:
+        if not result.data or len(result.data) == 0:
             return SubscriptionStatusResponse(
                 email=email,
                 is_subscribed=False
             )
 
+        record = result.data[0]
+
         return SubscriptionStatusResponse(
             email=email,
-            is_subscribed=result.data.get("is_active", False),
-            subscribed_at=result.data.get("subscribed_at")
+            is_subscribed=record.get("is_active", False),
+            subscribed_at=record.get("subscribed_at")
         )
 
     except APIError as e:
