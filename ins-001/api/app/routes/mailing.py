@@ -105,7 +105,7 @@ async def subscribe(
         existing = supabase.table("mailing_list") \
             .select("id, is_active, unsubscribe_token, user_id") \
             .eq("email", email) \
-            .maybeSingle() \
+            .maybe_single() \
             .execute()
 
         if existing.data:
@@ -203,7 +203,7 @@ async def unsubscribe(request: UnsubscribeRequest):
         result = supabase.table("mailing_list") \
             .select("id, email, is_active") \
             .eq("unsubscribe_token", request.token) \
-            .maybeSingle() \
+            .maybe_single() \
             .execute()
 
         if not result.data:
@@ -263,7 +263,7 @@ async def get_subscription_status(
         result = supabase.table("mailing_list") \
             .select("email, is_active, subscribed_at") \
             .eq("email", email) \
-            .maybeSingle() \
+            .maybe_single() \
             .execute()
 
         if not result.data:
