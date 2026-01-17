@@ -21,7 +21,7 @@ import { MagicLinkModal } from '../../auth/MagicLinkModal';
 import { api } from '../../../lib/api';
 import type { BridgingGameResponse } from '../../../lib/api';
 
-// Morphological variant detection (mirrors CluesScreen logic)
+// Morphological variant detection (mirrors backend logic)
 function getWordStem(word: string): string {
   word = word.toLowerCase();
   const suffixes = [
@@ -32,6 +32,29 @@ function getWordStem(word: string): string {
   for (const suffix of suffixes) {
     if (word.endsWith(suffix) && word.length > suffix.length + 2) {
       return word.slice(0, -suffix.length);
+    }
+  }
+  return word;
+}
+
+function normalizeStem(word: string): string {
+  // Normalize stem for Y→I transformations (mystery/mysteries/mysterious)
+  const stem = getWordStem(word);
+  if (stem.endsWith('y')) return stem.slice(0, -1);
+  if (stem.endsWith('i')) return stem.slice(0, -1);
+  return stem;
+}
+
+function stripCommonPrefixes(word: string): string {
+  // Strip common morphological prefixes (un-, dis-, im-, etc.)
+  word = word.toLowerCase();
+  const prefixes = [
+    'counter', 'under', 'over', 'anti', 'dis', 'mis', 'non',
+    'pre', 'un', 'in', 'im', 're'
+  ];
+  for (const prefix of prefixes) {
+    if (word.startsWith(prefix) && word.length > prefix.length + 3) {
+      return word.slice(prefix.length);
     }
   }
   return word;
@@ -51,8 +74,17 @@ function isMorphologicalVariant(word1: string, word2: string): boolean {
     }
   }
 
-  // Same stem
-  if (getWordStem(w1) === getWordStem(w2)) return true;
+  // Check prefix-based variants (certainty/uncertainty)
+  const w1Stripped = stripCommonPrefixes(w1);
+  const w2Stripped = stripCommonPrefixes(w2);
+  if (w1Stripped === w2Stripped) return true;
+  if (w1Stripped === w2 || w2Stripped === w1) return true;
+
+  // Same normalized stem (handles y→i transformations like mystery/mysteries/mysterious)
+  if (normalizeStem(w1) === normalizeStem(w2)) return true;
+
+  // Also check normalized stems of prefix-stripped versions
+  if (normalizeStem(w1Stripped) === normalizeStem(w2Stripped)) return true;
 
   return false;
 }

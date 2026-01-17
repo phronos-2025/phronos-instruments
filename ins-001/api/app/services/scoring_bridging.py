@@ -60,11 +60,60 @@ def _get_word_stem(word: str) -> str:
     return word
 
 
+def _normalize_stem(word: str) -> str:
+    """
+    Normalize a word stem for comparison, handling Y→I transformations.
+
+    This handles cases like:
+    - mystery → mysteri (when suffix stripped)
+    - mysteries → myster (when 'ies' stripped)
+
+    By normalizing trailing 'i' and 'y' variations.
+    """
+    stem = _get_word_stem(word)
+
+    # Normalize y/i endings for comparison
+    # mystery → myster, mysteri → myster, myster → myster
+    if stem.endswith('y'):
+        return stem[:-1]
+    if stem.endswith('i'):
+        return stem[:-1]
+
+    return stem
+
+
+def _strip_common_prefixes(word: str) -> str:
+    """
+    Strip common morphological prefixes from a word.
+
+    Handles negation/modification prefixes like un-, in-, dis-, etc.
+    """
+    word = word.lower()
+
+    # Common prefixes (order by length, longest first)
+    prefixes = [
+        'counter', 'under', 'over', 'anti', 'dis', 'mis', 'non',
+        'pre', 'un', 'in', 'im', 're'
+    ]
+
+    for prefix in prefixes:
+        if word.startswith(prefix) and len(word) > len(prefix) + 3:
+            return word[len(prefix):]
+
+    return word
+
+
 def _is_morphological_variant(word1: str, word2: str) -> bool:
     """
     Check if two words are morphological variants of each other.
 
-    Examples: catalyst/catalysts, run/running, happy/happiness
+    Examples:
+    - catalyst/catalysts (plural)
+    - run/running (verb form)
+    - happy/happiness (derivation)
+    - mystery/mysteries (y→ie plural)
+    - mystery/mysterious (y→i derivation)
+    - certainty/uncertainty (prefix)
     """
     w1, w2 = word1.lower(), word2.lower()
 
@@ -78,8 +127,20 @@ def _is_morphological_variant(word1: str, word2: str) -> bool:
         if abs(len(w1) - len(w2)) <= 4:
             return True
 
-    # Same stem
-    if _get_word_stem(w1) == _get_word_stem(w2):
+    # Check prefix-based variants (certainty/uncertainty)
+    w1_stripped = _strip_common_prefixes(w1)
+    w2_stripped = _strip_common_prefixes(w2)
+    if w1_stripped == w2_stripped:
+        return True
+    if w1_stripped == w2 or w2_stripped == w1:
+        return True
+
+    # Same normalized stem (handles y→i transformations like mystery/mysteries/mysterious)
+    if _normalize_stem(w1) == _normalize_stem(w2):
+        return True
+
+    # Also check normalized stems of prefix-stripped versions
+    if _normalize_stem(w1_stripped) == _normalize_stem(w2_stripped):
         return True
 
     return False
@@ -546,11 +607,27 @@ def get_reconstruction_interpretation(score: float) -> str:
 
 def test_morphological_variants():
     """Test morphological variant detection."""
+    # Basic suffix variants
     assert _is_morphological_variant("cat", "cats") == True
     assert _is_morphological_variant("run", "running") == True
     assert _is_morphological_variant("happy", "happiness") == True
     assert _is_morphological_variant("cat", "dog") == False
     assert _is_morphological_variant("cat", "catalyst") == False  # Too different in length
+
+    # Y→I transformations (INS-001.2 bug fix)
+    assert _is_morphological_variant("mystery", "mysteries") == True
+    assert _is_morphological_variant("mystery", "mysterious") == True
+
+    # Prefix variants (INS-001.2 bug fix)
+    assert _is_morphological_variant("certainty", "uncertainty") == True
+    assert _is_morphological_variant("certain", "uncertain") == True
+    assert _is_morphological_variant("happy", "unhappy") == True
+    assert _is_morphological_variant("possible", "impossible") == True
+    assert _is_morphological_variant("agree", "disagree") == True
+
+    # Non-variants should still return False
+    assert _is_morphological_variant("mystery", "assurance") == False
+    assert _is_morphological_variant("certainty", "doubtless") == False
 
 
 def test_word_stem():
@@ -560,7 +637,26 @@ def test_word_stem():
     assert _get_word_stem("happiness") == "happi"
 
 
+def test_normalize_stem():
+    """Test stem normalization for Y→I handling."""
+    assert _normalize_stem("mystery") == "myster"
+    assert _normalize_stem("mysteries") == "myster"
+    assert _normalize_stem("mysterious") == "myster"
+
+
+def test_strip_prefixes():
+    """Test prefix stripping."""
+    assert _strip_common_prefixes("uncertainty") == "certainty"
+    assert _strip_common_prefixes("unhappy") == "happy"
+    assert _strip_common_prefixes("impossible") == "possible"
+    assert _strip_common_prefixes("disagree") == "agree"
+    # Should not strip if result would be too short
+    assert _strip_common_prefixes("unit") == "unit"
+
+
 if __name__ == "__main__":
     test_morphological_variants()
     test_word_stem()
+    test_normalize_stem()
+    test_strip_prefixes()
     print("All tests passed!")
