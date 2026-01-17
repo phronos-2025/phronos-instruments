@@ -719,10 +719,26 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
 
             // Add qualitative insight
             let insight = '';
-            if (userSpread > (haikuSpr ?? 50) && userSpread > (statSpr ?? 50)) {
-              insight = ', which may indicate your concepts are more diverse but less focused on the semantic bridge between anchor and target.';
+
+            // Check if user is "on par or better" for relevance (within 5 points or higher)
+            const relevanceOnParOrBetter = (baseline: number | null) =>
+              baseline === null || userRel >= baseline - 5;
+            const userRelOnParOrBetter = relevanceOnParOrBetter(haikuRel) && relevanceOnParOrBetter(statRel);
+
+            // Check if spread is significantly higher (more than 5 points)
+            const spreadSignificantlyHigher = (baseline: number | null) =>
+              baseline !== null && userSpread > baseline + 5;
+            const userSpreadSignificantlyHigher =
+              (haikuSpr !== null && spreadSignificantlyHigher(haikuSpr)) ||
+              (statSpr !== null && spreadSignificantlyHigher(statSpr));
+
+            if (userRelOnParOrBetter && userSpreadSignificantlyHigher) {
+              // Superior: relevant AND more diverse
+              insight = ', indicating superior bridging—your concepts are both relevant and more diverse than the baselines.';
             } else if (userRel > (haikuRel ?? 50) && userRel > (statRel ?? 50)) {
               insight = ', suggesting strong conceptual bridging between the anchor and target.';
+            } else if (userSpread > (haikuSpr ?? 50) && userSpread > (statSpr ?? 50) && userRel < Math.min(haikuRel ?? 50, statRel ?? 50) - 5) {
+              insight = ', which may indicate your concepts are more diverse but less focused on the semantic bridge between anchor and target.';
             } else if (userRel < (haikuRel ?? 50) && userRel < (statRel ?? 50)) {
               insight = '. The bridging concepts may be too distant from the semantic space between anchor and target.';
             } else {
