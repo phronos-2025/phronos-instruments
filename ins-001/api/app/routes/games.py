@@ -35,6 +35,7 @@ from app.services.embeddings import (
     check_word_in_vocabulary,
     get_sense_options,
     get_contextual_embedding,
+    get_vocabulary_sample,
 )
 from app.services.cache import EmbeddingCache
 from app.services.scoring import (
@@ -43,6 +44,8 @@ from app.services.scoring import (
     score_radiation,
     score_bridging,
     compute_bridge_similarity,
+    bootstrap_null_distribution,
+    normalize_scores,
 )
 from app.services.llm import llm_guess, haiku_build_bridge
 from app.config import SUPABASE_URL, SUPABASE_SERVICE_KEY, APP_URL
@@ -361,6 +364,22 @@ async def submit_radiation_clues(
     radiation_scores = score_radiation(clue_embeddings, seed_emb)
     divergence_raw = compute_divergence(clue_embeddings, floor_embeddings)
 
+    # Compute relevance percentile using null distribution
+    # This normalizes scores against random word baseline
+    vocab_embeddings = await get_vocabulary_sample(supabase, n=1000)
+    if vocab_embeddings:
+        null_dist = bootstrap_null_distribution(
+            prompt_embeddings={"seed": seed_emb},
+            vocabulary_embeddings=vocab_embeddings,
+            n_clues=len(clues_clean),
+            instrument="radiation",
+            n_samples=500,
+        )
+        normalized = normalize_scores(radiation_scores, null_dist, method="percentile")
+        relevance_percentile = normalized["relevance_normalized"]
+    else:
+        relevance_percentile = None
+
     # Build sender input with optional timing data
     sender_input = {"clues": clues_clean}
     if request.clue_timings:
@@ -373,6 +392,7 @@ async def submit_radiation_clues(
         "divergence": radiation_scores["divergence"],  # 0-100 DAT-style
         "divergence_raw": divergence_raw,  # Legacy 0-1
         "relevance": radiation_scores["relevance"],
+        "relevance_percentile": relevance_percentile,
     }
 
     update_data = {
@@ -418,6 +438,7 @@ async def submit_radiation_clues(
         divergence=radiation_scores["divergence"],
         divergence_score=divergence_raw,
         relevance=radiation_scores["relevance"],
+        relevance_percentile=relevance_percentile,
         spread=radiation_scores["divergence"],
         status=GameStatus.COMPLETED if is_llm_game else GameStatus.PENDING_GUESS,
         llm_guesses=llm_guesses,
@@ -628,6 +649,22 @@ async def submit_bridging_clues(
     # Score sender's clues
     sender_scores_dict = score_bridging(clue_embeddings, anchor_emb, target_emb)
 
+    # Compute relevance percentile using null distribution
+    # This normalizes scores against random word baseline
+    vocab_embeddings = await get_vocabulary_sample(supabase, n=1000)
+    if vocab_embeddings:
+        null_dist = bootstrap_null_distribution(
+            prompt_embeddings={"anchor": anchor_emb, "target": target_emb},
+            vocabulary_embeddings=vocab_embeddings,
+            n_clues=len(clues_clean),
+            instrument="union",
+            n_samples=500,
+        )
+        normalized = normalize_scores(sender_scores_dict, null_dist, method="percentile")
+        relevance_percentile = normalized["relevance_normalized"]
+    else:
+        relevance_percentile = None
+
     # Build sender input with optional timing data
     sender_input = {"clues": clues_clean}
     if request.clue_timings:
@@ -638,7 +675,7 @@ async def submit_bridging_clues(
 
     sender_scores = {
         "relevance": sender_scores_dict["relevance"],
-        "relevance_percentile": sender_scores_dict.get("relevance_percentile"),
+        "relevance_percentile": relevance_percentile,
         "divergence": sender_scores_dict["divergence"],
     }
 

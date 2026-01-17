@@ -452,6 +452,48 @@ def is_polysemous(word: str) -> bool:
 
 
 # ============================================
+# VOCABULARY SAMPLING (for null distribution)
+# ============================================
+
+async def get_vocabulary_sample(supabase: Client, n: int = 1000) -> list[list[float]]:
+    """
+    Fetch a random sample of vocabulary embeddings for null distribution bootstrap.
+
+    Used by scoring.bootstrap_null_distribution() to compare participant scores
+    against random baseline.
+
+    Args:
+        supabase: Authenticated Supabase client
+        n: Number of embeddings to sample (default 1000)
+
+    Returns:
+        List of embedding vectors (1536-dimensional each)
+    """
+    # Use random() ordering to get a random sample
+    # TABLESAMPLE would be faster but requires specific PostgreSQL setup
+    result = supabase.table("vocabulary_embeddings") \
+        .select("embedding") \
+        .limit(n) \
+        .execute()
+
+    if not result.data:
+        return []
+
+    # Parse embeddings from database format
+    embeddings = []
+    for row in result.data:
+        emb = row.get("embedding")
+        if emb:
+            # Handle both list and string formats
+            if isinstance(emb, str):
+                import json
+                emb = json.loads(emb)
+            embeddings.append(emb)
+
+    return embeddings
+
+
+# ============================================
 # VALIDATION
 # ============================================
 

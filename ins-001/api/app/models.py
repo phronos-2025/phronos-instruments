@@ -145,6 +145,7 @@ class SubmitRadiationCluesResponse(BaseModel):
     divergence: float  # 0-100 DAT-style
     divergence_score: float  # Legacy 0-1 for backwards compat
     relevance: Optional[float] = None
+    relevance_percentile: Optional[float] = None  # 0-100: vs random baseline
     spread: Optional[float] = None
     status: GameStatus
     # LLM results (if LLM game)
