@@ -150,69 +150,45 @@ async def subscribe(
     user_id = user.get("id") if user else None
 
     try:
-        # Check if already subscribed
-        existing = supabase.table("mailing_list") \
-            .select("id, is_active, unsubscribe_token, user_id") \
-            .eq("email", email) \
-            .execute()
+        # Use the secure subscribe function that bypasses RLS
+        result = supabase.rpc(
+            "subscribe_to_mailing_list",
+            {
+                "p_email": email,
+                "p_source": request.source,
+                "p_user_id": user_id
+            }
+        ).execute()
 
-        if existing.data and len(existing.data) > 0:
-            existing_record = existing.data[0]
-            if existing_record.get("is_active"):
-                # Already subscribed and active
+        if result.data and len(result.data) > 0:
+            record = result.data[0]
+            unsubscribe_token = record.get("unsubscribe_token")
+            already_subscribed = record.get("already_subscribed", False)
+            was_reactivated = record.get("was_reactivated", False)
+
+            if already_subscribed:
                 return SubscribeResponse(
                     success=True,
                     message="You're already subscribed with this email.",
                     already_subscribed=True
                 )
-            else:
-                # Reactivate subscription
-                update_data = {
-                    "is_active": True,
-                    "updated_at": "now()"
-                }
-                # Link user if not already linked
-                if user_id and not existing_record.get("user_id"):
-                    update_data["user_id"] = user_id
 
-                supabase.table("mailing_list") \
-                    .update(update_data) \
-                    .eq("id", existing_record["id"]) \
-                    .execute()
-
-                # Send welcome email
-                await send_welcome_email(email, existing_record["unsubscribe_token"])
-
-                return SubscribeResponse(
-                    success=True,
-                    message="Welcome back! You're subscribed again.",
-                    already_subscribed=False
-                )
-
-        # New subscription
-        insert_data = {
-            "email": email,
-            "source": request.source,
-        }
-        if user_id:
-            insert_data["user_id"] = user_id
-
-        result = supabase.table("mailing_list") \
-            .insert(insert_data) \
-            .execute()
-
-        if result.data and len(result.data) > 0:
-            unsubscribe_token = result.data[0].get("unsubscribe_token")
-
-            # Send welcome email
+            # Send welcome email for new or reactivated subscriptions
             email_sent = await send_welcome_email(email, unsubscribe_token)
 
             # Update welcome_sent_at if email was sent
             if email_sent:
                 supabase.table("mailing_list") \
                     .update({"welcome_sent_at": "now()"}) \
-                    .eq("id", result.data[0]["id"]) \
+                    .eq("id", record["id"]) \
                     .execute()
+
+            if was_reactivated:
+                return SubscribeResponse(
+                    success=True,
+                    message="Welcome back! You're subscribed again.",
+                    already_subscribed=False
+                )
 
             return SubscribeResponse(
                 success=True,

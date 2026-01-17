@@ -6,11 +6,8 @@
 CREATE SCHEMA IF NOT EXISTS analytics;
 
 CREATE OR REPLACE VIEW analytics.user_profiles_extended AS
-SELECT 
+SELECT
     up.*,
-    u.games_played,
-    u.is_anonymous,
-    u.created_at AS user_created_at,
     u.terms_accepted_at
 FROM user_profiles up
 JOIN users u ON up.user_id = u.id;
