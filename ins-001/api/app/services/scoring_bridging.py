@@ -49,8 +49,8 @@ def _get_word_stem(word: str) -> str:
     # Common suffixes to strip (order matters - check longer ones first)
     suffixes = [
         'ically', 'ation', 'ness', 'ment', 'able', 'ible', 'tion',
-        'sion', 'ally', 'ful', 'less', 'ing', 'ity', 'ous', 'ive',
-        'est', 'ier', 'ies', 'ied', 'ly', 'ed', 'er', 'en', 'es', 's'
+        'sion', 'ally', 'ical', 'ful', 'less', 'ing', 'ity', 'ous', 'ive',
+        'est', 'ier', 'ies', 'ied', 'ic', 'ly', 'ed', 'er', 'en', 'es', 's'
     ]
 
     for suffix in suffixes:

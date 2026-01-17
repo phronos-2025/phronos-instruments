@@ -26,8 +26,8 @@ function getWordStem(word: string): string {
   word = word.toLowerCase();
   const suffixes = [
     'ically', 'ation', 'ness', 'ment', 'able', 'ible', 'tion',
-    'sion', 'ally', 'ful', 'less', 'ing', 'ity', 'ous', 'ive',
-    'est', 'ier', 'ies', 'ied', 'ly', 'ed', 'er', 'en', 'es', 's'
+    'sion', 'ally', 'ical', 'ful', 'less', 'ing', 'ity', 'ous', 'ive',
+    'est', 'ier', 'ies', 'ied', 'ic', 'ly', 'ed', 'er', 'en', 'es', 's'
   ];
   for (const suffix of suffixes) {
     if (word.endsWith(suffix) && word.length > suffix.length + 2) {
