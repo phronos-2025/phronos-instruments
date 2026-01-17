@@ -559,3 +559,38 @@ GameResponse = RadiationGameResponse
 # Bridging legacy aliases
 BridgingRecipientType = RecipientType  # Was separate enum, now unified
 BridgingGameStatus = GameStatus  # Was separate enum, now unified
+
+
+# ============================================
+# MAILING LIST
+# ============================================
+
+class SubscribeRequest(BaseModel):
+    """Request to subscribe to mailing list."""
+    email: str = Field(min_length=5, max_length=255)
+    source: str = Field(default="website", max_length=50)
+
+
+class SubscribeResponse(BaseModel):
+    """Response after subscribing."""
+    success: bool
+    message: str
+    already_subscribed: bool = False
+
+
+class UnsubscribeRequest(BaseModel):
+    """Request to unsubscribe from mailing list."""
+    token: str = Field(min_length=32, max_length=32)
+
+
+class UnsubscribeResponse(BaseModel):
+    """Response after unsubscribing."""
+    success: bool
+    message: str
+
+
+class SubscriptionStatusResponse(BaseModel):
+    """Response with subscription status."""
+    email: str
+    is_subscribed: bool
+    subscribed_at: Optional[datetime] = None

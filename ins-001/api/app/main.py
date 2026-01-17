@@ -14,7 +14,7 @@ import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 
 # Import routes
-from app.routes import games, embeddings, users, share, bridging
+from app.routes import games, embeddings, users, share, bridging, mailing
 
 
 # ============================================
@@ -84,6 +84,8 @@ cors_origins = [
     "http://localhost:4321",  # Astro dev
     "https://instruments.phronos.org",  # Production frontend (custom domain)
     "https://phronos-instruments.vercel.app",  # Vercel production frontend
+    "https://phronos.org",  # Main site (for mailing list)
+    "https://www.phronos.org",  # Main site with www
 ]
 
 # Add frontend URL from env if set (this is the recommended way)
@@ -118,6 +120,7 @@ app.include_router(embeddings.router, prefix="/api/v1/embeddings", tags=["embedd
 app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
 app.include_router(share.router, prefix="/api/v1", tags=["share"])
 app.include_router(bridging.router, prefix="/api/v1/bridging", tags=["bridging"])
+app.include_router(mailing.router, prefix="/api/v1/mailing", tags=["mailing"])
 
 
 # ============================================

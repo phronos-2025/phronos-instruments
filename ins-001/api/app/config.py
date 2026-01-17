@@ -30,6 +30,10 @@ ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
 POSTHOG_API_KEY = os.environ.get("POSTHOG_API_KEY")
 SENTRY_DSN = os.environ.get("SENTRY_DSN")
 
+# Email (Resend)
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
+MAILING_FROM_EMAIL = os.environ.get("MAILING_FROM_EMAIL", "updates@phronos.org")
+
 
 # ============================================
 # BLOCKLIST (commented out for MVP)
