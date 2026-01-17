@@ -35,9 +35,8 @@ from app.services.embeddings import (
     check_word_in_vocabulary,
     get_sense_options,
     get_contextual_embedding,
-    get_vocabulary_sample,
 )
-from app.services.cache import EmbeddingCache
+from app.services.cache import EmbeddingCache, VocabularyPool
 from app.services.scoring import (
     compute_divergence,
     compute_convergence,
@@ -364,11 +363,12 @@ async def submit_radiation_clues(
     radiation_scores = score_radiation(clue_embeddings, seed_emb)
     divergence_raw = compute_divergence(clue_embeddings, floor_embeddings)
 
-    # Compute relevance percentile using null distribution
+    # Compute relevance percentile using null distribution from in-memory pool
     # This normalizes scores against random word baseline
-    # Using smaller samples (200 vocab, 100 bootstrap) for speed (~1-2s vs 14s)
-    vocab_embeddings = await get_vocabulary_sample(supabase, n=200)
-    if vocab_embeddings:
+    vocab_pool = VocabularyPool.get_instance()
+    vocab_with_emb = vocab_pool.get_random_with_embeddings(200)
+    if vocab_with_emb:
+        vocab_embeddings = [emb for _, emb in vocab_with_emb]
         null_dist = bootstrap_null_distribution(
             prompt_embeddings={"seed": seed_emb},
             vocabulary_embeddings=vocab_embeddings,
@@ -650,11 +650,12 @@ async def submit_bridging_clues(
     # Score sender's clues
     sender_scores_dict = score_bridging(clue_embeddings, anchor_emb, target_emb)
 
-    # Compute relevance percentile using null distribution
+    # Compute relevance percentile using null distribution from in-memory pool
     # This normalizes scores against random word baseline
-    # Using smaller samples (200 vocab, 100 bootstrap) for speed (~1-2s vs 14s)
-    vocab_embeddings = await get_vocabulary_sample(supabase, n=200)
-    if vocab_embeddings:
+    vocab_pool = VocabularyPool.get_instance()
+    vocab_with_emb = vocab_pool.get_random_with_embeddings(200)
+    if vocab_with_emb:
+        vocab_embeddings = [emb for _, emb in vocab_with_emb]
         null_dist = bootstrap_null_distribution(
             prompt_embeddings={"anchor": anchor_emb, "target": target_emb},
             vocabulary_embeddings=vocab_embeddings,
