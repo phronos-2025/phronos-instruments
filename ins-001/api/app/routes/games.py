@@ -366,14 +366,15 @@ async def submit_radiation_clues(
 
     # Compute relevance percentile using null distribution
     # This normalizes scores against random word baseline
-    vocab_embeddings = await get_vocabulary_sample(supabase, n=1000)
+    # Using smaller samples (200 vocab, 100 bootstrap) for speed (~1-2s vs 14s)
+    vocab_embeddings = await get_vocabulary_sample(supabase, n=200)
     if vocab_embeddings:
         null_dist = bootstrap_null_distribution(
             prompt_embeddings={"seed": seed_emb},
             vocabulary_embeddings=vocab_embeddings,
             n_clues=len(clues_clean),
             instrument="radiation",
-            n_samples=500,
+            n_samples=100,
         )
         normalized = normalize_scores(radiation_scores, null_dist, method="percentile")
         relevance_percentile = normalized["relevance_normalized"]
@@ -651,14 +652,15 @@ async def submit_bridging_clues(
 
     # Compute relevance percentile using null distribution
     # This normalizes scores against random word baseline
-    vocab_embeddings = await get_vocabulary_sample(supabase, n=1000)
+    # Using smaller samples (200 vocab, 100 bootstrap) for speed (~1-2s vs 14s)
+    vocab_embeddings = await get_vocabulary_sample(supabase, n=200)
     if vocab_embeddings:
         null_dist = bootstrap_null_distribution(
             prompt_embeddings={"anchor": anchor_emb, "target": target_emb},
             vocabulary_embeddings=vocab_embeddings,
             n_clues=len(clues_clean),
             instrument="union",
-            n_samples=500,
+            n_samples=100,
         )
         normalized = normalize_scores(sender_scores_dict, null_dist, method="percentile")
         relevance_percentile = normalized["relevance_normalized"]
