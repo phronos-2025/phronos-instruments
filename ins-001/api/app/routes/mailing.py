@@ -167,7 +167,7 @@ async def subscribe(
 
             return SubscribeResponse(
                 success=True,
-                message="You're subscribed! Check your email for confirmation.",
+                message="Thank you for your interest. Check your email for confirmation.",
                 already_subscribed=False
             )
 
