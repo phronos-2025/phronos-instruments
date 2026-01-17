@@ -646,6 +646,7 @@ async def submit_bridging_clues(
     baselines = {}
 
     # Lexical baseline
+    print(f"[submit_bridging_clues] lexical_path = {lexical_path}")
     if lexical_path:
         lexical_embs = await cache.get_embeddings_batch(lexical_path)
         lexical_scores = score_bridging(lexical_embs, anchor_emb, target_emb)
@@ -654,6 +655,9 @@ async def submit_bridging_clues(
             "relevance": lexical_scores["relevance"],
             "divergence": lexical_scores["divergence"],
         }
+        print(f"[submit_bridging_clues] lexical baseline built: {baselines['lexical']}")
+    else:
+        print(f"[submit_bridging_clues] No lexical_path, skipping lexical baseline")
 
     # Generate share code
     import secrets

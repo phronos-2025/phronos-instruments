@@ -234,26 +234,33 @@ async def find_lexical_union(
         ).execute()
 
         if not result.data:
+            print(f"[find_lexical_union] No data returned from get_statistical_union for {anchor}/{target}")
             return []
+
+        print(f"[find_lexical_union] Got {len(result.data)} candidates for {anchor}/{target}")
 
         # Filter results for morphological variants
         used_words = [anchor.lower(), target.lower()]
         union_words = []
+        filtered_count = 0
 
         for row in result.data:
             word = row["word"]
 
             # Skip anchor/target
             if word.lower() == anchor.lower() or word.lower() == target.lower():
+                filtered_count += 1
                 continue
 
             # Skip morphological variants of anchor/target
             if _is_morphological_variant(word, anchor) or _is_morphological_variant(word, target):
+                filtered_count += 1
                 continue
 
             # Skip morphological variants of already selected words
             is_variant = any(_is_morphological_variant(word, used) for used in used_words)
             if is_variant:
+                filtered_count += 1
                 continue
 
             union_words.append(word)
@@ -262,10 +269,13 @@ async def find_lexical_union(
             if len(union_words) >= num_concepts:
                 break
 
+        print(f"[find_lexical_union] Returning {len(union_words)} words after filtering {filtered_count} variants")
         return union_words
 
     except Exception as e:
-        print(f"get_statistical_union failed: {e}, falling back to neighbor sampling")
+        print(f"[find_lexical_union] get_statistical_union failed: {e}, falling back to neighbor sampling")
+        import traceback
+        traceback.print_exc()
         # Fallback to neighbor-based sampling if database function doesn't exist
         return await _find_lexical_union_fallback(anchor, target, num_concepts, supabase, anchor_emb, target_emb)
 
@@ -282,14 +292,17 @@ async def _find_lexical_union_fallback(
     Fallback: Sample neighbors of anchor and target, score by sum of similarities.
     Less accurate than full scan but works without database function.
     """
+    import json
+
     anchor_vec = np.array(anchor_emb)
     target_vec = np.array(target_emb)
 
     # Get candidates near both anchor and target regions
+    # Note: RPC expects TEXT (JSON array) after migration 110
     anchor_result = supabase.rpc(
         "get_noise_floor_by_embedding",
         {
-            "seed_embedding": anchor_vec.tolist(),
+            "seed_embedding": json.dumps(anchor_vec.tolist()),
             "seed_word": anchor,
             "k": 200
         }
@@ -298,7 +311,7 @@ async def _find_lexical_union_fallback(
     target_result = supabase.rpc(
         "get_noise_floor_by_embedding",
         {
-            "seed_embedding": target_vec.tolist(),
+            "seed_embedding": json.dumps(target_vec.tolist()),
             "seed_word": target,
             "k": 200
         }
