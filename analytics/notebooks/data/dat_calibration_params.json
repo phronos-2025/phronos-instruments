@@ -1,0 +1,71 @@
+{
+  "haiku_dat_mean": 74.10061236143041,
+  "haiku_dat_std": 1.5642430932504148,
+  "haiku_bridging_full_mean": 66.11565424031349,
+  "haiku_bridging_full_std": 4.139718969093784,
+  "haiku_clue_clue_mean": 65.38393171887819,
+  "haiku_clue_clue_std": 4.534943668508444,
+  "full_adjustment": 7.984958121116918,
+  "clue_clue_adjustment": 8.71668064255222,
+  "mean_anchor_target_distance": 0.7536694213032594,
+  "n_dat_trials": 150,
+  "n_bridging_trials": 116,
+  "assumption_validated": false,
+  "assumption_p_value": 0.0,
+  "assumption_cohens_d": 1.018017238332461,
+  "temperature": 0.7,
+  "haiku_model": "claude-haiku-4-5-20251001",
+  "embedding_model": "text-embedding-3-small",
+  "human_dat_mean": 78,
+  "human_dat_sd": 6,
+  "timestamp": "2026-01-17T13:47:23.429117",
+  "methodology": {
+    "dat_scoring": "Olson et al. 2021 - mean pairwise cosine distance x 100, 7 words, 21 pairs",
+    "bridging_full": "Mean pairwise cosine distance x 100, 12 words (anchor + target + 10 clues), 66 pairs",
+    "bridging_clue_only": "Mean pairwise cosine distance x 100, 10 clues only, 45 pairs",
+    "calibration_formula": "DAT_equivalent = INS_001_2_divergence + full_adjustment"
+  },
+  "moderation_analysis": {
+    "timestamp": "2026-01-17T13:47:23.820196",
+    "n_trials": 116,
+    "n_clues_per_trial": 10,
+    "n_clue_clue_pairs_per_trial": 45,
+    "total_clue_clue_pairs": 5220,
+    "correlations": {
+      "at_to_clue_clue": {
+        "r": 0.22484552338158603,
+        "p": 0.01524140615178434
+      },
+      "at_to_full": {
+        "r": 0.35466459743719075,
+        "p": 9.3736904843003e-05
+      },
+      "clue_prompt_to_clue_clue": {
+        "r": 0.7419366812160253,
+        "p": 1.6084392935425395e-21
+      }
+    },
+    "tercile_analysis": {
+      "f_statistic": 8.07842194382222,
+      "p_value": 0.0005257721821737214,
+      "tercile_means": {
+        "easy": 63.74687310668364,
+        "medium": 64.84232835824898,
+        "hard": 67.54870642604479
+      }
+    },
+    "recommendation": "pair_stratified",
+    "conclusion": "Pair difficulty moderates clue spread. Consider stratified calibration."
+  },
+  "stratified_calibration": {
+    "at_tercile_boundaries": [
+      0.7267211046503426,
+      0.7773078073764115
+    ],
+    "adjustments": {
+      "easy": 10.35373925474677,
+      "medium": 9.25828400318143,
+      "hard": 6.551905935385619
+    }
+  }
+}
