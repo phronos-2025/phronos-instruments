@@ -536,15 +536,19 @@ def get_spread_interpretation_ins001_1(score: float) -> str:
     Uses clues-only spread (excludes seed word from pairwise distance calculation).
     This measures how diverse the associations are from EACH OTHER.
 
-    Haiku baseline (for reference): mean 65.5, SD 4.6
-    Human scores expected to be lower than Haiku on average.
+    Raw scores normalized to 20-80 practical range:
+    - Even random input generates ~20 spread
+    - Practical ceiling ~80
 
-    Provisional interpretation bands (will refine with human data):
-    - < 50: Low - Very similar/repetitive associations
-    - 50-58: Below Average - Somewhat clustered associations
-    - 58-65: Average - Typical human associative spread
-    - 65-72: Above Average - Diverse, creative (approaching Haiku mean)
-    - > 72: High - Highly diverse (Haiku-level or above)
+    Simple Low/Medium/High bands (scale still calibrating with human data):
+    - Normalized < 40%: Low - Clustered associations
+    - Normalized 40-60%: Medium - Moderate associative spread
+    - Normalized > 60%: High - Diverse associations
+
+    Raw score thresholds (derived from normalized range):
+    - < 44: Low (normalized < 40%)
+    - 44-56: Medium (normalized 40-60%)
+    - > 56: High (normalized > 60%)
 
     Args:
         score: Spread score (0-100, clues-only)
@@ -552,14 +556,13 @@ def get_spread_interpretation_ins001_1(score: float) -> str:
     Returns:
         Interpretation label
     """
-    if score < 50:
+    # Normalize from 20-80 range to 0-100
+    normalized = max(0, min(100, ((score - 20) / 60) * 100))
+
+    if normalized < 40:
         return "Low"
-    elif score < 58:
-        return "Below Average"
-    elif score < 65:
-        return "Average"
-    elif score < 72:
-        return "Above Average"
+    elif normalized < 60:
+        return "Medium"
     else:
         return "High"
 
@@ -1057,14 +1060,13 @@ def test_interpretation_helpers():
     assert get_divergence_interpretation(85) == "Above Average"
     assert get_divergence_interpretation(95) == "High"
 
-    # Spread interpretations (INS-001.1 clues-only bands, provisional)
-    # Bands: <50=Low, 50-58=Below Avg, 58-65=Average, 65-72=Above Avg, >72=High
-    # Human scores expected lower than Haiku (mean 65.5)
-    assert get_spread_interpretation_ins001_1(40) == "Low"
-    assert get_spread_interpretation_ins001_1(55) == "Below Average"
-    assert get_spread_interpretation_ins001_1(60) == "Average"
-    assert get_spread_interpretation_ins001_1(68) == "Above Average"
-    assert get_spread_interpretation_ins001_1(75) == "High"
+    # Spread interpretations (INS-001.1 clues-only, normalized 20-80 range)
+    # Raw 20-80 maps to normalized 0-100
+    # Bands: normalized <40=Low, 40-60=Medium, >60=High
+    # Raw thresholds: <44=Low, 44-56=Medium, >56=High
+    assert get_spread_interpretation_ins001_1(30) == "Low"      # normalized 16.7%
+    assert get_spread_interpretation_ins001_1(50) == "Medium"   # normalized 50%
+    assert get_spread_interpretation_ins001_1(65) == "High"     # normalized 75%
 
 
 if __name__ == "__main__":

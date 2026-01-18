@@ -1,7 +1,7 @@
 /**
  * Results Screen (INS-001.1)
  *
- * Redesigned UI with SpreadBar visualization, conventionality indicator,
+ * Redesigned UI with SpreadBar visualization, unconventionality indicator,
  * and AI interpretation section.
  */
 
@@ -20,15 +20,12 @@ interface ResultsScreenProps {
 }
 
 // INS-001.1 interpretation bands for clues-only spread
-// Haiku baseline (reference): mean 65.5, SD 4.6
-// Human scores expected to be lower than Haiku on average
-// Provisional bands - will refine with human data
+// Raw scores normalized to 20-80 range (even random input generates some spread)
+// Simple Low/Medium/High bands - scale still calibrating with human data
 const SPREAD_BANDS = [
-  { max: 50, label: 'Low', description: 'Very similar/repetitive associations' },
-  { max: 58, label: 'Below Average', description: 'Somewhat clustered associations' },
-  { max: 65, label: 'Average', description: 'Typical associative spread' },
-  { max: 72, label: 'Above Average', description: 'Diverse, creative associations' },
-  { max: 100, label: 'High', description: 'Highly diverse (Haiku-level)' },
+  { max: 40, label: 'Low', description: 'Clustered associations' },
+  { max: 60, label: 'Medium', description: 'Moderate associative spread' },
+  { max: 100, label: 'High', description: 'Diverse associations' },
 ];
 
 function getSpreadInterpretation(score: number): { label: string; description: string } {
@@ -68,8 +65,9 @@ function isMorphologicalVariant(word1: string, word2: string): boolean {
   return stem1 === stem2;
 }
 
-// Calculate conventionality based on noise floor overlap
-function calculateConventionality(
+// Calculate unconventionality based on noise floor overlap
+// High = good (avoided predictable associations), Low = predictable
+function calculateUnconventionality(
   associations: string[],
   noiseFloor: NoiseFloorWord[]
 ): { level: 'Low' | 'Moderate' | 'High'; overlaps: number; description: string } {
@@ -81,11 +79,11 @@ function calculateConventionality(
   ).length;
 
   if (overlaps === 0) {
-    return { level: 'Low', overlaps, description: 'Your associations were unexpected—you avoided the obvious connections.' };
+    return { level: 'High', overlaps, description: 'None of your associations appeared in the predictable neighborhood.' };
   } else if (overlaps <= 2) {
-    return { level: 'Moderate', overlaps, description: 'Your associations included some expected words, with original additions.' };
+    return { level: 'Moderate', overlaps, description: `${overlaps} of your associations appeared in the predictable neighborhood.` };
   } else {
-    return { level: 'High', overlaps, description: 'Your associations clustered around predictable connections.' };
+    return { level: 'Low', overlaps, description: `${overlaps} of your associations appeared in the predictable neighborhood.` };
   }
 }
 
@@ -96,26 +94,18 @@ interface SpreadBarProps {
 }
 
 function SpreadBar({ score, interpretation }: SpreadBarProps) {
-  // Map score to position using non-linear scale
-  // Bands: Low (<50), Below Avg (50-58), Average (58-65), Above Avg (65-72), High (>72)
-  // Map each band to even 20% segments for better visualization
-  const getPosition = (s: number): number => {
-    if (s < 50) return (s / 50) * 20;                    // 0-50 → 0-20%
-    if (s < 58) return 20 + ((s - 50) / 8) * 20;         // 50-58 → 20-40%
-    if (s < 65) return 40 + ((s - 58) / 7) * 20;         // 58-65 → 40-60%
-    if (s < 72) return 60 + ((s - 65) / 7) * 20;         // 65-72 → 60-80%
-    return Math.min(100, 80 + ((s - 72) / 8) * 20);      // 72-80 → 80-100%
-  };
+  // Normalize raw score (20-80 practical range) to display percentage (0-100)
+  // Even random input generates ~20 spread, practical ceiling ~80
+  const normalizedScore = Math.max(0, Math.min(100, ((score - 20) / 60) * 100));
 
-  const position = getPosition(score);
+  // Linear scale with three bands
+  const position = normalizedScore;
 
-  // Labels at band boundaries (evenly spaced at 0, 20, 40, 60, 80%)
+  // Labels at band boundaries: Low (0-40), Medium (40-60), High (60-100)
   const bandLabels = [
     { pos: 0, label: 'Low' },
-    { pos: 20, label: 'Below Avg' },
-    { pos: 40, label: 'Average' },
-    { pos: 60, label: 'Above Avg' },
-    { pos: 80, label: 'High' },
+    { pos: 40, label: 'Medium' },
+    { pos: 70, label: 'High' },
   ];
 
   return (
@@ -250,10 +240,10 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
     (guess) => guess.toLowerCase() === targetWord
   );
 
-  // Calculate conventionality based on noise floor overlap
+  // Calculate unconventionality based on noise floor overlap
   const associations = game.clues || [];
   const noiseFloor = game.noise_floor || [];
-  const conventionality = calculateConventionality(associations, noiseFloor);
+  const unconventionality = calculateUnconventionality(associations, noiseFloor);
 
   // Get other guesses for display (excluding exact match if present)
   const otherGuesses = game.guesses?.filter(g => g.toLowerCase() !== targetWord) || [];
@@ -306,6 +296,17 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
 
         <SpreadBar score={spreadDisplay} interpretation={spreadInterp} />
 
+        <p style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: '0.6rem',
+          color: 'var(--faded)',
+          margin: 0,
+          marginTop: 'var(--space-xs)',
+          fontStyle: 'italic',
+        }}>
+          Scale calibrating as we gather participant data.
+        </p>
+
         {/* Conventionality section */}
         <div style={{
           marginTop: 'var(--space-lg)',
@@ -325,15 +326,15 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
               textTransform: 'uppercase',
               letterSpacing: '0.5px',
             }}>
-              Conventionality:
+              Unconventionality:
             </span>
             <span style={{
               fontFamily: 'var(--font-mono)',
               fontSize: '0.85rem',
-              color: conventionality.level === 'Low' ? 'var(--active)' :
-                     conventionality.level === 'High' ? 'var(--alert)' : 'var(--gold)',
+              color: unconventionality.level === 'High' ? 'var(--active)' :
+                     unconventionality.level === 'Low' ? 'var(--alert)' : 'var(--gold)',
             }}>
-              {conventionality.level}
+              {unconventionality.level}
             </span>
           </div>
           <p style={{
@@ -343,7 +344,7 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
             margin: 0,
             lineHeight: 1.5,
           }}>
-            {conventionality.description}
+            {unconventionality.description}
           </p>
         </div>
 
