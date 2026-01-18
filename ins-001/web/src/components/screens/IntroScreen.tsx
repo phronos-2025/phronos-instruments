@@ -85,7 +85,7 @@ export const IntroScreen: React.FC = () => {
           <div>
             <div style={{ color: 'var(--gold)', fontSize: '1.5rem', marginBottom: 'var(--space-xs)' }}>03</div>
             <div style={{ color: 'var(--text-light)', marginBottom: '4px' }}>See what emerges</div>
-            <div style={{ color: 'var(--faded)', fontSize: '0.65rem' }}>Divergence. Convergence.</div>
+            <div style={{ color: 'var(--faded)', fontSize: '0.65rem' }}>Divergence. Relevance.</div>
           </div>
         </div>
       </Panel>
@@ -93,7 +93,8 @@ export const IntroScreen: React.FC = () => {
       <Panel className="" style={{ background: 'transparent', borderColor: 'var(--gold-dim)' }}>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--faded)' }}>
           <strong style={{ color: 'var(--text-light)' }}>What this measures:</strong><br /><br />
-          <strong>Spread</strong> — How far your associations venture from the predictable. High spread indicates unexpected semantic paths.<br /><br />
+          <strong>Spread</strong> — How far your associations venture from the predictable. High spread is correlated with divergent, creative thinking.<br /><br />
+          <strong>Relevance</strong> — How close your associations are to both the anchor and target. Low relevance is an indicator of random words.<br /><br />
           <strong>Communicability</strong> — How accurately others can decode your associations. High communicability indicates effective transmission of meaning.<br /><br />
           <span style={{ fontSize: '0.65rem' }}>
             <a href="https://phronos.org/methods/semantic-association-metrics/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--gold)', textDecoration: 'none', borderBottom: '1px dotted' }}>MTH-002</a>

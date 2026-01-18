@@ -96,18 +96,28 @@ interface SpreadBarProps {
 }
 
 function SpreadBar({ score, interpretation }: SpreadBarProps) {
-  // Scale: 0-80 to fit bands nicely, with DAT reference visible
-  const maxScale = 80;
-  const position = Math.min(100, (score / maxScale) * 100);
-  const datPosition = (DAT_REFERENCE / maxScale) * 100;
+  // Use evenly spaced labels at 0%, 20%, 40%, 60%, 80%, 100%
+  // Map score to position: 0-59 = 0-20%, 59-62 = 20-40%, 62-69 = 40-60%, 69-72 = 60-80%, 72+ = 80-100%
+  const getPosition = (s: number): number => {
+    if (s < 59) return (s / 59) * 20; // 0-59 maps to 0-20%
+    if (s < 62) return 20 + ((s - 59) / 3) * 20; // 59-62 maps to 20-40%
+    if (s < 69) return 40 + ((s - 62) / 7) * 20; // 62-69 maps to 40-60%
+    if (s < 72) return 60 + ((s - 69) / 3) * 20; // 69-72 maps to 60-80%
+    // 72+ maps to 80-100%, with DAT at ~87%
+    return Math.min(100, 80 + ((s - 72) / 10) * 20);
+  };
 
-  // Band positions (as percentages of maxScale)
-  const bandPositions = [
-    { pos: (59 / maxScale) * 100, label: 'Low' },
-    { pos: (62 / maxScale) * 100, label: 'Below Avg' },
-    { pos: (69 / maxScale) * 100, label: 'Average' },
-    { pos: (72 / maxScale) * 100, label: 'Above Avg' },
-    { pos: datPosition, label: 'High' },
+  const position = getPosition(score);
+  const datPosition = getPosition(DAT_REFERENCE);
+
+  // Evenly spaced band labels
+  const bandLabels = [
+    { pos: 0, label: 'Low' },
+    { pos: 20, label: '' }, // threshold at 59
+    { pos: 40, label: 'Below Avg' },
+    { pos: 60, label: 'Average' },
+    { pos: 80, label: 'Above Avg' },
+    { pos: 100, label: 'High' },
   ];
 
   return (
@@ -134,7 +144,7 @@ function SpreadBar({ score, interpretation }: SpreadBarProps) {
         height: '8px',
         backgroundColor: 'rgba(255, 255, 255, 0.1)',
         borderRadius: '4px',
-        marginBottom: '24px',
+        marginBottom: '28px',
       }}>
         {/* Filled portion up to score */}
         <div style={{
@@ -162,30 +172,31 @@ function SpreadBar({ score, interpretation }: SpreadBarProps) {
           boxShadow: '0 0 0 1px var(--gold)',
         }} />
 
-        {/* Band tick marks */}
-        {bandPositions.map((band, i) => (
+        {/* Band labels - evenly spaced */}
+        {bandLabels.filter(b => b.label).map((band, i) => (
           <div
             key={i}
             style={{
               position: 'absolute',
               left: `${band.pos}%`,
               top: '100%',
-              transform: 'translateX(-50%)',
+              transform: band.pos === 0 ? 'translateX(0)' : band.pos === 100 ? 'translateX(-100%)' : 'translateX(-50%)',
             }}
           >
             <div style={{
               width: '1px',
-              height: '8px',
+              height: '6px',
               backgroundColor: 'var(--border)',
               marginBottom: '4px',
+              marginLeft: band.pos === 0 ? '0' : band.pos === 100 ? 'auto' : '50%',
+              transform: band.pos === 0 || band.pos === 100 ? 'none' : 'translateX(-50%)',
             }} />
             <span style={{
               display: 'block',
               fontFamily: 'var(--font-mono)',
-              fontSize: '0.55rem',
+              fontSize: '0.6rem',
               color: 'var(--faded)',
               whiteSpace: 'nowrap',
-              textAlign: 'center',
             }}>
               {band.label}
             </span>
@@ -201,18 +212,18 @@ function SpreadBar({ score, interpretation }: SpreadBarProps) {
         }}>
           <div style={{
             width: '1px',
-            height: '8px',
+            height: '10px',
             backgroundColor: 'var(--faded)',
-            marginBottom: '4px',
+            marginBottom: '2px',
           }} />
           <span style={{
             display: 'block',
             fontFamily: 'var(--font-mono)',
-            fontSize: '0.55rem',
+            fontSize: '0.5rem',
             color: 'var(--faded)',
             whiteSpace: 'nowrap',
           }}>
-            (DAT)
+            DAT
           </span>
         </div>
       </div>
@@ -223,7 +234,7 @@ function SpreadBar({ score, interpretation }: SpreadBarProps) {
           fontFamily: 'var(--font-mono)',
           fontSize: '0.65rem',
           color: 'var(--faded)',
-          marginTop: 'var(--space-md)',
+          marginTop: 'var(--space-sm)',
         }}>
           Approaching DAT reference ({DAT_REFERENCE})
         </div>
