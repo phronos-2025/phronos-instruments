@@ -25,6 +25,21 @@ import { ShareLinkBox } from '../../ui/ShareLinkBox';
 import { MagicLinkModal } from '../../auth/MagicLinkModal';
 import { api } from '../../../lib/api';
 import type { BridgingGameResponse } from '../../../lib/api';
+import { InterpretationPanel, MetricRow, ComparisonRow } from '../../ui/InterpretationPanel';
+import {
+  FIDELITY_INTERPRETATIONS,
+  SPREAD_INTERPRETATIONS_001_2,
+  METHODOLOGY_NOTES,
+  VALIDITY_WARNINGS,
+  getFidelityBand,
+  getFidelityLabel,
+  getSpreadBand001_2,
+  getSpreadLabel001_2,
+  generateSpreadComparison,
+  isFidelityValid,
+  type FidelityBand,
+  type SpreadBand001_2,
+} from '../../../lib/interpretation';
 
 // Morphological variant detection (mirrors backend logic)
 function getWordStem(word: string): string {
@@ -170,69 +185,122 @@ function isMorphologicalVariant(word1: string, word2: string, minCommonPrefix: n
 // Fidelity < 0.50 means clues don't constrain the solution space well
 const FIDELITY_VALIDITY_THRESHOLD = 0.50;
 
-// Fidelity interpretation thresholds
-function getFidelityLabel(fidelity: number): string {
-  // fidelity is 0-1 scale internally
-  const normalized = fidelity > 1 ? fidelity / 100 : fidelity;
-  if (normalized < 0.50) return 'poor';
-  if (normalized < 0.65) return 'below average';
-  if (normalized < 0.75) return 'average';
-  if (normalized < 0.85) return 'above average';
-  return 'excellent';
+// Local wrapper functions to get human-readable labels (use imported centralized functions)
+function getLocalFidelityLabel(fidelity: number): string {
+  const band = getFidelityBand(fidelity);
+  return getFidelityLabel(band);
 }
 
-// Haiku-calibrated spread thresholds (based on Haiku mean = 64.4, SD = 4.6)
-function getSpreadLabel(spread: number): string {
-  if (spread < 55) return 'low';
-  if (spread < 62) return 'below average';
-  if (spread < 68) return 'average';
-  if (spread < 72) return 'above average';
-  return 'high';
+function getLocalSpreadLabel(spread: number): string {
+  const band = getSpreadBand001_2(spread);
+  return getSpreadLabel001_2(band);
 }
 
-// Generate interpretation text based on fidelity and spread
+// Structured interpretation result
+interface InterpretationResult {
+  isValid: boolean;
+  validityWarning?: string;
+  fidelity: {
+    score: number;
+    band: FidelityBand;
+    label: string;
+    observation: string;
+    implication: string;
+  };
+  spread: {
+    score: number;
+    band: SpreadBand001_2;
+    label: string;
+    observation: string;
+    implication: string;
+  };
+  comparisons: {
+    haiku?: string;
+    statistical?: string;
+  };
+}
+
+// Generate structured interpretation based on fidelity and spread
+function generateStructuredInterpretation(
+  participantSpread: number,
+  haikuSpread: number | null,
+  statisticalSpread: number | null,
+  participantFidelity: number
+): InterpretationResult {
+  const fidelityDisplay = participantFidelity > 1 ? participantFidelity : participantFidelity * 100;
+  const fidelityBand = getFidelityBand(participantFidelity);
+  const spreadBand = getSpreadBand001_2(participantSpread);
+
+  const fidelityInterp = FIDELITY_INTERPRETATIONS[fidelityBand];
+  const spreadInterp = SPREAD_INTERPRETATIONS_001_2[spreadBand];
+
+  const result: InterpretationResult = {
+    isValid: isFidelityValid(participantFidelity),
+    fidelity: {
+      score: fidelityDisplay,
+      band: fidelityBand,
+      label: getFidelityLabel(fidelityBand),
+      observation: fidelityInterp.observation,
+      implication: fidelityInterp.implication,
+    },
+    spread: {
+      score: participantSpread,
+      band: spreadBand,
+      label: getSpreadLabel001_2(spreadBand),
+      observation: spreadInterp.observation,
+      implication: spreadInterp.implication,
+    },
+    comparisons: {},
+  };
+
+  // Add validity warning if below threshold
+  if (!result.isValid) {
+    result.validityWarning = VALIDITY_WARNINGS.fidelity;
+  }
+
+  // Haiku comparison
+  if (haikuSpread !== null) {
+    const comparison = generateSpreadComparison(participantSpread, haikuSpread, 'Haiku');
+    result.comparisons.haiku = comparison.text;
+  }
+
+  // Statistical comparison
+  if (statisticalSpread !== null) {
+    const comparison = generateSpreadComparison(participantSpread, statisticalSpread, 'Statistical baseline');
+    result.comparisons.statistical = comparison.text;
+  }
+
+  return result;
+}
+
+// Legacy: Generate plain text interpretation (for backwards compatibility)
 function generateInterpretation(
   participantSpread: number,
   haikuSpread: number | null,
   statisticalSpread: number | null,
   participantFidelity: number
 ): string {
-  // Check validity first (fidelity is 0-1 scale internally, 0-100 for display)
-  const fidelityNormalized = participantFidelity > 1 ? participantFidelity / 100 : participantFidelity;
-  if (fidelityNormalized < FIDELITY_VALIDITY_THRESHOLD) {
-    return `Your fidelity score (${Math.round(participantFidelity > 1 ? participantFidelity : participantFidelity * 100)}) is below the threshold. Your clues may not sufficiently narrow down the anchor-target pair.`;
+  const result = generateStructuredInterpretation(
+    participantSpread,
+    haikuSpread,
+    statisticalSpread,
+    participantFidelity
+  );
+
+  if (!result.isValid) {
+    return result.validityWarning || VALIDITY_WARNINGS.fidelity;
   }
 
-  const fidelityLabel = getFidelityLabel(participantFidelity);
-  const spreadLabel = getSpreadLabel(participantSpread);
   const parts: string[] = [];
+  parts.push(`Your fidelity (${Math.round(result.fidelity.score)}) is ${result.fidelity.label.toLowerCase()}. ${result.fidelity.observation}`);
+  parts.push(`Your spread (${Math.round(result.spread.score)}) is ${result.spread.label.toLowerCase()}. ${result.spread.observation}`);
 
-  // Main fidelity statement
-  parts.push(`Your fidelity (${Math.round(participantFidelity > 1 ? participantFidelity : participantFidelity * 100)}) is ${fidelityLabel}, meaning your clues ${fidelityLabel === 'excellent' || fidelityLabel === 'above average' ? 'effectively' : fidelityLabel === 'poor' ? "don't well" : 'reasonably'} identify the anchor-target pair.`);
-
-  // Main spread statement
-  parts.push(`Your spread (${Math.round(participantSpread)}) is ${spreadLabel}.`);
-
-  // Haiku comparison
-  if (haikuSpread !== null) {
-    const deltaHaiku = participantSpread - haikuSpread;
-    if (deltaHaiku > 5) {
-      parts.push(`You found more diverse bridges than Haiku (+${Math.round(deltaHaiku)} points).`);
-    } else if (deltaHaiku < -5) {
-      parts.push(`Haiku found more diverse bridges (${Math.round(Math.abs(deltaHaiku))} points higher).`);
-    } else {
-      parts.push('Your spread is comparable to Haiku.');
-    }
+  if (result.comparisons.haiku) {
+    parts.push(result.comparisons.haiku);
   }
 
-  // Statistical comparison
-  if (statisticalSpread !== null) {
-    const deltaStatistical = participantSpread - statisticalSpread;
-    if (deltaStatistical > 5) {
-      parts.push('Your concepts are more diverse than the statistical baseline.');
-    } else if (deltaStatistical < -5) {
-      parts.push('The statistical baseline found more diverse bridges.');
-    }
+  if (result.comparisons.statistical) {
+    parts.push(result.comparisons.statistical);
   }
 
   return parts.join(' ');
@@ -772,29 +840,60 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
       </Panel>
 
       {/* Interpretation Panel */}
-      <Panel
-        style={{ background: 'transparent', borderColor: 'var(--faded-light)' }}
-      >
-        <div className="panel-header">
-          <span className="panel-title">Interpretation</span>
-        </div>
-        <div
-          className="panel-content"
-          style={{
-            fontFamily: 'var(--font-body)',
-            fontSize: '0.9rem',
-            color: 'var(--faded)',
-            lineHeight: '1.7',
-          }}
-        >
-          {generateInterpretation(
-            spread,
-            hasHaikuUnion && haikuSpread !== undefined ? haikuSpread : null,
-            hasLexicalUnion && lexicalSpread != null ? lexicalSpread : null,
-            fidelityDisplay
-          )}
-        </div>
-      </Panel>
+      {(() => {
+        const interpretation = generateStructuredInterpretation(
+          spread,
+          hasHaikuUnion && haikuSpread !== undefined ? haikuSpread : null,
+          hasLexicalUnion && lexicalSpread != null ? lexicalSpread : null,
+          fidelityDisplay
+        );
+
+        return (
+          <InterpretationPanel methodsNote={METHODOLOGY_NOTES.ins001_2}>
+            {/* Validity warning if below threshold */}
+            {!interpretation.isValid && interpretation.validityWarning && (
+              <div style={{
+                marginBottom: 'var(--space-md)',
+                padding: 'var(--space-sm)',
+                backgroundColor: 'rgba(204, 85, 68, 0.1)',
+                borderLeft: '3px solid var(--alert)',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.8rem',
+                color: 'var(--alert)',
+              }}>
+                {interpretation.validityWarning}
+              </div>
+            )}
+
+            {/* Fidelity interpretation */}
+            <MetricRow
+              label="Fidelity"
+              score={interpretation.fidelity.score}
+              band={interpretation.fidelity.label}
+              observation={interpretation.fidelity.observation}
+              implication={interpretation.fidelity.implication}
+              color="var(--gold)"
+            />
+
+            {/* Spread interpretation */}
+            <MetricRow
+              label="Spread"
+              score={interpretation.spread.score}
+              band={interpretation.spread.label}
+              observation={interpretation.spread.observation}
+              implication={interpretation.spread.implication}
+            />
+
+            {/* Baseline comparisons */}
+            {interpretation.comparisons.haiku && (
+              <ComparisonRow text={interpretation.comparisons.haiku} />
+            )}
+            {interpretation.comparisons.statistical && (
+              <ComparisonRow text={interpretation.comparisons.statistical} />
+            )}
+          </InterpretationPanel>
+        );
+      })()}
 
       {/* Registration Status Panel */}
       <Panel style={{ borderColor: 'var(--gold)', background: 'linear-gradient(to bottom, var(--card-bg), rgba(176, 141, 85, 0.05))', marginTop: 'var(--space-md)' }}>

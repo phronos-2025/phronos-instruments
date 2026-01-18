@@ -14,6 +14,16 @@ import { Panel } from '../ui/Panel';
 import { Button } from '../ui/Button';
 import { ShareLinkBox } from '../ui/ShareLinkBox';
 import { MagicLinkModal } from '../auth/MagicLinkModal';
+import { InterpretationPanel, MetricRow } from '../ui/InterpretationPanel';
+import {
+  SPREAD_INTERPRETATIONS_001_1,
+  UNCONVENTIONALITY_INTERPRETATIONS,
+  COMMUNICABILITY_INTERPRETATIONS,
+  METHODOLOGY_NOTES,
+  getSpreadBand001_1,
+  type SpreadBand001_1,
+  type UnconventionalityLevel,
+} from '../../lib/interpretation';
 
 interface ResultsScreenProps {
   game: GameResponse;
@@ -29,33 +39,25 @@ const SPREAD_BANDS = [
   { max: 100, label: 'High' },
 ];
 
-function getSpreadInterpretation(score: number, rawScore: number): { label: string; explanation: string } {
-  const roundedScore = Math.round(rawScore);
+function getSpreadInterpretation(normalizedScore: number): {
+  band: SpreadBand001_1;
+  label: string;
+  observation: string;
+  implication: string;
+} {
+  const band = getSpreadBand001_1(normalizedScore);
+  const interp = SPREAD_INTERPRETATIONS_001_1[band];
+  const labels: Record<SpreadBand001_1, string> = {
+    low: 'Low',
+    medium: 'Medium',
+    high: 'High',
+  };
 
-  for (const band of SPREAD_BANDS) {
-    if (score < band.max) {
-      if (band.label === 'Low') {
-        return {
-          label: band.label,
-          explanation: `Your spread of ${roundedScore} indicates that your associations were clustered together.`
-        };
-      } else if (band.label === 'Medium') {
-        return {
-          label: band.label,
-          explanation: `Your spread of ${roundedScore} indicates moderate diversity, which is associated with creative thinking.`
-        };
-      } else {
-        return {
-          label: band.label,
-          explanation: `Your spread of ${roundedScore} indicates highly diverse associations, which is associated with creative thinking.`
-        };
-      }
-    }
-  }
-  // High band
   return {
-    label: 'High',
-    explanation: `Your spread of ${roundedScore} indicates highly diverse associations, which is associated with creative thinking.`
+    band,
+    label: labels[band],
+    observation: interp.observation,
+    implication: interp.implication,
   };
 }
 
@@ -88,11 +90,16 @@ function isMorphologicalVariant(word1: string, word2: string): boolean {
 }
 
 // Calculate unconventionality based on noise floor overlap
-// High = good (avoided predictable associations), Low = predictable
+// High = avoided predictable associations, Low = followed common paths
 function calculateUnconventionality(
   associations: string[],
   noiseFloor: NoiseFloorWord[]
-): { level: 'Low' | 'Moderate' | 'High'; overlaps: number; description: string } {
+): {
+  level: UnconventionalityLevel;
+  overlaps: number;
+  observation: string;
+  implication: string;
+} {
   const overlaps = associations.filter(assoc =>
     noiseFloor.some(nf =>
       nf.word.toLowerCase() === assoc.toLowerCase() ||
@@ -100,22 +107,31 @@ function calculateUnconventionality(
     )
   ).length;
 
+  let level: UnconventionalityLevel;
   if (overlaps === 0) {
-    return { level: 'High', overlaps, description: 'None of your associations appeared in the predictable neighborhood.' };
+    level = 'high';
   } else if (overlaps <= 2) {
-    return { level: 'Moderate', overlaps, description: `${overlaps} of your associations appeared in the predictable neighborhood.` };
+    level = 'moderate';
   } else {
-    return { level: 'Low', overlaps, description: `${overlaps} of your associations appeared in the predictable neighborhood.` };
+    level = 'low';
   }
+
+  const interp = UNCONVENTIONALITY_INTERPRETATIONS[level];
+  return {
+    level,
+    overlaps,
+    observation: interp.observation,
+    implication: interp.implication,
+  };
 }
 
 // SpreadBar component - single horizontal bar with marker
 interface SpreadBarProps {
   score: number;
-  interpretation: { label: string; explanation: string };
+  label: string;
 }
 
-function SpreadBar({ score, interpretation }: SpreadBarProps) {
+function SpreadBar({ score, label }: SpreadBarProps) {
   // Normalize raw score (20-80 practical range) to display percentage (0-100)
   // Even random input generates ~20 spread, practical ceiling ~80
   const normalizedScore = Math.max(0, Math.min(100, ((score - 20) / 60) * 100));
@@ -131,7 +147,7 @@ function SpreadBar({ score, interpretation }: SpreadBarProps) {
   ];
 
   return (
-    <div style={{ marginBottom: 'var(--space-lg)' }}>
+    <div style={{ marginBottom: 'var(--space-sm)' }}>
       {/* Score and interpretation label */}
       <div style={{
         display: 'flex',
@@ -144,7 +160,7 @@ function SpreadBar({ score, interpretation }: SpreadBarProps) {
           {Math.round(score)}
         </span>
         <span style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>
-          {interpretation.label}
+          {label}
         </span>
       </div>
 
@@ -214,17 +230,6 @@ function SpreadBar({ score, interpretation }: SpreadBarProps) {
         ))}
 
       </div>
-
-      {/* Explanation text */}
-      <p style={{
-        fontFamily: 'var(--font-body)',
-        fontSize: '0.85rem',
-        color: 'var(--faded)',
-        margin: 0,
-        lineHeight: 1.5,
-      }}>
-        {interpretation.explanation}
-      </p>
     </div>
   );
 }
@@ -267,7 +272,7 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
   const spreadNormalized = Math.max(0, Math.min(100, ((spreadRaw - 20) / 60) * 100));
 
   // Get interpretation using INS-001.1 calibrated bands
-  const spreadInterp = getSpreadInterpretation(spreadNormalized, spreadRaw);
+  const spreadInterp = getSpreadInterpretation(spreadNormalized);
 
   // Haiku data (from LLM guesses)
   const hasHaikuData = game.recipient_type === 'llm' && game.guesses && game.guesses.length > 0;
@@ -330,7 +335,7 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
           Spread
         </div>
 
-        <SpreadBar score={spreadRaw} interpretation={spreadInterp} />
+        <SpreadBar score={spreadRaw} label={spreadInterp.label} />
 
         <p style={{
           fontFamily: 'var(--font-mono)',
@@ -343,7 +348,7 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
           Scale calibrating as we gather participant data.
         </p>
 
-        {/* Conventionality section */}
+        {/* Unconventionality section */}
         <div style={{
           marginTop: 'var(--space-lg)',
           paddingTop: 'var(--space-md)',
@@ -367,10 +372,10 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
             <span style={{
               fontFamily: 'var(--font-mono)',
               fontSize: '0.85rem',
-              color: unconventionality.level === 'High' ? 'var(--active)' :
-                     unconventionality.level === 'Low' ? 'var(--alert)' : 'var(--gold)',
+              color: unconventionality.level === 'high' ? 'var(--active)' :
+                     unconventionality.level === 'low' ? 'var(--alert)' : 'var(--gold)',
             }}>
-              {unconventionality.level}
+              {unconventionality.level.charAt(0).toUpperCase() + unconventionality.level.slice(1)}
             </span>
           </div>
           <p style={{
@@ -380,7 +385,7 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
             margin: 0,
             lineHeight: 1.5,
           }}>
-            {unconventionality.description}
+            {unconventionality.observation}
           </p>
         </div>
 
@@ -483,6 +488,52 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
           )}
         </div>
       </Panel>
+
+      {/* Interpretation Panel */}
+      <InterpretationPanel methodsNote={METHODOLOGY_NOTES.ins001_1}>
+        {/* Spread interpretation */}
+        <MetricRow
+          label="Spread"
+          score={spreadRaw}
+          band={spreadInterp.label}
+          observation={spreadInterp.observation}
+          implication={spreadInterp.implication}
+          color="var(--gold)"
+        />
+
+        {/* Unconventionality interpretation */}
+        <MetricRow
+          label="Unconventionality"
+          score={unconventionality.level.charAt(0).toUpperCase() + unconventionality.level.slice(1)}
+          band=""
+          observation={unconventionality.observation}
+          implication={unconventionality.implication}
+          color={
+            unconventionality.level === 'high' ? 'var(--active)' :
+            unconventionality.level === 'low' ? 'var(--alert)' : 'var(--gold)'
+          }
+        />
+
+        {/* Communicability interpretation (if Haiku data available) */}
+        {hasHaikuData && (
+          <MetricRow
+            label="Communicability"
+            score={haikuGuessedCorrectly ? '✓' : '✗'}
+            band={haikuGuessedCorrectly ? 'Success' : 'Failure'}
+            observation={
+              haikuGuessedCorrectly
+                ? COMMUNICABILITY_INTERPRETATIONS.success.observation
+                : COMMUNICABILITY_INTERPRETATIONS.failure.observation
+            }
+            implication={
+              haikuGuessedCorrectly
+                ? COMMUNICABILITY_INTERPRETATIONS.success.implication
+                : COMMUNICABILITY_INTERPRETATIONS.failure.implication
+            }
+            color={haikuGuessedCorrectly ? 'var(--active)' : 'var(--alert)'}
+          />
+        )}
+      </InterpretationPanel>
 
       <Panel
         className=""
