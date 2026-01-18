@@ -131,7 +131,7 @@ def _extract_radiation_response(game: dict) -> RadiationGameResponse:
         divergence_score=sender_scores.get("divergence_raw"),
         convergence_score=recipient_scores.get("convergence"),
         relevance=sender_scores.get("relevance"),
-        spread=sender_scores.get("divergence"),  # DAT-style
+        spread=sender_scores.get("spread", sender_scores.get("divergence")),  # Clues-only (fallback to divergence for old games)
         guess_similarities=recipient_scores.get("guess_similarities"),
         # Baselines
         llm_guesses=baselines.get("llm", {}).get("guesses"),
@@ -390,7 +390,8 @@ async def submit_radiation_clues(
         ]
 
     sender_scores = {
-        "divergence": radiation_scores["divergence"],  # 0-100 DAT-style
+        "spread": radiation_scores["spread"],  # 0-100 clues-only (INS-001.1 primary)
+        "divergence": radiation_scores["divergence"],  # 0-100 DAT-style (for comparison)
         "divergence_raw": divergence_raw,  # Legacy 0-1
         "relevance": radiation_scores["relevance"],
         "relevance_percentile": relevance_percentile,
@@ -436,11 +437,11 @@ async def submit_radiation_clues(
     return SubmitRadiationCluesResponse(
         game_id=game_id,
         clues=clues_clean,
-        divergence=radiation_scores["divergence"],
+        divergence=radiation_scores["divergence"],  # DAT-style (for comparison)
         divergence_score=divergence_raw,
         relevance=radiation_scores["relevance"],
         relevance_percentile=relevance_percentile,
-        spread=radiation_scores["divergence"],
+        spread=radiation_scores["spread"],  # Clues-only (INS-001.1 primary metric)
         status=GameStatus.COMPLETED if is_llm_game else GameStatus.PENDING_GUESS,
         llm_guesses=llm_guesses,
         convergence_score=convergence_score,

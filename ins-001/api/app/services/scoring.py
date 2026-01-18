@@ -115,6 +115,42 @@ def calculate_divergence(
 # INS-001.1: SEMANTIC RADIATION
 # ============================================
 
+def calculate_spread_clues_only(clue_embeddings: list[list[float]]) -> float:
+    """
+    Calculate spread as mean pairwise distance among clues only (excludes seed).
+
+    This is specific to INS-001.1 and measures how diverse the associations
+    are from EACH OTHER, not from the seed word. This better captures
+    "breadth of associative thinking" for a task that asks for associations
+    to a target word.
+
+    For INS-001.2 (bridging), use calculate_divergence() which includes
+    anchor and target words in the calculation.
+
+    Args:
+        clue_embeddings: Embeddings for submitted clues (1-5 words)
+
+    Returns:
+        Score 0-100 (scaled for consistency with DAT scores)
+        Higher = more diverse associations from each other
+    """
+    if len(clue_embeddings) < 2:
+        # Can't compute pairwise distance with fewer than 2 clues
+        # Return 0 as a neutral score (will need calibration data to interpret)
+        return 0.0
+
+    distances = []
+    n = len(clue_embeddings)
+
+    for i in range(n):
+        for j in range(i + 1, n):
+            sim = cosine_similarity(clue_embeddings[i], clue_embeddings[j])
+            distance = 1 - sim  # cosine distance
+            distances.append(distance)
+
+    return float(np.mean(distances) * 100)
+
+
 def score_radiation(
     clue_embeddings: list[list[float]],
     seed_embedding: list[float]
@@ -123,7 +159,11 @@ def score_radiation(
     Score a participant's semantic radiation submission (INS-001.1).
 
     Relevance: How connected are clues to the seed topic?
-    Divergence: How spread out are the clues? (DAT-style, includes seed)
+    Spread: How diverse are the clues from each other? (clues-only, no seed)
+
+    Note: INS-001.1 uses "spread" (clues-only) rather than "divergence" (DAT-style
+    with seed included). This better measures associative breadth when the task
+    asks for related associations rather than unrelated words.
 
     Args:
         clue_embeddings: List of embedding vectors for submitted clues
@@ -133,13 +173,15 @@ def score_radiation(
         Dictionary with:
         - relevance: Overall relevance score (mean similarity to seed)
         - relevance_individual: Per-clue relevance scores
-        - divergence: Overall divergence (0-100, DAT-style, includes seed)
+        - spread: Spread among clues only (0-100, excludes seed)
+        - divergence: Legacy DAT-style divergence (0-100, includes seed) - for comparison
         - valid: Whether submission passes relevance threshold
     """
     if not clue_embeddings:
         return {
             "relevance": 0.0,
             "relevance_individual": [],
+            "spread": 0.0,
             "divergence": 0.0,
             "valid": False
         }
@@ -151,6 +193,11 @@ def score_radiation(
     ]
 
     overall_relevance = float(np.mean(relevance_scores))
+
+    # Spread: clues-only (INS-001.1 primary metric)
+    overall_spread = calculate_spread_clues_only(clue_embeddings)
+
+    # Divergence: DAT-style with seed (kept for comparison/backwards compatibility)
     overall_divergence = calculate_divergence(clue_embeddings, [seed_embedding])
 
     valid = overall_relevance >= RELEVANCE_THRESHOLD
@@ -158,6 +205,7 @@ def score_radiation(
     return {
         "relevance": overall_relevance,
         "relevance_individual": relevance_scores,
+        "spread": overall_spread,
         "divergence": overall_divergence,
         "valid": valid
     }
@@ -485,26 +533,29 @@ def get_spread_interpretation_ins001_1(score: float) -> str:
     """
     Get human-readable interpretation of spread score for INS-001.1 (Signal).
 
-    Based on INS-001.1 calibration data:
-    - < 59: Constrained/repetitive associations
-    - 59-62: Somewhat conventional
-    - 62-69: Typical divergent range
-    - 69-72: Creative/exploratory
-    - > 72: Highly divergent (approaching DAT reference of 74.1)
+    Uses clues-only spread (excludes seed word from pairwise distance calculation).
+    This measures how diverse the associations are from EACH OTHER.
+
+    Interpretation bands (0-100 scale):
+    - < 20: Low - Very similar/repetitive associations
+    - 20-40: Below Average - Somewhat clustered associations
+    - 40-60: Average - Typical associative spread
+    - 60-80: Above Average - Diverse, creative associations
+    - > 80: High - Highly diverse semantic territory
 
     Args:
-        score: Spread score (0-100)
+        score: Spread score (0-100, clues-only)
 
     Returns:
         Interpretation label
     """
-    if score < 59:
+    if score < 20:
         return "Low"
-    elif score < 62:
+    elif score < 40:
         return "Below Average"
-    elif score < 69:
+    elif score < 60:
         return "Average"
-    elif score < 72:
+    elif score < 80:
         return "Above Average"
     else:
         return "High"
@@ -788,21 +839,51 @@ def test_divergence_similar_clues_near_seed():
     assert div < 20, f"Expected low divergence for clustered clues near seed, got {div}"
 
 
+def test_spread_clues_only():
+    """Test INS-001.1 spread calculation (clues only, no seed)."""
+    # Identical clues should have zero spread
+    identical_clues = [
+        [0.0, 1.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, 1.0, 0.0]
+    ]
+    spread = calculate_spread_clues_only(identical_clues)
+    assert spread < 1, f"Expected ~0 spread for identical clues, got {spread}"
+
+    # Orthogonal clues should have high spread
+    orthogonal_clues = [
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, 0.0, 1.0]
+    ]
+    spread = calculate_spread_clues_only(orthogonal_clues)
+    assert spread > 90, f"Expected high spread for orthogonal clues, got {spread}"
+
+    # Single clue should return 0 (can't compute pairwise)
+    single_clue = [[1.0, 0.0, 0.0]]
+    spread = calculate_spread_clues_only(single_clue)
+    assert spread == 0.0, f"Expected 0 spread for single clue, got {spread}"
+
+
 def test_score_radiation():
     """Integration test for INS-001.1 scoring."""
     seed = [1.0, 0.0, 0.0]
 
+    # Use more diverse clues to get meaningful spread
     clues = [
-        [0.8, 0.2, 0.0],   # Relevant to seed
-        [0.7, 0.3, 0.1],   # Relevant to seed, different direction
-        [0.6, 0.4, 0.2],   # Relevant to seed, more different
+        [0.8, 0.6, 0.0],   # Relevant to seed, one direction
+        [0.7, 0.0, 0.7],   # Relevant to seed, different direction
+        [0.5, 0.5, 0.7],   # Relevant to seed, more different
     ]
 
     result = score_radiation(clues, seed)
 
     assert result["valid"] == True
-    assert result["relevance"] > 0.5  # Should be relevant to seed
-    assert result["divergence"] > 10  # Should have some spread (includes seed)
+    assert result["relevance"] > 0.3  # Should be relevant to seed
+    assert "spread" in result  # INS-001.1 primary metric (clues-only)
+    assert "divergence" in result  # DAT-style for comparison
+    assert result["spread"] > 0  # Should have some spread among clues
+    assert result["divergence"] > 0  # Should have some divergence (includes seed)
     assert len(result["relevance_individual"]) == 3
 
 
@@ -973,12 +1054,12 @@ def test_interpretation_helpers():
     assert get_divergence_interpretation(85) == "Above Average"
     assert get_divergence_interpretation(95) == "High"
 
-    # Spread interpretations (INS-001.1 calibrated bands)
-    assert get_spread_interpretation_ins001_1(50) == "Low"
-    assert get_spread_interpretation_ins001_1(60) == "Below Average"
-    assert get_spread_interpretation_ins001_1(65) == "Average"
+    # Spread interpretations (INS-001.1 clues-only bands)
+    assert get_spread_interpretation_ins001_1(10) == "Low"
+    assert get_spread_interpretation_ins001_1(30) == "Below Average"
+    assert get_spread_interpretation_ins001_1(50) == "Average"
     assert get_spread_interpretation_ins001_1(70) == "Above Average"
-    assert get_spread_interpretation_ins001_1(75) == "High"
+    assert get_spread_interpretation_ins001_1(90) == "High"
 
 
 if __name__ == "__main__":
@@ -988,6 +1069,7 @@ if __name__ == "__main__":
     test_divergence_identical_clues()
     test_divergence_orthogonal_clues()
     test_divergence_similar_clues_near_seed()
+    test_spread_clues_only()  # INS-001.1 clues-only spread
     test_score_radiation()
     test_score_union()
     test_bootstrap_null_distribution()

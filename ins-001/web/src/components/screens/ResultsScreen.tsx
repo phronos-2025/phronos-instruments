@@ -19,17 +19,15 @@ interface ResultsScreenProps {
   game: GameResponse;
 }
 
-// INS-001.1 calibrated interpretation bands
-// Based on calibration data - different from INS-001.2
+// INS-001.1 interpretation bands for clues-only spread
+// Measures diversity AMONG associations (excludes seed word)
 const SPREAD_BANDS = [
-  { max: 59, label: 'Low', description: 'Constrained/repetitive associations' },
-  { max: 62, label: 'Below Average', description: 'Somewhat conventional' },
-  { max: 69, label: 'Average', description: 'Typical divergent range' },
-  { max: 72, label: 'Above Average', description: 'Creative/exploratory' },
-  { max: 100, label: 'High', description: 'Highly divergent' },
+  { max: 20, label: 'Low', description: 'Very similar/repetitive associations' },
+  { max: 40, label: 'Below Average', description: 'Somewhat clustered associations' },
+  { max: 60, label: 'Average', description: 'Typical associative spread' },
+  { max: 80, label: 'Above Average', description: 'Diverse, creative associations' },
+  { max: 100, label: 'High', description: 'Highly diverse semantic territory' },
 ];
-
-const DAT_REFERENCE = 74.1; // DAT reference score for context
 
 function getSpreadInterpretation(score: number): { label: string; description: string } {
   for (const band of SPREAD_BANDS) {
@@ -96,24 +94,13 @@ interface SpreadBarProps {
 }
 
 function SpreadBar({ score, interpretation }: SpreadBarProps) {
-  // Use evenly spaced labels at 0%, 20%, 40%, 60%, 80%, 100%
-  // Map score to position: 0-59 = 0-20%, 59-62 = 20-40%, 62-69 = 40-60%, 69-72 = 60-80%, 72+ = 80-100%
-  const getPosition = (s: number): number => {
-    if (s < 59) return (s / 59) * 20; // 0-59 maps to 0-20%
-    if (s < 62) return 20 + ((s - 59) / 3) * 20; // 59-62 maps to 20-40%
-    if (s < 69) return 40 + ((s - 62) / 7) * 20; // 62-69 maps to 40-60%
-    if (s < 72) return 60 + ((s - 69) / 3) * 20; // 69-72 maps to 60-80%
-    // 72+ maps to 80-100%, with DAT at ~87%
-    return Math.min(100, 80 + ((s - 72) / 10) * 20);
-  };
+  // Linear scale: score 0-100 maps directly to position 0-100%
+  // Bands are evenly distributed: 0-20, 20-40, 40-60, 60-80, 80-100
+  const position = Math.min(100, Math.max(0, score));
 
-  const position = getPosition(score);
-  const datPosition = getPosition(DAT_REFERENCE);
-
-  // Evenly spaced band labels
+  // Band labels at boundaries
   const bandLabels = [
     { pos: 0, label: 'Low' },
-    { pos: 20, label: '' }, // threshold at 59
     { pos: 40, label: 'Below Avg' },
     { pos: 60, label: 'Average' },
     { pos: 80, label: 'Above Avg' },
@@ -203,42 +190,7 @@ function SpreadBar({ score, interpretation }: SpreadBarProps) {
           </div>
         ))}
 
-        {/* DAT reference marker */}
-        <div style={{
-          position: 'absolute',
-          left: `${datPosition}%`,
-          top: '100%',
-          transform: 'translateX(-50%)',
-        }}>
-          <div style={{
-            width: '1px',
-            height: '10px',
-            backgroundColor: 'var(--faded)',
-            marginBottom: '2px',
-          }} />
-          <span style={{
-            display: 'block',
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.5rem',
-            color: 'var(--faded)',
-            whiteSpace: 'nowrap',
-          }}>
-            DAT
-          </span>
-        </div>
       </div>
-
-      {/* DAT reference note if score is high */}
-      {score > 72 && (
-        <div style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: '0.65rem',
-          color: 'var(--faded)',
-          marginTop: 'var(--space-sm)',
-        }}>
-          Approaching DAT reference ({DAT_REFERENCE})
-        </div>
-      )}
     </div>
   );
 }
