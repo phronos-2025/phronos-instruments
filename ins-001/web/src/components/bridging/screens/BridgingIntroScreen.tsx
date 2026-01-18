@@ -122,7 +122,7 @@ export const BridgingIntroScreen: React.FC = () => {
               See what emerges
             </div>
             <div style={{ color: 'var(--faded)', fontSize: '0.65rem' }}>
-              Divergence. Relevance.
+              Spread.
             </div>
           </div>
         </div>
@@ -144,14 +144,8 @@ export const BridgingIntroScreen: React.FC = () => {
           </strong>
           <br />
           <br />
-          <strong>Divergence</strong> — How far your clues arc from the direct
-          path between anchor and target. High divergence indicates unexpected
-          routes.
-          <br />
-          <br />
-          <strong>Relevance</strong> — How connected your clues are to both anchor
-          and target. High relevance indicates clues in the shared semantic
-          neighborhood.
+          <strong>Spread</strong> — How much semantic territory your clues cover.
+          Higher spread indicates more diverse conceptual bridges between anchor and target.
           <br />
           <br />
           <span style={{ fontSize: '0.65rem' }}>

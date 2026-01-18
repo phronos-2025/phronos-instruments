@@ -161,6 +161,63 @@ function isMorphologicalVariant(word1: string, word2: string, minCommonPrefix: n
   return false;
 }
 
+// Validity threshold for relevance
+const RELEVANCE_VALIDITY_THRESHOLD = 0.15;
+
+// Haiku-calibrated spread thresholds (based on Haiku mean = 64.4, SD = 4.6)
+function getSpreadLabel(spread: number): string {
+  if (spread < 55) return 'low';
+  if (spread < 62) return 'below average';
+  if (spread < 68) return 'average';
+  if (spread < 72) return 'above average';
+  return 'high';
+}
+
+// Generate interpretation text based on new calibration study findings
+function generateInterpretation(
+  participantSpread: number,
+  haikuSpread: number | null,
+  statisticalSpread: number | null,
+  participantRelevance: number
+): string {
+  // Check validity first (relevance is 0-1 scale internally, 0-100 for display)
+  const relevanceNormalized = participantRelevance > 1 ? participantRelevance / 100 : participantRelevance;
+  if (relevanceNormalized < RELEVANCE_VALIDITY_THRESHOLD) {
+    return `Your submission did not meet the relevance threshold (${Math.round(participantRelevance)}). Your clues may not sufficiently bridge the anchor and target.`;
+  }
+
+  // Spread comparison
+  const spreadLabel = getSpreadLabel(participantSpread);
+  const parts: string[] = [];
+
+  // Main spread statement
+  parts.push(`Your spread (${Math.round(participantSpread)}) is ${spreadLabel}.`);
+
+  // Haiku comparison
+  if (haikuSpread !== null) {
+    const deltaHaiku = participantSpread - haikuSpread;
+    if (deltaHaiku > 5) {
+      parts.push(`You found more diverse bridges than Haiku (+${Math.round(deltaHaiku)} points).`);
+    } else if (deltaHaiku < -5) {
+      parts.push(`Haiku found more diverse bridges (${Math.round(Math.abs(deltaHaiku))} points higher).`);
+    } else {
+      parts.push('Your spread is comparable to Haiku.');
+    }
+  }
+
+  // Statistical comparison
+  if (statisticalSpread !== null) {
+    const deltaStatistical = participantSpread - statisticalSpread;
+    if (deltaStatistical > 5) {
+      parts.push('Your concepts are more diverse than the statistical baseline.');
+    } else if (deltaStatistical < -5) {
+      parts.push('The statistical baseline found more diverse bridges.');
+    }
+  }
+
+  return parts.join(' ');
+}
+
 interface BridgingResultsScreenProps {
   game: BridgingGameResponse;
 }
@@ -709,86 +766,12 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
             lineHeight: '1.7',
           }}
         >
-          {(() => {
-            const userRel = Math.round(relevanceDisplay);
-            const userSpread = Math.round(spread);
-            const haikuRel = hasHaikuUnion && haikuRelevance !== undefined
-              ? Math.round(haikuRelevance <= 1 ? haikuRelevance * 100 : haikuRelevance)
-              : null;
-            const haikuSpr = hasHaikuUnion && haikuSpread !== undefined ? Math.round(haikuSpread) : null;
-            const statRel = hasLexicalUnion && lexicalRelevance != null
-              ? Math.round(lexicalRelevance <= 1 ? lexicalRelevance * 100 : lexicalRelevance)
-              : null;
-            const statSpr = hasLexicalUnion && lexicalSpread != null ? Math.round(lexicalSpread) : null;
-
-            // Helper to compare values (within 5 points = "on par")
-            const compare = (user: number, baseline: number | null, name: string) => {
-              if (baseline === null) return null;
-              const diff = user - baseline;
-              if (Math.abs(diff) <= 5) return `on par with ${name}`;
-              return diff > 0 ? `higher than ${name}` : `lower than ${name}`;
-            };
-
-            // Build relevance comparison
-            const haikuRelComp = compare(userRel, haikuRel, 'Haiku');
-            const statRelComp = compare(userRel, statRel, 'the statistical model');
-
-            let relevanceStatement = `Your relevance (${userRel}) is `;
-            if (haikuRelComp && statRelComp) {
-              relevanceStatement += `${haikuRelComp}, and ${statRelComp}.`;
-            } else if (haikuRelComp) {
-              relevanceStatement += `${haikuRelComp}.`;
-            } else if (statRelComp) {
-              relevanceStatement += `${statRelComp}.`;
-            } else {
-              relevanceStatement = `Your relevance is ${userRel}.`;
-            }
-
-            // Build spread comparison
-            const haikuSprComp = compare(userSpread, haikuSpr, 'Haiku');
-            const statSprComp = compare(userSpread, statSpr, 'the statistical model');
-
-            let spreadStatement = ` Your spread (${userSpread}) is `;
-            if (haikuSprComp && statSprComp) {
-              spreadStatement += `${haikuSprComp}, and ${statSprComp}`;
-            } else if (haikuSprComp) {
-              spreadStatement += `${haikuSprComp}`;
-            } else if (statSprComp) {
-              spreadStatement += `${statSprComp}`;
-            } else {
-              spreadStatement = ` Your spread is ${userSpread}`;
-            }
-
-            // Add qualitative insight
-            let insight = '';
-
-            // Check if user is "on par or better" for relevance (within 5 points or higher)
-            const relevanceOnParOrBetter = (baseline: number | null) =>
-              baseline === null || userRel >= baseline - 5;
-            const userRelOnParOrBetter = relevanceOnParOrBetter(haikuRel) && relevanceOnParOrBetter(statRel);
-
-            // Check if spread is significantly higher (more than 5 points)
-            const spreadSignificantlyHigher = (baseline: number | null) =>
-              baseline !== null && userSpread > baseline + 5;
-            const userSpreadSignificantlyHigher =
-              (haikuSpr !== null && spreadSignificantlyHigher(haikuSpr)) ||
-              (statSpr !== null && spreadSignificantlyHigher(statSpr));
-
-            if (userRelOnParOrBetter && userSpreadSignificantlyHigher) {
-              // Superior: relevant AND more diverse
-              insight = ', indicating superior bridging—your concepts are both relevant and more diverse than the baselines.';
-            } else if (userRel > (haikuRel ?? 50) && userRel > (statRel ?? 50)) {
-              insight = ', suggesting strong conceptual bridging between the anchor and target.';
-            } else if (userSpread > (haikuSpr ?? 50) && userSpread > (statSpr ?? 50) && userRel < Math.min(haikuRel ?? 50, statRel ?? 50) - 5) {
-              insight = ', which may indicate your concepts are more diverse but less focused on the semantic bridge between anchor and target.';
-            } else if (userRel < (haikuRel ?? 50) && userRel < (statRel ?? 50)) {
-              insight = '. The bridging concepts may be too distant from the semantic space between anchor and target.';
-            } else {
-              insight = '.';
-            }
-
-            return relevanceStatement + spreadStatement + insight;
-          })()}
+          {generateInterpretation(
+            spread,
+            hasHaikuUnion && haikuSpread !== undefined ? haikuSpread : null,
+            hasLexicalUnion && lexicalSpread != null ? lexicalSpread : null,
+            relevanceDisplay
+          )}
         </div>
       </Panel>
 
