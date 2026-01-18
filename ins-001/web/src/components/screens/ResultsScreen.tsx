@@ -24,18 +24,39 @@ interface ResultsScreenProps {
 // Simple Low/Medium/High bands - scale still calibrating with human data
 // Bands: Low (0-33%), Medium (33-66%), High (66-100%)
 const SPREAD_BANDS = [
-  { max: 33, label: 'Low', description: 'Clustered associations' },
-  { max: 66, label: 'Medium', description: 'Moderate associative spread' },
-  { max: 100, label: 'High', description: 'Diverse associations' },
+  { max: 33, label: 'Low' },
+  { max: 66, label: 'Medium' },
+  { max: 100, label: 'High' },
 ];
 
-function getSpreadInterpretation(score: number): { label: string; description: string } {
+function getSpreadInterpretation(score: number, rawScore: number): { label: string; explanation: string } {
+  const roundedScore = Math.round(rawScore);
+
   for (const band of SPREAD_BANDS) {
     if (score < band.max) {
-      return { label: band.label, description: band.description };
+      if (band.label === 'Low') {
+        return {
+          label: band.label,
+          explanation: `Your spread of ${roundedScore} indicates that your associations were clustered together.`
+        };
+      } else if (band.label === 'Medium') {
+        return {
+          label: band.label,
+          explanation: `Your spread of ${roundedScore} indicates moderate diversity, which is associated with creative thinking.`
+        };
+      } else {
+        return {
+          label: band.label,
+          explanation: `Your spread of ${roundedScore} indicates highly diverse associations, which is associated with creative thinking.`
+        };
+      }
     }
   }
-  return SPREAD_BANDS[SPREAD_BANDS.length - 1];
+  // High band
+  return {
+    label: 'High',
+    explanation: `Your spread of ${roundedScore} indicates highly diverse associations, which is associated with creative thinking.`
+  };
 }
 
 // Morphological variant detection (mirrors CluesScreen logic)
@@ -91,7 +112,7 @@ function calculateUnconventionality(
 // SpreadBar component - single horizontal bar with marker
 interface SpreadBarProps {
   score: number;
-  interpretation: { label: string; description: string };
+  interpretation: { label: string; explanation: string };
 }
 
 function SpreadBar({ score, interpretation }: SpreadBarProps) {
@@ -193,6 +214,17 @@ function SpreadBar({ score, interpretation }: SpreadBarProps) {
         ))}
 
       </div>
+
+      {/* Explanation text */}
+      <p style={{
+        fontFamily: 'var(--font-body)',
+        fontSize: '0.85rem',
+        color: 'var(--faded)',
+        margin: 0,
+        lineHeight: 1.5,
+      }}>
+        {interpretation.explanation}
+      </p>
     </div>
   );
 }
@@ -229,10 +261,13 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
   // Use new unified scoring if available, otherwise fall back to legacy mapping
   // New API: relevance (0-1), spread (0-100 DAT-style)
   // Legacy: divergence_score (0-1), convergence_score (0-1)
-  const spreadDisplay = game.spread ?? (game.divergence_score ?? 0) * 100;
+  const spreadRaw = game.spread ?? (game.divergence_score ?? 0) * 100;
+
+  // Normalize raw score (20-80 practical range) to display percentage (0-100)
+  const spreadNormalized = Math.max(0, Math.min(100, ((spreadRaw - 20) / 60) * 100));
 
   // Get interpretation using INS-001.1 calibrated bands
-  const spreadInterp = getSpreadInterpretation(spreadDisplay);
+  const spreadInterp = getSpreadInterpretation(spreadNormalized, spreadRaw);
 
   // Haiku data (from LLM guesses)
   const hasHaikuData = game.recipient_type === 'llm' && game.guesses && game.guesses.length > 0;
@@ -295,7 +330,7 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
           Spread
         </div>
 
-        <SpreadBar score={spreadDisplay} interpretation={spreadInterp} />
+        <SpreadBar score={spreadRaw} interpretation={spreadInterp} />
 
         <p style={{
           fontFamily: 'var(--font-mono)',
