@@ -1,15 +1,24 @@
 # INS-001 Lexical Specification
 # Language, terminology, and messaging for the Semantic Cartography instrument family
-# Version: 1.2.0 | Date: 2026-01-18 | Status: draft
+# Version: 1.3.0 | Date: 2026-01-18 | Status: draft
 
 _meta:
-  version: "1.2.0"
+  version: "1.3.0"
   date: "2026-01-18"
   author: "Phronos"
   status: "draft"
   parent_brand: "BRAND.yaml"
   notes: "This lexicon extends BRAND.yaml with instrument-specific terminology. Defer to BRAND.yaml for voice, tone, and visual identity."
   changelog:
+    - version: "1.3.0"
+      date: "2026-01-18"
+      changes:
+        - "Fidelity now fully implemented for INS-001.2"
+        - "INS-001.2 displays Fidelity (filled dot) + Spread (hollow dot) in results"
+        - "Updated fidelity algorithm to joint constraint scoring (coverage x efficiency)"
+        - "Updated fidelity interpretation bands based on implementation"
+        - "Clarified INS-001.1 still uses Relevance (unchanged)"
+        - "Updated intro screen language: 'Fidelity. Spread.' for step 03"
     - version: "1.2.0"
       date: "2026-01-18"
       changes:
@@ -18,16 +27,11 @@ _meta:
         - "INS-001.2: Spread only (relevance is validity gate, not user-facing)"
         - "Removed Fidelity (proposed but not implemented)"
         - "Added Unconventionality as INS-001.1 construct"
-        - "Updated spread interpretation bands to match implementation"
-        - "Referenced MTH-002.1 v2.0 for calibration methodology"
     - version: "1.1.0"
       date: "2025-01-18"
       changes:
         - "Added Fidelity as core construct for INS-001.2"
         - "Updated INS-001.1 to use Spread (not Divergence) as primary metric"
-        - "Updated INS-001.2 to use Spread + Fidelity (replacing Relevance)"
-        - "Added Fidelity to glossary and metric_display"
-        - "Clarified Relevance as internal/technical term, not user-facing for 001.2"
 
 # =============================================================================
 # FAMILY IDENTITY
@@ -53,37 +57,45 @@ family:
 
   core_constructs:
     - name: "Spread"
-      definition: "How much conceptual territory your clues cover."
+      definition: "How far apart your clues are from each other."
       operationalization: "Mean pairwise semantic distance among clues only (excludes prompt words)."
       instruments: ["001.1", "001.2"]
-      notes: "Primary metric for both instruments. Clue-only calculation isolates participant contribution from prompt difficulty."
+      display_range: "0-100"
+      notes: "Primary diversity metric for both instruments. Clue-only calculation isolates participant contribution from prompt difficulty."
+
+    - name: "Fidelity"
+      definition: "How well your clues jointly identify the anchor-target pair."
+      operationalization: "Joint constraint score: coverage (fraction of foils eliminated) x efficiency (1 - redundancy)."
+      instruments: ["001.2"]
+      display_range: "0-100 (stored as 0-1)"
+      threshold: 0.50
+      notes: "Primary constraint metric for INS-001.2. Replaces Relevance as the user-facing metric."
+
+    - name: "Relevance"
+      definition: "How connected your clues are to the prompt."
+      operationalization: "For 001.1: Mean cosine similarity to seed. For 001.2: Mean of min(sim_anchor, sim_target) per clue."
+      instruments: ["001.1"]
+      display_range: "0-1"
+      threshold: 0.15
+      notes: "User-facing for INS-001.1. For INS-001.2, retained as internal/legacy metric only."
 
     - name: "Unconventionality"
       definition: "How much your associations avoid predictable responses."
       operationalization: "Inverse of overlap with noise floor (most frequent associations in embedding neighborhood)."
       instruments: ["001.1"]
+      levels: ["High", "Moderate", "Low"]
       notes: "High = avoided predictable associations. Low = many associations appear in typical neighborhood."
-
-    - name: "Fidelity"
-      definition: "How well your clues jointly identify the task."
-      operationalization: "Joint constraint score: coverage × efficiency of clue set in eliminating foil endpoints."
-      instruments: ["001.2"]
 
     - name: "Communicability"
       definition: "Whether meaning survives transmission to another agent."
       operationalization: "Reconstruction accuracy by partner or LLM."
       instruments: ["001.1", "001.3"]
+      display: "binary (success/failure)"
 
     - name: "Surprisal"
       definition: "How unexpected a semantic transition is."
       operationalization: "Negative log-probability against reference network (SWOW/LWOW)."
       instruments: ["001.1", "001.2", "001.6"]
-
-    - name: "Relevance"
-      definition: "How connected clues are to the prompt."
-      operationalization: "For 001.1: Mean cosine similarity to seed. For 001.2: Mean of min(sim_anchor, sim_target) per clue."
-      instruments: ["001.1"]
-      notes: "For INS-001.2, Fidelity replaces Relevance as the user-facing metric. Relevance remains available as an internal/technical measure."
 
 # =============================================================================
 # INSTRUMENTS
@@ -102,26 +114,40 @@ instruments:
       expanded: "Given a seed concept, provide clues that are semantically diverse yet sufficient for reconstruction. Measures the tension between spread and communicability."
 
     what_it_measures:
-      - "Spread: how far apart your clues are from each other"
-      - "Unconventionality: whether you avoided the most predictable associations"
-      - "Communicability: whether LLM or human partner can reconstruct the seed"
+      primary:
+        - metric: "Spread"
+          description: "How far apart your associations are from each other."
+        - metric: "Unconventionality"
+          description: "Whether you avoided the most predictable associations."
+      secondary:
+        - metric: "Communicability"
+          description: "Whether LLM or human partner can reconstruct the seed."
+        - metric: "Relevance"
+          description: "How connected your associations are to the seed."
+          internal: true  # Not prominently displayed but available
 
     vocabulary:
       prompt_word: "seed"
-      user_input: "clues"  # Also "associations" in some UI contexts
+      user_input: "clues"
+      alt_user_input: "associations"
       success_event: "reconstruction"
 
     ui_copy:
-      intro_step_03: "Divergence. Relevance."  # NOTE: Should update to "Spread." for consistency
+      intro_headline: "Map a signal."
+      intro_step_03: "Divergence. Relevance."  # Current implementation
+      what_this_measures:
+        spread: "How much semantic territory your clues cover. Higher spread indicates more diverse associations."
+        relevance: "How close your associations are to both the anchor and target."
       instruction: "Name concepts that describe the seed—as many directions as you can."
       completion: "See what emerges."
       no_correct_answers: "There are no correct answers—only your signal."
 
     scoring:
       spread:
-        source: "clues-only pairwise distance"
+        source: "clues-only pairwise cosine distance"
         raw_range: "20-80 (practical bounds)"
         display_range: "0-100 (normalized)"
+        normalization: "((raw - 20) / 60) * 100"
         bands:
           - range: [0, 33]
             label: "Low"
@@ -132,24 +158,29 @@ instruments:
           - range: [66, 100]
             label: "High"
             description: "Highly diverse associations, associated with creative thinking."
-        notes: "Raw score normalized from 20-80 range. Even random input generates ~20 spread."
+
       unconventionality:
-        source: "noise floor overlap"
+        source: "noise floor overlap count"
         bands:
           - level: "High"
             condition: "0 overlaps"
+            color: "var(--active)"
             description: "None of your associations appeared in the predictable neighborhood."
           - level: "Moderate"
             condition: "1-2 overlaps"
+            color: "var(--gold)"
             description: "X of your associations appeared in the predictable neighborhood."
           - level: "Low"
             condition: "3+ overlaps"
+            color: "var(--alert)"
             description: "X of your associations appeared in the predictable neighborhood."
+
       communicability:
-        source: "LLM reconstruction"
-        display: "binary (success/failure)"
+        source: "LLM reconstruction (Haiku)"
+        display: "binary (checkmark/X)"
         success_text: "Haiku guessed \"{seed}\" from your associations"
         failure_text: "Haiku couldn't guess \"{seed}\" from your associations"
+        also_considered: "Shows other guesses LLM considered"
 
   INS-001.2:
     code: "001.2"
@@ -161,8 +192,15 @@ instruments:
       expanded: "Given two concepts, identify clues that capture both. Measures your ability to locate semantic intersection across distant concepts while maintaining diversity."
 
     what_it_measures:
-      - "Spread: how far apart your clues are from each other"
-      - "Fidelity: how well your clues jointly identify the anchor-target pair"
+      primary:
+        - metric: "Fidelity"
+          description: "How well your clues jointly identify the anchor-target pair."
+        - metric: "Spread"
+          description: "How far apart your clues are from each other."
+      secondary:
+        - metric: "Relevance"
+          description: "Mean similarity to both anchor and target."
+          internal: true  # Legacy, not user-facing
 
     vocabulary:
       prompt_words: ["anchor", "target"]
@@ -170,29 +208,117 @@ instruments:
       success_event: "intersection"
 
     ui_copy:
+      intro_headline: "Find common ground."
+      intro_description: "This instrument measures how you locate semantic intersection between two different conceptual domains. Choose two words and find concepts that belong to both."
+      intro_step_03: "Fidelity. Spread."
+      what_this_measures:
+        fidelity: "How well your clues jointly identify the anchor-target pair. Higher fidelity means your clues efficiently narrow down to the correct endpoints."
+        spread: "How much semantic territory your clues cover. Higher spread indicates more diverse conceptual bridges between anchor and target."
       instruction: "Name concepts that belong to both."
       completion: "See what emerges."
       no_correct_answers: "There are no correct answers—only your connections."
+
+    results_display:
+      visualization: "Connected dot plot"
+      legend:
+        - symbol: "filled dot"
+          label: "Fidelity"
+          color: "var(--gold)"
+        - symbol: "hollow dot"
+          label: "Spread"
+          color: "var(--gold)"
+      rows:
+        - label: "You"
+          concepts: "user clues"
+        - label: "Haiku"
+          concepts: "LLM baseline clues"
+        - label: "Statistical"
+          concepts: "lexical/embedding baseline"
+        - label: "Human"
+          concepts: "recipient clues (if shared)"
+
+    scoring:
+      fidelity:
+        source: "joint constraint algorithm"
+        algorithm: "coverage x efficiency"
+        components:
+          coverage: "Fraction of foil neighbors eliminated by at least one clue"
+          efficiency: "1 - redundancy (how much clues overlap in eliminations)"
+        foil_count: 50
+        storage_range: "0-1"
+        display_range: "0-100"
+        threshold: 0.50
+        bands:
+          - range: [0, 0.50]
+            label: "Poor"
+            description: "Clues don't constrain the solution space."
+          - range: [0.50, 0.65]
+            label: "Below Average"
+            description: "Some constraint, high redundancy."
+          - range: [0.65, 0.75]
+            label: "Average"
+            description: "Reasonable triangulation."
+          - range: [0.75, 0.85]
+            label: "Above Average"
+            description: "Efficient, complementary clues."
+          - range: [0.85, 1.0]
+            label: "Excellent"
+            description: "Near-optimal constraint coverage."
+        interpretation_text:
+          below_threshold: "Your fidelity score ({score}) is below the threshold. Your clues may not sufficiently narrow down the anchor-target pair."
+          template: "Your fidelity ({score}) is {label}, meaning your clues {qualifier} identify the anchor-target pair."
+          qualifiers:
+            excellent: "effectively"
+            above_average: "effectively"
+            average: "reasonably"
+            below_average: "reasonably"
+            poor: "don't well"
+
+      spread:
+        source: "clues-only pairwise cosine distance"
+        display_range: "0-100"
+        bands:
+          - range: [0, 55]
+            label: "Low"
+          - range: [55, 62]
+            label: "Below Average"
+          - range: [62, 68]
+            label: "Average"
+          - range: [68, 72]
+            label: "Above Average"
+          - range: [72, 100]
+            label: "High"
+        calibration_notes: "Haiku-calibrated (mean = 64.4, SD = 4.6)"
+        interpretation_text:
+          template: "Your spread ({score}) is {label}."
+          comparison: "You found more diverse bridges than Haiku (+{delta} points)."
+
+      relevance:
+        source: "mean of min(sim_anchor, sim_target) per clue"
+        storage_range: "0-1"
+        threshold: 0.15
+        internal_only: true
+        notes: "Legacy metric. Not displayed in UI. Superseded by Fidelity."
 
   INS-001.3:
     code: "001.3"
     name: "Triangulation"
     headline: "Locate the source."
-    
+
     task:
       short: "Reconstruct a concept from another's clues."
       expanded: "Given clues provided by a partner (human or LLM), identify the original seed concept. Measures convergent thinking and semantic decoding."
-    
+
     what_it_measures:
       - "Reconstruction accuracy"
       - "Convergence efficiency: how many clues required"
       - "Alignment: similarity of your reconstruction path to population norms"
-    
+
     vocabulary:
       prompt_word: "clues"
       user_input: "guess"
       success_event: "reconstruction"
-    
+
     ui_copy:
       instruction: "What concept do these clues describe?"
       completion: "See if you found it."
@@ -202,73 +328,19 @@ instruments:
     code: "001.4"
     name: "Registration"
     headline: "Compare the maps."
-    
-    task:
-      short: "See how your path through semantic space aligns with another's."
-      expanded: "Both you and a partner (or LLM) complete the same task. Results are compared to measure semantic alignment—shared vs. idiosyncratic associative structure."
-    
-    what_it_measures:
-      - "Semantic alignment: overlap between your associations and partner's"
-      - "Idiosyncrasy: uniqueness of your path"
-      - "Human-LLM divergence: where your associations differ from machine norms"
-    
-    vocabulary:
-      comparison_target: ["partner", "population", "LLM"]
-      metric: "alignment"
-      success_event: "registration"
-    
-    ui_copy:
-      instruction: "Complete the task. Then see how your map compares."
-      completion: "Your paths through semantic space."
-      no_correct_answers: "There is no correct path—only yours."
+    status: "planned"
 
   INS-001.5:
     code: "001.5"
     name: "Stress Test"
     headline: "Test the structure."
-    
-    task:
-      short: "Can meaning survive when obvious links are removed?"
-      expanded: "Your semantic network is subjected to simulated attack—high-probability associations are removed. Measures robustness and flexibility of your associative structure."
-    
-    what_it_measures:
-      - "Robustness: percolation integral under link removal"
-      - "Flexibility: reliance on secondary vs. primary associations"
-      - "Structural integrity: whether meaning survives degradation"
-    
-    vocabulary:
-      attack_type: "percolation"
-      metric: "robustness"
-      success_event: "survival"
-    
-    ui_copy:
-      instruction: "Build your network. Then watch it hold—or break."
-      completion: "See what survives."
-      no_correct_answers: "There is no correct structure—only resilient ones."
+    status: "planned"
 
   INS-001.6:
     code: "001.6"
     name: "Drift"
     headline: "Chart the drift."
-    
-    task:
-      short: "The same task, across time or exposure—what shifted?"
-      expanded: "Repeat an earlier assessment after an interval or after LLM interaction. Measures stability or change in your associative patterns."
-    
-    what_it_measures:
-      - "Temporal stability: consistency across sessions"
-      - "LLM influence: change in surprisal after AI exposure"
-      - "Drift direction: toward or away from population/LLM norms"
-    
-    vocabulary:
-      comparison_type: ["temporal", "exposure-based"]
-      metric: "drift"
-      baseline: "prior session"
-    
-    ui_copy:
-      instruction: "Complete the task again."
-      completion: "See what moved."
-      no_correct_answers: "There is no correct drift—only change made visible."
+    status: "planned"
 
 # =============================================================================
 # SHARED VOCABULARY
@@ -277,12 +349,11 @@ instruments:
 
 glossary:
 
-  # User-facing terms (plain language)
   user_facing:
     clue:
       definition: "A word you provide in response to the prompt."
       usage: "Always 'clue' or 'clues', never 'response', 'answer', or 'input'."
-      alt: "associations (INS-001.1)"
+      alt: "associations (INS-001.1 context)"
 
     seed:
       definition: "The starting concept in a single-target task (001.1)."
@@ -296,19 +367,22 @@ glossary:
       definition: "The second of two concepts in a dual-target task (001.2)."
       usage: "Always paired with 'anchor'."
 
-    reconstruction:
-      definition: "Successfully identifying the original concept from clues."
-      usage: "The goal of convergent tasks (001.1, 001.3)."
+    spread:
+      definition: "How far apart your clues are from each other."
+      usage: "Primary metric for both INS-001.1 and INS-001.2."
+
+    fidelity:
+      definition: "How well your clues jointly identify the anchor-target pair."
+      usage: "Primary constraint metric for INS-001.2 only."
 
     unconventionality:
       definition: "Whether your associations avoided the most predictable responses."
       usage: "INS-001.1 only. Based on noise floor overlap."
 
-    fidelity:
-      definition: "Whether your clues collectively pinpoint the connection."
-      usage: "Use for INS-001.2. Pairs with 'spread' as orthogonal dimensions."
+    reconstruction:
+      definition: "Successfully identifying the original concept from clues."
+      usage: "The goal of convergent tasks (001.1, 001.3)."
 
-  # Technical terms (methods documentation)
   technical:
     spread:
       plain: "How far apart your clues are from each other."
@@ -319,38 +393,42 @@ glossary:
       plain: "How spread out your clues are from each other."
       technical: "Mean pairwise cosine distance across all words (clues + prompts), scaled 0-100 (DAT convention)."
       notes: "Legacy term. Superseded by 'spread' (clue-only) which better isolates participant contribution."
-      status: "deprecated"
+      status: "deprecated - use 'spread' instead"
 
     fidelity:
       plain: "How well your clues identify the bridging task."
-      technical: "Joint constraint score: coverage × efficiency of clue set in eliminating foil endpoints."
-      notes: "Coverage measures what fraction of foils are eliminated by at least one clue. Efficiency measures non-redundancy (clues eliminate different foils)."
+      technical: "Joint constraint score: coverage x efficiency. Coverage = fraction of 50 nearest-neighbor foils eliminated by at least one clue. Efficiency = 1 - redundancy (intersection/union of eliminations)."
+      threshold: 0.50
+      notes: "Replaces Relevance as the user-facing constraint metric for INS-001.2."
 
     relevance:
       plain: "How connected your clues are to the prompt."
       technical: "For 001.1: Mean cosine similarity to seed. For 001.2: Mean of min(sim_anchor, sim_target) per clue."
-      notes: "INS-001.1: User-facing metric. INS-001.2: Internal/technical metric, superseded by Fidelity in UI."
+      threshold: 0.15
+      notes: "User-facing for INS-001.1. For INS-001.2, retained as internal/legacy metric only. Superseded by Fidelity."
 
     noise_floor:
       plain: "The most predictable associations for a given word."
       technical: "Top-k nearest neighbors in embedding space, representing conventional/expected responses."
       notes: "Used to compute unconventionality in INS-001.1."
 
-    surprisal:
-      plain: "How unexpected a word association is."
-      technical: "Negative log-probability of transition under reference network."
+    foil:
+      plain: "A wrong answer candidate used to test clue quality."
+      technical: "Nearest neighbors to anchor/target in vocabulary embedding space."
+      notes: "Used in fidelity computation. 50 foils per endpoint."
 
-    percolation:
-      plain: "Removing links from a network to test its resilience."
-      technical: "Sequential edge removal measuring giant component survival."
+    coverage:
+      plain: "What fraction of wrong answers your clues eliminate."
+      technical: "Fraction of foils eliminated by at least one clue."
+      notes: "Component of fidelity score."
 
-    alignment:
-      plain: "How much your associations overlap with another's."
-      technical: "Jaccard similarity or embedding-space overlap between response sets."
+    efficiency:
+      plain: "Whether your clues eliminate different wrong answers."
+      technical: "1 - (intersection of eliminations / union of eliminations)."
+      notes: "Component of fidelity score. High efficiency = non-redundant clues."
 
 # =============================================================================
 # MESSAGING CONSTRAINTS
-# What to say and what to avoid
 # =============================================================================
 
 messaging:
@@ -360,57 +438,36 @@ messaging:
     - "Spread is not creativity. Fidelity is not correctness."
     - "High scores are not better. They are different."
     - "We measure deviation from norms, not deviation from truth."
-  
-  required_disclaimers:
-    results_page:
-      - "These results indicate deviation from population norms—not better or worse, but different."
-      - "Reference norms reflect predominantly English-speaking, internet-using populations."
-    
-    methodology_page:
-      - "Surprisal measures typicality against a reference network, not inherent creativity or value."
-  
+
   forbidden_phrases:
     value_judgments:
       - "Your creativity score"
       - "More creative"
       - "Better associations"
-      - "Optimal path"
-      - "Correct answer" # except for 001.3 reconstruction
       - "Higher fidelity is better"
-      - "More focused"
-    
+      - "Correct answer" # except for 001.3
+
     marketing_speak:
       - "Unlock your potential"
       - "Boost your creativity"
       - "Train your brain"
-      - "Cognitive enhancement"
-    
+
     false_precision:
       - "You are X% creative"
-      - "Your creativity rank is"
       - "Top X% of thinkers"
-    
-    misleading_claims:
-      - "Survey" # implies questionnaire, not behavioral measure
-      - "Test your creativity" # implies we measure creativity directly
-      - "IQ" or "intelligence" # we don't measure this
-  
+
   preferred_phrasing:
     - instead_of: "Your creativity score"
       use: "Your spread relative to population norms"
-    
-    - instead_of: "More creative associations"
-      use: "Higher surprisal associations"
-    
-    - instead_of: "Correct answer"
-      use: "Successful reconstruction" # for 001.3
-    
+
     - instead_of: "Good bridging"
       use: "High fidelity bridging"
 
+    - instead_of: "Correct answer"
+      use: "Successful reconstruction"
+
 # =============================================================================
 # UI PATTERNS
-# Consistent language across interface elements
 # =============================================================================
 
 ui_patterns:
@@ -420,132 +477,70 @@ ui_patterns:
     submit: "Submit"
     next: "Continue"
     complete: "See Results"
-    retry: "Try Again"
-  
+    retry: "Play Again"
+
   progress:
     step_format: "Step {n} of {total}"
     time_estimate: "~{n} minutes"
-  
+
   results_headers:
     spread: "Spread"
     fidelity: "Fidelity"
-    communicability: "Communicability"
-    reconstruction: "Reconstruction"
-    alignment: "Alignment"
-  
-  empty_states:
-    no_clues: "Enter at least one clue to continue."
-    loading: "Computing..."
-    error: "Something went wrong. Your responses are saved locally."
-  
+    unconventionality: "Unconventionality"
+    communicability: "AI Interpretation"
+
+  calibration_notice: "Scale calibrating as we gather participant data."
+
   consent:
     checkbox_label: "I agree to the Terms of Service and Privacy Policy, and consent to the processing of my responses as described therein."
-    link_terms: "/terms"
-    link_privacy: "/privacy"
 
 # =============================================================================
-# METRIC DISPLAY
-# How to present scores to users
+# METRIC DISPLAY SUMMARY
 # =============================================================================
 
 metric_display:
 
-  spread:
-    scale: "0-100"
-    display_format: "numeric"
-    instruments: ["001.1", "001.2"]
-    interpretation_bands:
-      - range: [0, 50]
-        label: "Clustered"
-        description: "Your clues occupy nearby semantic territory."
-      - range: [50, 70]
-        label: "Moderate spread"
-        description: "Your clues cover moderate semantic distance."
-      - range: [70, 90]
-        label: "Wide spread"
-        description: "Your clues span distant regions of semantic space."
-      - range: [90, 100]
-        label: "Highly dispersed"
-        description: "Your clues are maximally distant from each other."
+  ins001_1:
+    primary_metrics:
+      - name: "Spread"
+        scale: "0-100"
+        visualization: "horizontal bar with marker"
+        labels: ["Low", "Medium", "High"]
+      - name: "Unconventionality"
+        scale: "categorical"
+        visualization: "label with color"
+        levels: ["Low", "Moderate", "High"]
+    secondary_metrics:
+      - name: "Communicability"
+        visualization: "checkmark/X with text"
 
-  fidelity:
-    scale: "0-1"
-    display_format: "numeric or bar"
-    instruments: ["001.2"]
-    interpretation_bands:
-      - range: [0, 0.50]
-        label: "Diffuse"
-        description: "Clues don't narrow down the connection."
-      - range: [0.50, 0.65]
-        label: "Partial"
-        description: "Clues provide some constraint, with redundancy."
-      - range: [0.65, 0.75]
-        label: "Moderate"
-        description: "Clues reasonably triangulate the connection."
-      - range: [0.75, 0.85]
-        label: "Focused"
-        description: "Clues efficiently identify the connection."
-      - range: [0.85, 1.0]
-        label: "Precise"
-        description: "Clues optimally constrain the connection."
-    reference:
-      haiku_baseline: 0.68
-      notes: "Haiku-4-5 averages 0.68, representing competent but not exceptional bridging."
-
-  communicability:
-    scale: "binary"
-    display_format: "success/failure"
-    instruments: ["001.1"]
-    interpretation:
-      success: "The signal was reconstructed."
-      failure: "The signal was lost."
-    reference:
-      haiku_baseline: 0.93
-      notes: "Haiku-4-5 achieves 93% reconstruction rate."
-
-  reconstruction:
-    scale: "binary or ranked"
-    display_format: "success/failure or rank position"
-    instruments: ["001.3"]
-    interpretation:
-      success: "The signal was reconstructed."
-      failure: "The signal was lost."
-
-  # Legacy metric - retained for internal use and backwards compatibility
-  relevance:
-    scale: "0-1"
-    display_format: "numeric or bar"
-    instruments: ["001.1"]  # Not user-facing for 001.2
-    internal_only_for: ["001.2"]
-    interpretation_bands:
-      - range: [0, 0.15]
-        label: "Weak connection"
-        description: "Clues have limited semantic connection to prompt."
-      - range: [0.15, 0.30]
-        label: "Tangential"
-        description: "Clues are loosely connected to prompt."
-      - range: [0.30, 0.45]
-        label: "Connected"
-        description: "Clues are meaningfully connected to prompt."
-      - range: [0.45, 1.0]
-        label: "Core neighborhood"
-        description: "Clues are strongly connected to prompt."
-    notes: "For INS-001.2, this metric is superseded by Fidelity in user-facing displays. Retained for internal analysis and backwards compatibility."
+  ins001_2:
+    primary_metrics:
+      - name: "Fidelity"
+        scale: "0-100 (displayed), 0-1 (stored)"
+        visualization: "filled dot on number line"
+        labels: ["Poor", "Below Average", "Average", "Above Average", "Excellent"]
+      - name: "Spread"
+        scale: "0-100"
+        visualization: "hollow dot on number line"
+        labels: ["Low", "Below Average", "Average", "Above Average", "High"]
+    visualization_type: "connected dot plot"
+    interpretation: "Text summary comparing participant to baselines"
 
 # =============================================================================
 # CROSS-REFERENCES
-# Related documents and resources
 # =============================================================================
 
 cross_references:
   brand: "BRAND.yaml"
-  scoring: "INS-001-scoring-metrics-v2.md"
-  methods: "Draft_-_Accessing_Your_Associative_and_Divergent_Semantic_Architecture_v5.md"
-  calibration:
-    ins001_1: "06_ins001_1_calibration.md"
-    ins001_2: "dat_haiku_experiments - results part 11-14.md"
-    fidelity_analysis: "ins001_2_relevance_alternatives.md"
+  scoring_code: "ins-001/api/app/services/scoring.py"
+  frontend_results:
+    ins001_1: "ins-001/web/src/components/screens/ResultsScreen.tsx"
+    ins001_2: "ins-001/web/src/components/bridging/screens/BridgingResultsScreen.tsx"
+  frontend_intro:
+    ins001_1: "ins-001/web/src/components/screens/IntroScreen.tsx"
+    ins001_2: "ins-001/web/src/components/bridging/screens/BridgingIntroScreen.tsx"
+  api_models: "ins-001/api/app/models.py"
   literature:
     dat: "https://www.pnas.org/doi/10.1073/pnas.2022340118"
     swow: "https://doi.org/10.3758/s13428-018-1115-7"
-    lwow: "https://doi.org/10.1038/s41597-025-05156-9"
