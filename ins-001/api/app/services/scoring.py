@@ -541,14 +541,14 @@ def get_spread_interpretation_ins001_1(score: float) -> str:
     - Practical ceiling ~80
 
     Simple Low/Medium/High bands (scale still calibrating with human data):
-    - Normalized < 40%: Low - Clustered associations
-    - Normalized 40-60%: Medium - Moderate associative spread
-    - Normalized > 60%: High - Diverse associations
+    - Normalized < 33%: Low - Clustered associations
+    - Normalized 33-66%: Medium - Moderate associative spread
+    - Normalized > 66%: High - Diverse associations
 
     Raw score thresholds (derived from normalized range):
-    - < 44: Low (normalized < 40%)
-    - 44-56: Medium (normalized 40-60%)
-    - > 56: High (normalized > 60%)
+    - < 40: Low (normalized < 33%)
+    - 40-60: Medium (normalized 33-66%)
+    - > 60: High (normalized > 66%)
 
     Args:
         score: Spread score (0-100, clues-only)
@@ -559,9 +559,10 @@ def get_spread_interpretation_ins001_1(score: float) -> str:
     # Normalize from 20-80 range to 0-100
     normalized = max(0, min(100, ((score - 20) / 60) * 100))
 
-    if normalized < 40:
+    # Bands: Low (0-33%), Medium (33-66%), High (66-100%)
+    if normalized < 33:
         return "Low"
-    elif normalized < 60:
+    elif normalized < 66:
         return "Medium"
     else:
         return "High"
@@ -1062,8 +1063,8 @@ def test_interpretation_helpers():
 
     # Spread interpretations (INS-001.1 clues-only, normalized 20-80 range)
     # Raw 20-80 maps to normalized 0-100
-    # Bands: normalized <40=Low, 40-60=Medium, >60=High
-    # Raw thresholds: <44=Low, 44-56=Medium, >56=High
+    # Bands: normalized <33=Low, 33-66=Medium, >66=High
+    # Raw thresholds: <40=Low, 40-60=Medium, >60=High
     assert get_spread_interpretation_ins001_1(30) == "Low"      # normalized 16.7%
     assert get_spread_interpretation_ins001_1(50) == "Medium"   # normalized 50%
     assert get_spread_interpretation_ins001_1(65) == "High"     # normalized 75%

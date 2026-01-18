@@ -22,9 +22,10 @@ interface ResultsScreenProps {
 // INS-001.1 interpretation bands for clues-only spread
 // Raw scores normalized to 20-80 range (even random input generates some spread)
 // Simple Low/Medium/High bands - scale still calibrating with human data
+// Bands: Low (0-33%), Medium (33-66%), High (66-100%)
 const SPREAD_BANDS = [
-  { max: 40, label: 'Low', description: 'Clustered associations' },
-  { max: 60, label: 'Medium', description: 'Moderate associative spread' },
+  { max: 33, label: 'Low', description: 'Clustered associations' },
+  { max: 66, label: 'Medium', description: 'Moderate associative spread' },
   { max: 100, label: 'High', description: 'Diverse associations' },
 ];
 
@@ -101,11 +102,11 @@ function SpreadBar({ score, interpretation }: SpreadBarProps) {
   // Linear scale with three bands
   const position = normalizedScore;
 
-  // Labels at band boundaries: Low (0-40), Medium (40-60), High (60-100)
+  // Labels: Low at start, Medium centered, High at end
   const bandLabels = [
     { pos: 0, label: 'Low' },
-    { pos: 40, label: 'Medium' },
-    { pos: 70, label: 'High' },
+    { pos: 50, label: 'Medium' },
+    { pos: 100, label: 'High' },
   ];
 
   return (

@@ -36,10 +36,20 @@ export const IntroScreen: React.FC = () => {
     checkTerms();
   }, []);
 
-  const handleBegin = () => {
-    if (consentAccepted) {
-      dispatch({ type: 'BEGIN' });
+  const handleBegin = async () => {
+    if (!consentAccepted) return;
+
+    // Persist consent if not already saved
+    if (!termsAcceptedAt) {
+      try {
+        await api.users.acceptTerms();
+      } catch (error) {
+        console.error('Failed to save consent:', error);
+        // Continue anyway - consent is given locally
+      }
     }
+
+    dispatch({ type: 'BEGIN' });
   };
 
   const formatDate = (dateStr: string) => {
