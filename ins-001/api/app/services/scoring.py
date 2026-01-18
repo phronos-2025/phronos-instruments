@@ -5,18 +5,22 @@ This module implements the unified scoring framework for both:
 - INS-001.1 (Semantic Radiation): Single seed word, clues radiate outward
 - INS-001.2 (Semantic Union): Anchor-target pair, clues bridge between them
 
-Both instruments use exactly TWO metrics:
-1. **Relevance** — Are the clues semantically connected to the prompt?
-2. **Divergence** — How spread out are the clues from each other? (DAT-style)
+INS-001.1 uses two metrics:
+1. **Relevance** — Are the clues semantically connected to the seed?
+2. **Spread** — How spread out are the clues from each other? (clues-only)
 
-These metrics are orthogonal:
-- High relevance + high divergence = creative but valid
-- High relevance + low divergence = predictable/conventional
-- Low relevance = noise (divergence becomes meaningless)
+INS-001.2 uses two metrics:
+1. **Fidelity** — How well do clues jointly identify the anchor-target pair?
+   Uses joint constraint scoring: coverage (foils eliminated) × efficiency (non-redundancy)
+2. **Spread** — How spread out are the clues from each other? (clues-only, DAT-style)
+
+Interpretation for INS-001.2:
+- "Spread: how far apart your clues are from each other"
+- "Fidelity: how well your clues jointly identify the anchor-target pair"
 
 Literature basis:
-- Relevance: Standard in information retrieval (query-document relevance)
-- Divergence: Divergent Association Task (Olson et al., 2021, PNAS)
+- Fidelity: Joint constraint scoring (eliminates foil neighbors)
+- Spread/Divergence: Divergent Association Task (Olson et al., 2021, PNAS)
 """
 
 import numpy as np
@@ -219,18 +223,22 @@ def score_radiation(
 def score_union(
     clue_embeddings: list[list[float]],
     anchor_embedding: list[float],
-    target_embedding: list[float]
+    target_embedding: list[float],
+    vocabulary_embeddings: Optional[list[list[float]]] = None
 ) -> dict:
     """
     Score a participant's semantic union submission (INS-001.2).
 
-    Relevance: How connected are clues to BOTH anchor and target?
-    Uses min(sim_anchor, sim_target) to ensure clues bridge both endpoints,
-    not just cluster near one. This matches the lexical union baseline scoring.
+    Fidelity: How well clues jointly identify the anchor-target pair.
+    Uses joint constraint scoring: measures coverage (how many foils eliminated)
+    and efficiency (are clues non-redundant). See compute_fidelity() for details.
 
     Spread: Mean pairwise distance among clues only (excludes anchor/target).
     This isolates participant performance from pair difficulty and aligns with
     the DAT methodology which only uses participant-generated words.
+
+    Relevance (legacy): How connected are clues to BOTH anchor and target?
+    Uses min(sim_anchor, sim_target). Kept for backwards compatibility.
 
     See MTH-002.1 v2.0 Section 3.1 for methodology details.
 
@@ -238,17 +246,26 @@ def score_union(
         clue_embeddings: List of embedding vectors for submitted clues
         anchor_embedding: Embedding vector for anchor concept
         target_embedding: Embedding vector for target concept
+        vocabulary_embeddings: Optional pool of vocabulary embeddings for fidelity calculation
 
     Returns:
         Dictionary with:
-        - relevance: Overall relevance score (mean of min(sim_a, sim_t) per clue)
-        - relevance_individual: Per-clue relevance scores
+        - fidelity: Overall fidelity score (coverage * efficiency, 0-1)
+        - fidelity_valid: Whether submission passes fidelity threshold
+        - coverage: Fraction of foils eliminated by at least one clue
+        - efficiency: 1 - redundancy measure
         - spread: Clue-only spread (0-100, excludes anchor/target)
         - divergence: Alias for spread (for backwards compatibility)
-        - valid: Whether submission passes relevance threshold
+        - relevance: Legacy relevance score (mean of min(sim_a, sim_t) per clue)
+        - relevance_individual: Per-clue relevance scores (legacy)
+        - valid: Whether submission passes fidelity threshold (replaces relevance-based validity)
     """
     if not clue_embeddings:
         return {
+            "fidelity": 0.0,
+            "fidelity_valid": False,
+            "coverage": 0.0,
+            "efficiency": 0.0,
             "relevance": 0.0,
             "relevance_individual": [],
             "spread": 0.0,
@@ -256,9 +273,24 @@ def score_union(
             "valid": False
         }
 
-    # Relevance: min similarity to both endpoints (must connect to BOTH)
-    # Using min() ensures clues bridge between anchor and target,
-    # rather than clustering near just one endpoint
+    # Fidelity: joint constraint score (primary metric)
+    if vocabulary_embeddings:
+        fidelity_result = compute_fidelity(
+            clue_embeddings, anchor_embedding, target_embedding, vocabulary_embeddings
+        )
+        fidelity = fidelity_result["fidelity"]
+        fidelity_valid = fidelity_result["fidelity_valid"]
+        coverage = fidelity_result["coverage"]
+        efficiency = fidelity_result["efficiency"]
+    else:
+        # If no vocabulary provided, fall back to relevance-based validity
+        fidelity = 0.0
+        fidelity_valid = False
+        coverage = 0.0
+        efficiency = 0.0
+
+    # Relevance (legacy): min similarity to both endpoints
+    # Kept for backwards compatibility
     relevance_scores = []
     for clue in clue_embeddings:
         sim_a = cosine_similarity(clue, anchor_embedding)
@@ -271,15 +303,216 @@ def score_union(
     # This isolates participant contribution from pair difficulty
     overall_spread = calculate_spread_clues_only(clue_embeddings)
 
-    valid = overall_relevance >= RELEVANCE_THRESHOLD
+    # Validity: use fidelity if available, otherwise fall back to relevance
+    if vocabulary_embeddings:
+        valid = fidelity_valid
+    else:
+        valid = overall_relevance >= RELEVANCE_THRESHOLD
 
     return {
+        "fidelity": fidelity,
+        "fidelity_valid": fidelity_valid,
+        "coverage": coverage,
+        "efficiency": efficiency,
         "relevance": overall_relevance,
         "relevance_individual": relevance_scores,
         "spread": overall_spread,
         "divergence": overall_spread,  # Alias for backwards compatibility
         "valid": valid
     }
+
+
+# ============================================
+# INS-001.2: FIDELITY (Joint Constraint Score)
+# ============================================
+
+# Minimum fidelity score for a submission to be considered valid
+# Submissions below this threshold indicate clues don't constrain the solution space
+FIDELITY_THRESHOLD = 0.50
+
+
+def get_nearest_neighbors(
+    target_embedding: list[float],
+    vocabulary_embeddings: list[list[float]],
+    n: int = 50
+) -> list[list[float]]:
+    """
+    Get the n nearest neighbors to a target embedding from vocabulary.
+
+    Args:
+        target_embedding: The embedding to find neighbors for
+        vocabulary_embeddings: Pool of candidate embeddings
+        n: Number of neighbors to return
+
+    Returns:
+        List of n embedding vectors closest to target
+    """
+    if not vocabulary_embeddings:
+        return []
+
+    # Compute similarities to all vocabulary words
+    similarities = []
+    for i, emb in enumerate(vocabulary_embeddings):
+        sim = cosine_similarity(target_embedding, emb)
+        similarities.append((sim, i))
+
+    # Sort by similarity (descending) and take top n
+    similarities.sort(reverse=True, key=lambda x: x[0])
+    neighbors = [vocabulary_embeddings[idx] for _, idx in similarities[:n]]
+
+    return neighbors
+
+
+def compute_fidelity(
+    clue_embeddings: list[list[float]],
+    anchor_embedding: list[float],
+    target_embedding: list[float],
+    vocabulary_embeddings: list[list[float]],
+    n_foils: int = 50
+) -> dict:
+    """
+    Compute fidelity score using joint constraint algorithm.
+
+    Fidelity measures how well the clues collectively narrow down the anchor-target pair.
+    Good clues should each eliminate different wrong answers (foils).
+
+    Algorithm:
+    1. Get n nearest neighbors as foils for both anchor and target
+    2. For each clue, determine which foils it "eliminates"
+       (clue is closer to true anchor/target than to foil)
+    3. Coverage = fraction of foils eliminated by at least one clue
+    4. Efficiency = 1 - redundancy (how much clues overlap in eliminations)
+    5. Fidelity = coverage * efficiency
+
+    Args:
+        clue_embeddings: List of embedding vectors for submitted clues
+        anchor_embedding: Embedding vector for anchor concept
+        target_embedding: Embedding vector for target concept
+        vocabulary_embeddings: Pool of vocabulary embeddings for finding foils
+        n_foils: Number of foil neighbors to use (default 50)
+
+    Returns:
+        Dictionary with:
+        - fidelity: Overall fidelity score (coverage * efficiency, 0-1)
+        - coverage: Fraction of foils eliminated by at least one clue
+        - efficiency: 1 - redundancy measure
+        - anchor_coverage: Coverage for anchor foils
+        - target_coverage: Coverage for target foils
+        - fidelity_valid: Whether submission passes fidelity threshold
+    """
+    if not clue_embeddings or not vocabulary_embeddings:
+        return {
+            "fidelity": 0.0,
+            "coverage": 0.0,
+            "efficiency": 0.0,
+            "anchor_coverage": 0.0,
+            "target_coverage": 0.0,
+            "fidelity_valid": False
+        }
+
+    # Get foil neighbors for anchor and target
+    foil_anchors = get_nearest_neighbors(anchor_embedding, vocabulary_embeddings, n_foils)
+    foil_targets = get_nearest_neighbors(target_embedding, vocabulary_embeddings, n_foils)
+
+    if not foil_anchors or not foil_targets:
+        return {
+            "fidelity": 0.0,
+            "coverage": 0.0,
+            "efficiency": 0.0,
+            "anchor_coverage": 0.0,
+            "target_coverage": 0.0,
+            "fidelity_valid": False
+        }
+
+    # For each clue, compute which foils it eliminates
+    anchor_eliminations = []
+    target_eliminations = []
+
+    for clue in clue_embeddings:
+        clue_to_anchor = cosine_similarity(clue, anchor_embedding)
+        clue_to_target = cosine_similarity(clue, target_embedding)
+
+        # A foil is "eliminated" if clue is closer to true anchor than to foil
+        a_elim = set()
+        for i, foil in enumerate(foil_anchors):
+            clue_to_foil = cosine_similarity(clue, foil)
+            if clue_to_anchor > clue_to_foil:
+                a_elim.add(i)
+
+        # A foil is "eliminated" if clue is closer to true target than to foil
+        t_elim = set()
+        for i, foil in enumerate(foil_targets):
+            clue_to_foil = cosine_similarity(clue, foil)
+            if clue_to_target > clue_to_foil:
+                t_elim.add(i)
+
+        anchor_eliminations.append(a_elim)
+        target_eliminations.append(t_elim)
+
+    # Measure coverage: what fraction of foils are eliminated by at least one clue?
+    anchor_union = set.union(*anchor_eliminations) if anchor_eliminations else set()
+    target_union = set.union(*target_eliminations) if target_eliminations else set()
+
+    anchor_coverage = len(anchor_union) / len(foil_anchors) if foil_anchors else 0.0
+    target_coverage = len(target_union) / len(foil_targets) if foil_targets else 0.0
+    coverage = (anchor_coverage + target_coverage) / 2
+
+    # Measure efficiency: are clues non-redundant?
+    # Redundancy = intersection / union (how much overlap)
+    if anchor_union:
+        anchor_intersection = set.intersection(*anchor_eliminations)
+        anchor_redundancy = len(anchor_intersection) / len(anchor_union)
+    else:
+        anchor_redundancy = 0.0
+
+    if target_union:
+        target_intersection = set.intersection(*target_eliminations)
+        target_redundancy = len(target_intersection) / len(target_union)
+    else:
+        target_redundancy = 0.0
+
+    efficiency = 1 - (anchor_redundancy + target_redundancy) / 2
+
+    # Joint score = coverage * efficiency
+    fidelity = coverage * efficiency
+
+    return {
+        "fidelity": float(fidelity),
+        "coverage": float(coverage),
+        "efficiency": float(efficiency),
+        "anchor_coverage": float(anchor_coverage),
+        "target_coverage": float(target_coverage),
+        "fidelity_valid": fidelity >= FIDELITY_THRESHOLD
+    }
+
+
+def get_fidelity_interpretation(score: float) -> str:
+    """
+    Get human-readable interpretation of fidelity score.
+
+    Scale:
+    - < 0.50: Poor - Clues don't constrain the solution space
+    - 0.50-0.65: Below Average - Some constraint, high redundancy
+    - 0.65-0.75: Average - Reasonable triangulation
+    - 0.75-0.85: Above Average - Efficient, complementary clues
+    - > 0.85: Excellent - Near-optimal constraint coverage
+
+    Args:
+        score: Fidelity score (0-1)
+
+    Returns:
+        Interpretation label
+    """
+    if score < 0.50:
+        return "Poor"
+    elif score < 0.65:
+        return "Below Average"
+    elif score < 0.75:
+        return "Average"
+    elif score < 0.85:
+        return "Above Average"
+    else:
+        return "Excellent"
 
 
 # ============================================
@@ -903,7 +1136,7 @@ def test_score_radiation():
 
 
 def test_score_union():
-    """Integration test for INS-001.2 scoring."""
+    """Integration test for INS-001.2 scoring (without vocabulary)."""
     anchor = [1.0, 0.0, 0.0]
     target = [0.0, 1.0, 0.0]
 
@@ -912,15 +1145,96 @@ def test_score_union():
         [0.5, 0.5, 0.707],    # Off to the side, still somewhat relevant
     ]
 
+    # Test without vocabulary (legacy mode)
     result = score_union(clues, anchor, target)
 
-    assert result["valid"] == True
     assert result["relevance"] > 0.3
     # Spread is now clue-only (MTH-002.1 v2.0)
     assert "spread" in result
     assert result["spread"] > 0  # Two different clues should have some spread
     assert result["divergence"] == result["spread"]  # Alias for backwards compat
     assert len(result["relevance_individual"]) == 2
+    # Without vocabulary, fidelity should be 0
+    assert result["fidelity"] == 0.0
+
+
+def test_score_union_with_fidelity():
+    """Integration test for INS-001.2 scoring with fidelity calculation."""
+    anchor = [1.0, 0.0, 0.0]
+    target = [0.0, 1.0, 0.0]
+
+    # Clues that bridge between anchor and target
+    clues = [
+        [0.707, 0.707, 0.0],  # Between both
+        [0.5, 0.5, 0.707],    # Off to the side, still somewhat relevant
+        [0.6, 0.8, 0.0],      # Closer to target
+    ]
+
+    # Create vocabulary pool (random unit vectors)
+    rng = np.random.default_rng(42)
+    vocab = []
+    for _ in range(100):
+        v = rng.standard_normal(3)
+        v = v / np.linalg.norm(v)  # Normalize
+        vocab.append(v.tolist())
+
+    result = score_union(clues, anchor, target, vocabulary_embeddings=vocab)
+
+    # With vocabulary, fidelity should be computed
+    assert "fidelity" in result
+    assert "fidelity_valid" in result
+    assert "coverage" in result
+    assert "efficiency" in result
+    assert result["fidelity"] >= 0 and result["fidelity"] <= 1
+    # Still have legacy fields
+    assert "relevance" in result
+    assert "spread" in result
+
+
+def test_compute_fidelity():
+    """Test fidelity computation directly."""
+    anchor = [1.0, 0.0, 0.0]
+    target = [0.0, 1.0, 0.0]
+
+    # Good clues that should eliminate many foils
+    good_clues = [
+        [0.8, 0.2, 0.0],  # Close to anchor
+        [0.2, 0.8, 0.0],  # Close to target
+        [0.5, 0.5, 0.0],  # Between both
+    ]
+
+    # Create vocabulary pool
+    rng = np.random.default_rng(42)
+    vocab = []
+    for _ in range(100):
+        v = rng.standard_normal(3)
+        v = v / np.linalg.norm(v)
+        vocab.append(v.tolist())
+
+    result = compute_fidelity(good_clues, anchor, target, vocab)
+
+    assert result["fidelity"] >= 0 and result["fidelity"] <= 1
+    assert result["coverage"] >= 0 and result["coverage"] <= 1
+    assert result["efficiency"] >= 0 and result["efficiency"] <= 1
+    assert result["anchor_coverage"] >= 0
+    assert result["target_coverage"] >= 0
+
+
+def test_get_nearest_neighbors():
+    """Test nearest neighbor retrieval."""
+    target = [1.0, 0.0, 0.0]
+    vocab = [
+        [0.9, 0.1, 0.0],   # Very close to target
+        [0.0, 1.0, 0.0],   # Orthogonal
+        [0.8, 0.2, 0.0],   # Close to target
+        [-1.0, 0.0, 0.0],  # Opposite
+    ]
+
+    neighbors = get_nearest_neighbors(target, vocab, n=2)
+    assert len(neighbors) == 2
+    # First neighbor should be the closest one
+    assert neighbors[0] == [0.9, 0.1, 0.0]
+    assert neighbors[1] == [0.8, 0.2, 0.0]
 
 
 def test_bootstrap_null_distribution():
@@ -1014,8 +1328,8 @@ def test_compare_submissions():
 
     result = compare_submissions(participant, baseline)
 
-    assert result["relevance_delta"] == 0.1
-    assert result["divergence_delta"] == 10.0
+    assert abs(result["relevance_delta"] - 0.1) < 0.001
+    assert abs(result["divergence_delta"] - 10.0) < 0.001
     assert result["more_creative"] == True
 
 
@@ -1058,13 +1372,20 @@ def compute_bridge_similarity(
 
 def test_interpretation_helpers():
     """Test interpretation helper functions."""
-    # Relevance interpretations
+    # Relevance interpretations (legacy, used by INS-001.1)
     assert get_relevance_interpretation(0.10) == "Noise"
     assert get_relevance_interpretation(0.20) == "Weak"
     assert get_relevance_interpretation(0.35) == "Moderate"
     assert get_relevance_interpretation(0.50) == "Strong"
 
-    # Divergence interpretations (DAT-style, used by INS-001.2)
+    # Fidelity interpretations (INS-001.2 primary metric)
+    assert get_fidelity_interpretation(0.40) == "Poor"
+    assert get_fidelity_interpretation(0.55) == "Below Average"
+    assert get_fidelity_interpretation(0.70) == "Average"
+    assert get_fidelity_interpretation(0.80) == "Above Average"
+    assert get_fidelity_interpretation(0.90) == "Excellent"
+
+    # Divergence interpretations (DAT-style)
     assert get_divergence_interpretation(40) == "Low"
     assert get_divergence_interpretation(60) == "Below Average"
     assert get_divergence_interpretation(75) == "Average"
@@ -1090,6 +1411,9 @@ if __name__ == "__main__":
     test_spread_clues_only()  # INS-001.1 clues-only spread
     test_score_radiation()
     test_score_union()
+    test_score_union_with_fidelity()  # INS-001.2 with fidelity
+    test_compute_fidelity()
+    test_get_nearest_neighbors()
     test_bootstrap_null_distribution()
     test_normalize_scores_percentile()
     test_normalize_scores_zscore()

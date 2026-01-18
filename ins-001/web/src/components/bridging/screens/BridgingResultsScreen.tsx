@@ -1,14 +1,19 @@
 /**
- * Bridging Results Screen - INS-001.2 V2 (Connected Dot Plot)
+ * Bridging Results Screen - INS-001.2 V4 (Connected Dot Plot)
  *
  * Shows full results as a connected dot plot visualization:
- * - Each row shows concepts above, with relevance (filled) and spread (hollow) dots
+ * - Each row shows concepts above, with fidelity (filled) and spread (hollow) dots
  * - Connecting line shows the gap between metrics
  * - Human row allows sharing to compare with a friend
  *
  * Metrics:
- * - Relevance: How connected concepts are to anchor+target (0-100)
+ * - Fidelity: How well clues jointly identify the anchor-target pair (0-100)
+ *   Uses joint constraint scoring: coverage (foils eliminated) × efficiency (non-redundancy)
  * - Spread: How spread out the concepts are (0-100, DAT-style)
+ *
+ * Interpretation:
+ * - "Spread: how far apart your clues are from each other"
+ * - "Fidelity: how well your clues jointly identify the anchor-target pair"
  */
 
 import React, { useState } from 'react';
@@ -161,8 +166,20 @@ function isMorphologicalVariant(word1: string, word2: string, minCommonPrefix: n
   return false;
 }
 
-// Validity threshold for relevance
-const RELEVANCE_VALIDITY_THRESHOLD = 0.15;
+// Validity threshold for fidelity (0-1 scale)
+// Fidelity < 0.50 means clues don't constrain the solution space well
+const FIDELITY_VALIDITY_THRESHOLD = 0.50;
+
+// Fidelity interpretation thresholds
+function getFidelityLabel(fidelity: number): string {
+  // fidelity is 0-1 scale internally
+  const normalized = fidelity > 1 ? fidelity / 100 : fidelity;
+  if (normalized < 0.50) return 'poor';
+  if (normalized < 0.65) return 'below average';
+  if (normalized < 0.75) return 'average';
+  if (normalized < 0.85) return 'above average';
+  return 'excellent';
+}
 
 // Haiku-calibrated spread thresholds (based on Haiku mean = 64.4, SD = 4.6)
 function getSpreadLabel(spread: number): string {
@@ -173,22 +190,25 @@ function getSpreadLabel(spread: number): string {
   return 'high';
 }
 
-// Generate interpretation text based on new calibration study findings
+// Generate interpretation text based on fidelity and spread
 function generateInterpretation(
   participantSpread: number,
   haikuSpread: number | null,
   statisticalSpread: number | null,
-  participantRelevance: number
+  participantFidelity: number
 ): string {
-  // Check validity first (relevance is 0-1 scale internally, 0-100 for display)
-  const relevanceNormalized = participantRelevance > 1 ? participantRelevance / 100 : participantRelevance;
-  if (relevanceNormalized < RELEVANCE_VALIDITY_THRESHOLD) {
-    return `Your submission did not meet the relevance threshold (${Math.round(participantRelevance)}). Your clues may not sufficiently bridge the anchor and target.`;
+  // Check validity first (fidelity is 0-1 scale internally, 0-100 for display)
+  const fidelityNormalized = participantFidelity > 1 ? participantFidelity / 100 : participantFidelity;
+  if (fidelityNormalized < FIDELITY_VALIDITY_THRESHOLD) {
+    return `Your fidelity score (${Math.round(participantFidelity > 1 ? participantFidelity : participantFidelity * 100)}) is below the threshold. Your clues may not sufficiently narrow down the anchor-target pair.`;
   }
 
-  // Spread comparison
+  const fidelityLabel = getFidelityLabel(participantFidelity);
   const spreadLabel = getSpreadLabel(participantSpread);
   const parts: string[] = [];
+
+  // Main fidelity statement
+  parts.push(`Your fidelity (${Math.round(participantFidelity > 1 ? participantFidelity : participantFidelity * 100)}) is ${fidelityLabel}, meaning your clues ${fidelityLabel === 'excellent' || fidelityLabel === 'above average' ? 'effectively' : fidelityLabel === 'poor' ? "don't well" : 'reasonably'} identify the anchor-target pair.`);
 
   // Main spread statement
   parts.push(`Your spread (${Math.round(participantSpread)}) is ${spreadLabel}.`);
@@ -225,7 +245,7 @@ interface BridgingResultsScreenProps {
 interface DotPlotRowProps {
   label: string;
   concepts: string[];
-  relevance: number;
+  fidelity: number;
   spread: number;
   isYou?: boolean;
   anchorWord?: string;
@@ -233,7 +253,7 @@ interface DotPlotRowProps {
 }
 
 // Single row in the connected dot plot
-function DotPlotRow({ label, concepts, relevance, spread, isYou, anchorWord, targetWord }: DotPlotRowProps) {
+function DotPlotRow({ label, concepts, fidelity, spread, isYou, anchorWord, targetWord }: DotPlotRowProps) {
   const scale = (val: number) => Math.min(100, Math.max(0, val));
 
   // Check if a concept is morphologically similar to anchor or target
@@ -322,8 +342,8 @@ function DotPlotRow({ label, concepts, relevance, spread, isYou, anchorWord, tar
           <div
             style={{
               position: 'absolute',
-              left: `${Math.min(scale(relevance), scale(spread))}%`,
-              width: `${Math.abs(scale(spread) - scale(relevance))}%`,
+              left: `${Math.min(scale(fidelity), scale(spread))}%`,
+              width: `${Math.abs(scale(spread) - scale(fidelity))}%`,
               top: '50%',
               height: '2px',
               backgroundColor: 'var(--gold)',
@@ -332,11 +352,11 @@ function DotPlotRow({ label, concepts, relevance, spread, isYou, anchorWord, tar
             }}
           />
 
-          {/* Relevance dot (filled) */}
+          {/* Fidelity dot (filled) */}
           <div
             style={{
               position: 'absolute',
-              left: `${scale(relevance)}%`,
+              left: `${scale(fidelity)}%`,
               top: '50%',
               transform: 'translate(-50%, -50%)',
               width: '12px',
@@ -366,7 +386,7 @@ function DotPlotRow({ label, concepts, relevance, spread, isYou, anchorWord, tar
           <span
             style={{
               position: 'absolute',
-              left: `${scale(relevance)}%`,
+              left: `${scale(fidelity)}%`,
               bottom: '-16px',
               transform: 'translateX(-50%)',
               fontFamily: 'var(--font-mono)',
@@ -374,7 +394,7 @@ function DotPlotRow({ label, concepts, relevance, spread, isYou, anchorWord, tar
               color: 'var(--gold)',
             }}
           >
-            {Math.round(relevance)}
+            {Math.round(fidelity)}
           </span>
           <span
             style={{
@@ -521,13 +541,13 @@ function HumanShareRow({
 // Human row with actual data (when recipient has played)
 function HumanDataRow({
   concepts,
-  relevance,
+  fidelity,
   spread,
   anchorWord,
   targetWord,
 }: {
   concepts: string[];
-  relevance: number;
+  fidelity: number;
   spread: number;
   anchorWord?: string;
   targetWord?: string;
@@ -536,7 +556,7 @@ function HumanDataRow({
     <DotPlotRow
       label="Human"
       concepts={concepts}
-      relevance={relevance}
+      fidelity={fidelity}
       spread={spread}
       anchorWord={anchorWord}
       targetWord={targetWord}
@@ -557,26 +577,27 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
   // Check if user is registered (has email and not anonymous)
   const isRegistered = user?.email && !user?.is_anonymous;
 
-  // Metrics (with fallback to old field names)
-  const relevance = game.relevance ?? game.binding_score ?? 0;
+  // Metrics (with fallback to old field names for backwards compatibility)
+  // Fidelity is 0-1, display as 0-100
+  const fidelity = game.fidelity ?? game.relevance ?? game.binding_score ?? 0;
   const spread = game.divergence ?? game.divergence_score ?? 0;
-  const relevanceDisplay = relevance <= 1 ? relevance * 100 : relevance;
+  const fidelityDisplay = fidelity <= 1 ? fidelity * 100 : fidelity;
 
   // Haiku data
   const haikuClues = game.haiku_clues;
-  const haikuRelevance = game.haiku_relevance ?? game.haiku_binding;
+  const haikuFidelity = game.haiku_fidelity ?? game.haiku_relevance ?? game.haiku_binding;
   const haikuSpread = game.haiku_divergence;
   const hasHaikuUnion = haikuClues && haikuClues.length > 0;
 
   // Lexical/Statistical data
   const lexicalUnion = game.lexical_bridge;
-  const lexicalRelevance = game.lexical_relevance;
+  const lexicalFidelity = game.lexical_fidelity ?? game.lexical_relevance;
   const lexicalSpread = game.lexical_divergence ?? game.lexical_similarity;
   const hasLexicalUnion = lexicalUnion && lexicalUnion.length > 0;
 
   // Human recipient data
   const recipientClues = game.recipient_clues;
-  const recipientRelevance = game.recipient_relevance ?? game.recipient_binding;
+  const recipientFidelity = game.recipient_fidelity ?? game.recipient_relevance ?? game.recipient_binding;
   const recipientSpread = game.recipient_divergence;
   const hasHumanUnion = recipientClues && recipientClues.length > 0;
 
@@ -639,7 +660,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
                 backgroundColor: 'var(--gold)',
               }}
             />
-            <span>Relevance</span>
+            <span>Fidelity</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <div
@@ -701,17 +722,17 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
           <DotPlotRow
             label="You"
             concepts={game.clues || []}
-            relevance={relevanceDisplay}
+            fidelity={fidelityDisplay}
             spread={spread}
             isYou
           />
 
           {/* Haiku row */}
-          {hasHaikuUnion && haikuRelevance !== undefined && haikuSpread !== undefined && (
+          {hasHaikuUnion && haikuFidelity !== undefined && haikuSpread !== undefined && (
             <DotPlotRow
               label="Haiku"
               concepts={haikuClues}
-              relevance={haikuRelevance <= 1 ? haikuRelevance * 100 : haikuRelevance}
+              fidelity={haikuFidelity <= 1 ? haikuFidelity * 100 : haikuFidelity}
               spread={haikuSpread}
               anchorWord={game.anchor_word}
               targetWord={game.target_word}
@@ -719,11 +740,11 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
           )}
 
           {/* Statistical row */}
-          {hasLexicalUnion && lexicalRelevance != null && lexicalSpread != null && (
+          {hasLexicalUnion && lexicalFidelity != null && lexicalSpread != null && (
             <DotPlotRow
               label="Statistical"
               concepts={lexicalUnion}
-              relevance={lexicalRelevance <= 1 ? lexicalRelevance * 100 : lexicalRelevance}
+              fidelity={lexicalFidelity <= 1 ? lexicalFidelity * 100 : lexicalFidelity}
               spread={lexicalSpread}
               anchorWord={game.anchor_word}
               targetWord={game.target_word}
@@ -731,10 +752,10 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
           )}
 
           {/* Human row */}
-          {hasHumanUnion && recipientRelevance !== undefined && recipientSpread !== undefined ? (
+          {hasHumanUnion && recipientFidelity !== undefined && recipientSpread !== undefined ? (
             <HumanDataRow
               concepts={recipientClues}
-              relevance={recipientRelevance <= 1 ? recipientRelevance * 100 : recipientRelevance}
+              fidelity={recipientFidelity <= 1 ? recipientFidelity * 100 : recipientFidelity}
               spread={recipientSpread}
               anchorWord={game.anchor_word}
               targetWord={game.target_word}
@@ -770,7 +791,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
             spread,
             hasHaikuUnion && haikuSpread !== undefined ? haikuSpread : null,
             hasLexicalUnion && lexicalSpread != null ? lexicalSpread : null,
-            relevanceDisplay
+            fidelityDisplay
           )}
         </div>
       </Panel>

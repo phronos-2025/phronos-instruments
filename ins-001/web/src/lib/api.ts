@@ -149,16 +149,28 @@ export interface SubmitBridgingCluesRequest {
 export interface SubmitBridgingCluesResponse {
   game_id: string;
   clues: string[];
-  divergence_score: number;
-  binding_score: number;  // How well clues relate to both endpoints
+  // V4 fidelity scoring (primary metric)
+  fidelity: number;  // 0-1: joint constraint score (coverage × efficiency)
+  fidelity_percentile?: number;  // 0-100: vs random baseline
+  divergence: number;  // 0-100: DAT-style spread
+  // Legacy fields (kept for backwards compatibility)
+  divergence_score?: number;
+  binding_score?: number;  // How well clues relate to both endpoints
+  relevance?: number;  // 0-1: mean min(sim_anchor, sim_target)
+  relevance_percentile?: number;
   lexical_bridge?: string[];  // Optimal embedding-based path
+  lexical_fidelity?: number;
   lexical_similarity?: number;  // Similarity between user clues and lexical union
+  lexical_relevance?: number;  // Legacy
+  lexical_divergence?: number;
   status: BridgingGameStatus;
   share_code?: string;
   // V2: Haiku builds its own bridge
   haiku_clues?: string[];
+  haiku_fidelity?: number;
   haiku_divergence?: number;
-  haiku_binding?: number;
+  haiku_binding?: number;  // Legacy
+  haiku_relevance?: number;  // Legacy
   haiku_bridge_similarity?: number;
   // Legacy (deprecated - for old games)
   haiku_guessed_anchor?: string;
@@ -210,19 +222,22 @@ export interface BridgingGameResponse {
   target_word: string;
   clues?: string[];
 
-  // New unified scoring (V3) - Relevance + Spread (DAT-style divergence)
-  relevance?: number;              // 0-1: mean similarity to anchor+target
-  relevance_percentile?: number;   // 0-100: percentile vs random baseline
+  // V4 fidelity scoring (primary metric)
+  fidelity?: number;               // 0-1: joint constraint score (coverage × efficiency)
+  fidelity_percentile?: number;    // 0-100: percentile vs random baseline
   divergence?: number;             // 0-100: DAT-style spread score
 
-  // Legacy scoring fields (V2) - kept for backwards compatibility
+  // Legacy scoring fields - kept for backwards compatibility
+  relevance?: number;              // 0-1: mean similarity to anchor+target
+  relevance_percentile?: number;   // 0-100: percentile vs random baseline
   divergence_score?: number;       // Old divergence (angular, 0-100)
   binding_score?: number;          // Old binding (min-based, 0-100)
 
   // Lexical union (statistical baseline)
   lexical_bridge?: string[];
-  lexical_relevance?: number;      // New: relevance of lexical union
-  lexical_divergence?: number;     // New: spread of lexical union
+  lexical_fidelity?: number;       // V4: fidelity of lexical union
+  lexical_relevance?: number;      // Legacy: relevance of lexical union
+  lexical_divergence?: number;     // Spread of lexical union
   lexical_similarity?: number;     // Legacy: similarity to user's union
 
   // Human recipient guesses (legacy V1)
@@ -235,9 +250,10 @@ export interface BridgingGameResponse {
   exact_anchor_match?: boolean;
   exact_target_match?: boolean;
 
-  // Recipient union (V2/V3)
+  // Recipient union (V2/V4)
   recipient_clues?: string[];
-  recipient_relevance?: number;    // New: relevance of recipient's union
+  recipient_fidelity?: number;     // V4: fidelity of recipient's union
+  recipient_relevance?: number;    // Legacy: relevance of recipient's union
   recipient_divergence?: number;   // Spread of recipient's union
   recipient_binding?: number;      // Legacy: old binding score
   bridge_similarity?: number;      // Legacy: similarity between unions
@@ -247,9 +263,10 @@ export interface BridgingGameResponse {
   haiku_guessed_target?: string;
   haiku_reconstruction_score?: number;
 
-  // Haiku union (V2/V3)
+  // Haiku union (V2/V4)
   haiku_clues?: string[];
-  haiku_relevance?: number;        // New: relevance of Haiku's union
+  haiku_fidelity?: number;         // V4: fidelity of Haiku's union
+  haiku_relevance?: number;        // Legacy: relevance of Haiku's union
   haiku_divergence?: number;       // Spread of Haiku's union
   haiku_binding?: number;          // Legacy: old binding score
   haiku_bridge_similarity?: number; // Legacy: similarity to user's union
@@ -307,23 +324,27 @@ export interface SubmitBridgingBridgeResponse {
   game_id: string;
   // Recipient's bridge
   recipient_clues: string[];
+  recipient_fidelity: number;
   recipient_divergence: number;
-  recipient_relevance?: number;
+  recipient_relevance?: number;  // Legacy
   // Sender's bridge
   sender_clues: string[];
+  sender_fidelity: number;
   sender_divergence: number;
-  sender_relevance?: number;
+  sender_relevance?: number;  // Legacy
   // Bridge comparison
   bridge_similarity: number;
   centroid_similarity?: number;
   path_alignment?: number;
   // Haiku baseline (from sender's original game)
   haiku_clues?: string[];
-  haiku_relevance?: number;
+  haiku_fidelity?: number;
+  haiku_relevance?: number;  // Legacy
   haiku_divergence?: number;
   // Statistical baseline (from sender's original game)
   lexical_bridge?: string[];
-  lexical_relevance?: number;
+  lexical_fidelity?: number;
+  lexical_relevance?: number;  // Legacy
   lexical_divergence?: number;
   // Meta
   anchor_word: string;
@@ -410,7 +431,8 @@ export interface GameHistoryItem {
   anchor_word?: string;
   target_word?: string;
   divergence?: number;
-  relevance?: number;
+  fidelity?: number;  // V4: primary metric for bridging
+  relevance?: number;  // Legacy
   convergence?: number;
   status: string;
   created_at: string;

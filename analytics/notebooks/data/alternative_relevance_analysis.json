@@ -1,0 +1,425 @@
+{
+  "experiment_date": "2026-01-18T09:40:01.368454",
+  "n_trials": 116,
+  "clue_count": 4,
+  "n_foils": 50,
+  "success_criteria": {
+    "divergence_correlation": 0.3,
+    "variance_threshold": 0.05,
+    "degeneracy_threshold": 0.9,
+    "at_distance_correlation": 0.5
+  },
+  "results": {
+    "approach_1_discriminative": {
+      "metrics": [
+        "disc_percentile_rank",
+        "disc_discrimination_score"
+      ],
+      "divergence_correlations": {
+        "disc_percentile_rank": {
+          "r": -0.11302010131247267,
+          "p": 0.22706424333939285
+        },
+        "disc_discrimination_score": {
+          "r": -0.1261404432681919,
+          "p": 0.17725431975465564
+        }
+      },
+      "passed": true,
+      "recommended_metric": "disc_percentile_rank"
+    },
+    "approach_4_constraint": {
+      "metrics": [
+        "constraint_joint_score",
+        "constraint_overall_coverage",
+        "constraint_overall_efficiency"
+      ],
+      "divergence_correlations": {
+        "constraint_joint_score": {
+          "r": 0.05471051742894388,
+          "p": 0.5596872806024792
+        },
+        "constraint_overall_coverage": {
+          "r": -0.06843972528361789,
+          "p": 0.4653949486838211
+        },
+        "constraint_overall_efficiency": {
+          "r": 0.12997958224752118,
+          "p": 0.16432570374438418
+        }
+      },
+      "passed": true,
+      "recommended_metric": "constraint_joint_score"
+    },
+    "approach_5_balance": {
+      "metrics": [
+        "balance_balance",
+        "balance_count_balance"
+      ],
+      "divergence_correlations": {
+        "balance_balance": {
+          "r": -0.1623920068304221,
+          "p": 0.08156892470393089
+        },
+        "balance_count_balance": {
+          "r": -0.23883025795238144,
+          "p": 0.009825786387174401
+        }
+      },
+      "passed": true,
+      "recommended_metric": "balance_count_balance"
+    }
+  },
+  "recommendation": "constraint_joint_score",
+  "recommendation_passes_all": 1,
+  "full_evaluation": {
+    "disc_percentile_rank": {
+      "divergence_r": -0.11302010131247267,
+      "divergence_p": 0.22706424333939285,
+      "passes_divergence": 1,
+      "at_distance_r": -0.2521552000482203,
+      "at_distance_p": 0.00632087061586792,
+      "passes_at_distance": 1,
+      "std": 0.1964466196268559,
+      "passes_variance": 1,
+      "max_concentration": 0.6120689655172413,
+      "passes_degeneracy": 1,
+      "passes_all": 1
+    },
+    "disc_discrimination_score": {
+      "divergence_r": -0.1261404432681919,
+      "divergence_p": 0.17725431975465564,
+      "passes_divergence": 1,
+      "at_distance_r": -0.026273070792952123,
+      "at_distance_p": 0.779513183241695,
+      "passes_at_distance": 1,
+      "std": 1.3167282317583895,
+      "passes_variance": 1,
+      "max_concentration": 0.16379310344827586,
+      "passes_degeneracy": 1,
+      "passes_all": 1
+    },
+    "constraint_joint_score": {
+      "divergence_r": 0.05471051742894388,
+      "divergence_p": 0.5596872806024792,
+      "passes_divergence": 1,
+      "at_distance_r": 0.0216316716997014,
+      "at_distance_p": 0.8177156164989218,
+      "passes_at_distance": 1,
+      "std": 0.12656439758783003,
+      "passes_variance": 1,
+      "max_concentration": 0.15517241379310345,
+      "passes_degeneracy": 1,
+      "passes_all": 1
+    },
+    "constraint_overall_coverage": {
+      "divergence_r": -0.06843972528361789,
+      "divergence_p": 0.4653949486838211,
+      "passes_divergence": 1,
+      "at_distance_r": -0.2574686724239541,
+      "at_distance_p": 0.005267652502760224,
+      "passes_at_distance": 1,
+      "std": 0.0996551776015105,
+      "passes_variance": 1,
+      "max_concentration": 0.3103448275862069,
+      "passes_degeneracy": 1,
+      "passes_all": 1
+    },
+    "constraint_overall_efficiency": {
+      "divergence_r": 0.12997958224752118,
+      "divergence_p": 0.16432570374438418,
+      "passes_divergence": 1,
+      "at_distance_r": 0.21860230629784397,
+      "at_distance_p": 0.018397983214565424,
+      "passes_at_distance": 1,
+      "std": 0.12834907826126346,
+      "passes_variance": 1,
+      "max_concentration": 0.16379310344827586,
+      "passes_degeneracy": 1,
+      "passes_all": 1
+    },
+    "balance_balance": {
+      "divergence_r": -0.1623920068304221,
+      "divergence_p": 0.08156892470393089,
+      "passes_divergence": 1,
+      "at_distance_r": -0.05125601915993596,
+      "at_distance_p": 0.5847737298016282,
+      "passes_at_distance": 1,
+      "std": 0.04838878236701854,
+      "passes_variance": 0,
+      "max_concentration": 0.22413793103448276,
+      "passes_degeneracy": 1,
+      "passes_all": 0
+    },
+    "balance_count_balance": {
+      "divergence_r": -0.23883025795238144,
+      "divergence_p": 0.009825786387174401,
+      "passes_divergence": 1,
+      "at_distance_r": -0.23839834765013945,
+      "at_distance_p": 0.009963545710072257,
+      "passes_at_distance": 1,
+      "std": 0.3917008236299534,
+      "passes_variance": 1,
+      "max_concentration": 0.3879310344827586,
+      "passes_degeneracy": 1,
+      "passes_all": 1
+    }
+  },
+  "metric_rankings": [
+    {
+      "metric": "constraint_joint_score",
+      "score": 7.477558455151204
+    },
+    {
+      "metric": "disc_discrimination_score",
+      "score": 7.10723021335332
+    },
+    {
+      "metric": "disc_percentile_rank",
+      "score": 6.091256084768451
+    },
+    {
+      "metric": "constraint_overall_coverage",
+      "score": 6.0265352730516035
+    },
+    {
+      "metric": "constraint_overall_efficiency",
+      "score": 5.748938037341886
+    },
+    {
+      "metric": "balance_count_balance",
+      "score": 4.919705682225488
+    },
+    {
+      "metric": "balance_balance",
+      "score": 3.8617437477311922
+    }
+  ],
+  "distribution_stats": {
+    "disc_percentile_rank": {
+      "mean": 0.8601724137931035,
+      "std": 0.1964466196268559,
+      "min": 0.08,
+      "max": 1.0,
+      "range": 0.92
+    },
+    "disc_discrimination_score": {
+      "mean": 1.82084203729102,
+      "std": 1.3167282317583895,
+      "min": -1.1074540514354994,
+      "max": 4.751555944033471,
+      "range": 5.85900999546897
+    },
+    "constraint_joint_score": {
+      "mean": 0.6835509641581459,
+      "std": 0.12656439758783003,
+      "min": 0.4481302325581395,
+      "max": 0.9297918367346938,
+      "range": 0.4816616041765543
+    },
+    "constraint_overall_coverage": {
+      "mean": 0.8968965517241378,
+      "std": 0.0996551776015105,
+      "min": 0.65,
+      "max": 1.0,
+      "range": 0.35
+    },
+    "constraint_overall_efficiency": {
+      "mean": 0.7655573105407959,
+      "std": 0.12834907826126346,
+      "min": 0.48000000000000004,
+      "max": 0.9488888888888889,
+      "range": 0.46888888888888886
+    },
+    "balance_balance": {
+      "mean": 0.9320536988332012,
+      "std": 0.04838878236701854,
+      "min": 0.781309703516877,
+      "max": 0.9990984175770906,
+      "range": 0.2177887140602136
+    },
+    "balance_count_balance": {
+      "mean": 0.5301724137931034,
+      "std": 0.3917008236299534,
+      "min": 0.0,
+      "max": 1.0,
+      "range": 1.0
+    }
+  },
+  "tercile_results": {
+    "disc_percentile_rank": {
+      "tercile_means": {
+        "Low": 0.862051282051282,
+        "Medium": 0.8531578947368421,
+        "High": 0.8651282051282052
+      },
+      "f_stat": 0.0377756547532222,
+      "p_val": 0.9629411000259128,
+      "independent": 1
+    },
+    "disc_discrimination_score": {
+      "tercile_means": {
+        "Low": 1.8889113388251593,
+        "Medium": 1.7573087333826714,
+        "High": 1.814676980590657
+      },
+      "f_stat": 0.09525242053170765,
+      "p_val": 0.9092163371871183,
+      "independent": 1
+    },
+    "constraint_joint_score": {
+      "tercile_means": {
+        "Low": 0.678763941763995,
+        "Medium": 0.6826524576518063,
+        "High": 0.6892134544302687
+      },
+      "f_stat": 0.06678433184865601,
+      "p_val": 0.9354338069895433,
+      "independent": 1
+    },
+    "constraint_overall_coverage": {
+      "tercile_means": {
+        "Low": 0.8792307692307693,
+        "Medium": 0.9152631578947369,
+        "High": 0.8966666666666666
+      },
+      "f_stat": 1.2640302165605377,
+      "p_val": 0.28647670624908833,
+      "independent": 1
+    },
+    "constraint_overall_efficiency": {
+      "tercile_means": {
+        "Low": 0.7751650243513447,
+        "Medium": 0.7450413469761805,
+        "High": 0.7759395099470516
+      },
+      "f_stat": 0.7187860122747886,
+      "p_val": 0.48955803209784954,
+      "independent": 1
+    },
+    "balance_balance": {
+      "tercile_means": {
+        "Low": 0.9506682234002978,
+        "Medium": 0.9118069883159392,
+        "High": 0.9331667383598472
+      },
+      "f_stat": 6.856116378260684,
+      "p_val": 0.0015476913173135133,
+      "independent": 0
+    },
+    "balance_count_balance": {
+      "tercile_means": {
+        "Low": 0.6025641025641025,
+        "Medium": 0.5,
+        "High": 0.48717948717948717
+      },
+      "f_stat": 1.013946452254642,
+      "p_val": 0.36606083670680933,
+      "independent": 1
+    }
+  },
+  "divergence_correlations": {
+    "disc_percentile_rank": {
+      "r": -0.11302010131247267,
+      "p": 0.22706424333939285,
+      "passed": 1
+    },
+    "disc_discrimination_score": {
+      "r": -0.1261404432681919,
+      "p": 0.17725431975465564,
+      "passed": 1
+    },
+    "constraint_joint_score": {
+      "r": 0.05471051742894388,
+      "p": 0.5596872806024792,
+      "passed": 1
+    },
+    "constraint_overall_coverage": {
+      "r": -0.06843972528361789,
+      "p": 0.4653949486838211,
+      "passed": 1
+    },
+    "constraint_overall_efficiency": {
+      "r": 0.12997958224752118,
+      "p": 0.16432570374438418,
+      "passed": 1
+    },
+    "balance_balance": {
+      "r": -0.1623920068304221,
+      "p": 0.08156892470393089,
+      "passed": 1
+    },
+    "balance_count_balance": {
+      "r": -0.23883025795238144,
+      "p": 0.009825786387174401,
+      "passed": 1
+    }
+  },
+  "relevance_correlations": {
+    "disc_percentile_rank": {
+      "r": 0.31052897621204584,
+      "p": 0.0006924467834518916
+    },
+    "disc_discrimination_score": {
+      "r": 0.3615635612335816,
+      "p": 6.669908547172779e-05
+    },
+    "constraint_joint_score": {
+      "r": -0.23770869486164356,
+      "p": 0.010187033574608081
+    },
+    "constraint_overall_coverage": {
+      "r": 0.008969503106426524,
+      "p": 0.9238698563679852
+    },
+    "constraint_overall_efficiency": {
+      "r": -0.27528499026804076,
+      "p": 0.002782372232965809
+    },
+    "balance_balance": {
+      "r": 0.2490122313516998,
+      "p": 0.007028370433212059
+    },
+    "balance_count_balance": {
+      "r": 0.14396510877722907,
+      "p": 0.12312143788031087
+    }
+  },
+  "at_distance_correlations": {
+    "disc_percentile_rank": {
+      "r": -0.2521552000482203,
+      "p": 0.00632087061586792,
+      "ok": 1
+    },
+    "disc_discrimination_score": {
+      "r": -0.026273070792952123,
+      "p": 0.779513183241695,
+      "ok": 1
+    },
+    "constraint_joint_score": {
+      "r": 0.0216316716997014,
+      "p": 0.8177156164989218,
+      "ok": 1
+    },
+    "constraint_overall_coverage": {
+      "r": -0.2574686724239541,
+      "p": 0.005267652502760224,
+      "ok": 1
+    },
+    "constraint_overall_efficiency": {
+      "r": 0.21860230629784397,
+      "p": 0.018397983214565424,
+      "ok": 1
+    },
+    "balance_balance": {
+      "r": -0.05125601915993596,
+      "p": 0.5847737298016282,
+      "ok": 1
+    },
+    "balance_count_balance": {
+      "r": -0.23839834765013945,
+      "p": 0.009963545710072257,
+      "ok": 1
+    }
+  }
+}

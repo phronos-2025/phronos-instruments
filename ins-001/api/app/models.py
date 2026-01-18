@@ -52,7 +52,11 @@ class SenderScores(BaseModel):
     """Scores computed for sender's input."""
     divergence: float = Field(ge=0, le=100, description="DAT-style spread score (0-100)")
     divergence_raw: Optional[float] = Field(None, ge=0, le=1, description="Legacy 0-1 scale")
-    relevance: Optional[float] = Field(None, ge=0, le=1, description="Mean similarity to anchors")
+    # INS-001.2 primary metric: fidelity (joint constraint score)
+    fidelity: Optional[float] = Field(None, ge=0, le=1, description="Joint constraint score (coverage × efficiency)")
+    fidelity_percentile: Optional[float] = Field(None, ge=0, le=100)
+    # Legacy fields (kept for backwards compatibility)
+    relevance: Optional[float] = Field(None, ge=0, le=1, description="Mean similarity to anchors (legacy)")
     relevance_percentile: Optional[float] = Field(None, ge=0, le=100)
 
 
@@ -62,7 +66,8 @@ class RecipientScores(BaseModel):
     best_guess: Optional[str] = None
     similarity: Optional[float] = None
     # Bridging-specific
-    relevance: Optional[float] = None
+    fidelity: Optional[float] = None  # INS-001.2 primary metric
+    relevance: Optional[float] = None  # Legacy
     divergence: Optional[float] = None
     bridge_similarity: Optional[float] = None
 
@@ -234,17 +239,22 @@ class SubmitBridgingCluesResponse(BaseModel):
     """Response after submitting bridging clues."""
     game_id: str
     clues: list[str]
-    # V3 unified scoring
-    relevance: float  # 0-1: mean min(sim_anchor, sim_target) per clue
-    relevance_percentile: Optional[float] = None  # 0-100: vs random baseline
+    # V4 fidelity scoring (primary metric)
+    fidelity: float  # 0-1: joint constraint score (coverage × efficiency)
+    fidelity_percentile: Optional[float] = None  # 0-100: vs random baseline
     divergence: float  # 0-100: DAT-style spread
+    # Legacy fields (kept for backwards compatibility)
+    relevance: Optional[float] = None  # 0-1: mean min(sim_anchor, sim_target) per clue
+    relevance_percentile: Optional[float] = None  # 0-100: vs random baseline
     # Baselines
     lexical_bridge: Optional[list[str]] = None
-    lexical_relevance: Optional[float] = None
+    lexical_fidelity: Optional[float] = None
+    lexical_relevance: Optional[float] = None  # Legacy
     lexical_divergence: Optional[float] = None
     # Haiku (if LLM recipient)
     haiku_clues: Optional[list[str]] = None
-    haiku_relevance: Optional[float] = None
+    haiku_fidelity: Optional[float] = None
+    haiku_relevance: Optional[float] = None  # Legacy
     haiku_divergence: Optional[float] = None
     haiku_bridge_similarity: Optional[float] = None
     # Status
@@ -277,20 +287,24 @@ class SubmitBridgingBridgeResponse(BaseModel):
     game_id: str
     # Recipient's bridge
     recipient_clues: list[str]
-    recipient_relevance: float
+    recipient_fidelity: float
+    recipient_relevance: Optional[float] = None  # Legacy
     recipient_divergence: float
     # Sender's bridge (revealed)
     sender_clues: list[str]
-    sender_relevance: float
+    sender_fidelity: float
+    sender_relevance: Optional[float] = None  # Legacy
     sender_divergence: float
     # Comparison
     bridge_similarity: float
     # Baselines
     haiku_clues: Optional[list[str]] = None
-    haiku_relevance: Optional[float] = None
+    haiku_fidelity: Optional[float] = None
+    haiku_relevance: Optional[float] = None  # Legacy
     haiku_divergence: Optional[float] = None
     lexical_bridge: Optional[list[str]] = None
-    lexical_relevance: Optional[float] = None
+    lexical_fidelity: Optional[float] = None
+    lexical_relevance: Optional[float] = None  # Legacy
     lexical_divergence: Optional[float] = None
     # Anchors
     anchor_word: str
@@ -310,21 +324,26 @@ class BridgingGameResponse(BaseModel):
     target_word: str
     # Sender input/scores
     clues: Optional[list[str]]
-    relevance: Optional[float] = None
-    relevance_percentile: Optional[float] = None
+    fidelity: Optional[float] = None  # V4: primary metric (joint constraint score)
+    fidelity_percentile: Optional[float] = None
+    relevance: Optional[float] = None  # Legacy
+    relevance_percentile: Optional[float] = None  # Legacy
     divergence: Optional[float] = None
     # Recipient input/scores
     recipient_clues: Optional[list[str]] = None
-    recipient_relevance: Optional[float] = None
+    recipient_fidelity: Optional[float] = None
+    recipient_relevance: Optional[float] = None  # Legacy
     recipient_divergence: Optional[float] = None
     bridge_similarity: Optional[float] = None
     # Baselines
     haiku_clues: Optional[list[str]] = None
-    haiku_relevance: Optional[float] = None
+    haiku_fidelity: Optional[float] = None
+    haiku_relevance: Optional[float] = None  # Legacy
     haiku_divergence: Optional[float] = None
     haiku_bridge_similarity: Optional[float] = None
     lexical_bridge: Optional[list[str]] = None
-    lexical_relevance: Optional[float] = None
+    lexical_fidelity: Optional[float] = None
+    lexical_relevance: Optional[float] = None  # Legacy
     lexical_divergence: Optional[float] = None
     # Status
     status: GameStatus

@@ -166,21 +166,26 @@ def _extract_bridging_response(game: dict) -> BridgingGameResponse:
         target_word=setup.get("target_word", ""),
         # Sender
         clues=sender_input.get("clues"),
-        relevance=sender_scores.get("relevance"),
-        relevance_percentile=sender_scores.get("relevance_percentile"),
+        fidelity=sender_scores.get("fidelity"),
+        fidelity_percentile=sender_scores.get("fidelity_percentile"),
+        relevance=sender_scores.get("relevance"),  # Legacy
+        relevance_percentile=sender_scores.get("relevance_percentile"),  # Legacy
         divergence=sender_scores.get("divergence"),
         # Recipient
         recipient_clues=recipient_input.get("clues"),
-        recipient_relevance=recipient_scores.get("relevance"),
+        recipient_fidelity=recipient_scores.get("fidelity"),
+        recipient_relevance=recipient_scores.get("relevance"),  # Legacy
         recipient_divergence=recipient_scores.get("divergence"),
         bridge_similarity=recipient_scores.get("bridge_similarity"),
         # Baselines
         haiku_clues=baselines.get("llm", {}).get("clues"),
-        haiku_relevance=baselines.get("llm", {}).get("relevance"),
+        haiku_fidelity=baselines.get("llm", {}).get("fidelity"),
+        haiku_relevance=baselines.get("llm", {}).get("relevance"),  # Legacy
         haiku_divergence=baselines.get("llm", {}).get("divergence"),
         haiku_bridge_similarity=baselines.get("llm", {}).get("bridge_similarity"),
         lexical_bridge=baselines.get("lexical", {}).get("path"),
-        lexical_relevance=baselines.get("lexical", {}).get("relevance"),
+        lexical_fidelity=baselines.get("lexical", {}).get("fidelity"),
+        lexical_relevance=baselines.get("lexical", {}).get("relevance"),  # Legacy
         lexical_divergence=baselines.get("lexical", {}).get("divergence"),
         # Status
         status=game["status"],
@@ -648,15 +653,19 @@ async def submit_bridging_clues(
     target_emb = all_embeddings[1]
     clue_embeddings = all_embeddings[2:]
 
-    # Score sender's clues
-    sender_scores_dict = score_bridging(clue_embeddings, anchor_emb, target_emb)
-
-    # Compute relevance percentile using null distribution from in-memory pool
-    # This normalizes scores against random word baseline
+    # Get vocabulary pool for fidelity calculation
     vocab_pool = VocabularyPool.get_instance()
     vocab_with_emb = vocab_pool.get_random_with_embeddings(200)
-    if vocab_with_emb:
-        vocab_embeddings = [emb for _, emb in vocab_with_emb]
+    vocab_embeddings = [emb for _, emb in vocab_with_emb] if vocab_with_emb else []
+
+    # Score sender's clues (with vocabulary for fidelity)
+    sender_scores_dict = score_bridging(clue_embeddings, anchor_emb, target_emb, vocab_embeddings)
+
+    # Compute fidelity percentile using null distribution
+    # This normalizes scores against random word baseline
+    fidelity_percentile = None
+    relevance_percentile = None
+    if vocab_embeddings:
         null_dist = bootstrap_null_distribution(
             prompt_embeddings={"anchor": anchor_emb, "target": target_emb},
             vocabulary_embeddings=vocab_embeddings,
@@ -666,8 +675,7 @@ async def submit_bridging_clues(
         )
         normalized = normalize_scores(sender_scores_dict, null_dist, method="percentile")
         relevance_percentile = normalized["relevance_normalized"]
-    else:
-        relevance_percentile = None
+        # TODO: Add fidelity percentile normalization when we have enough baseline data
 
     # Build sender input with optional timing data
     sender_input = {"clues": clues_clean}
@@ -678,8 +686,10 @@ async def submit_bridging_clues(
         ]
 
     sender_scores = {
-        "relevance": sender_scores_dict["relevance"],
-        "relevance_percentile": relevance_percentile,
+        "fidelity": sender_scores_dict["fidelity"],
+        "fidelity_percentile": fidelity_percentile,
+        "relevance": sender_scores_dict["relevance"],  # Legacy
+        "relevance_percentile": relevance_percentile,  # Legacy
         "divergence": sender_scores_dict["divergence"],
     }
 
@@ -690,10 +700,11 @@ async def submit_bridging_clues(
     print(f"[submit_bridging_clues] lexical_path = {lexical_path}")
     if lexical_path:
         lexical_embs = await cache.get_embeddings_batch(lexical_path)
-        lexical_scores = score_bridging(lexical_embs, anchor_emb, target_emb)
+        lexical_scores = score_bridging(lexical_embs, anchor_emb, target_emb, vocab_embeddings)
         baselines["lexical"] = {
             "path": lexical_path,
-            "relevance": lexical_scores["relevance"],
+            "fidelity": lexical_scores["fidelity"],
+            "relevance": lexical_scores["relevance"],  # Legacy
             "divergence": lexical_scores["divergence"],
         }
         print(f"[submit_bridging_clues] lexical baseline built: {baselines['lexical']}")
@@ -713,23 +724,26 @@ async def submit_bridging_clues(
     }
 
     # Handle LLM game
+    haiku_fidelity = None
     haiku_relevance = None
     haiku_divergence = None
     haiku_bridge_similarity = None
 
     if is_llm_game and haiku_clues:
         haiku_embs = await cache.get_embeddings_batch(haiku_clues)
-        haiku_scores = score_bridging(haiku_embs, anchor_emb, target_emb)
+        haiku_scores = score_bridging(haiku_embs, anchor_emb, target_emb, vocab_embeddings)
         haiku_bridge_similarity = compute_bridge_similarity(clue_embeddings, haiku_embs)
 
         baselines["llm"] = {
             "clues": haiku_clues,
-            "relevance": haiku_scores["relevance"],
+            "fidelity": haiku_scores["fidelity"],
+            "relevance": haiku_scores["relevance"],  # Legacy
             "divergence": haiku_scores["divergence"],
             "bridge_similarity": haiku_bridge_similarity,
             "model": game.get("llm_model_id"),
         }
 
+        haiku_fidelity = haiku_scores["fidelity"]
         haiku_relevance = haiku_scores["relevance"]
         haiku_divergence = haiku_scores["divergence"]
 
@@ -742,14 +756,18 @@ async def submit_bridging_clues(
     return SubmitBridgingCluesResponse(
         game_id=game_id,
         clues=clues_clean,
-        relevance=sender_scores["relevance"],
-        relevance_percentile=sender_scores.get("relevance_percentile"),
+        fidelity=sender_scores["fidelity"],
+        fidelity_percentile=sender_scores.get("fidelity_percentile"),
         divergence=sender_scores["divergence"],
+        relevance=sender_scores["relevance"],  # Legacy
+        relevance_percentile=sender_scores.get("relevance_percentile"),  # Legacy
         lexical_bridge=baselines.get("lexical", {}).get("path"),
-        lexical_relevance=baselines.get("lexical", {}).get("relevance"),
+        lexical_fidelity=baselines.get("lexical", {}).get("fidelity"),
+        lexical_relevance=baselines.get("lexical", {}).get("relevance"),  # Legacy
         lexical_divergence=baselines.get("lexical", {}).get("divergence"),
         haiku_clues=haiku_clues,
-        haiku_relevance=haiku_relevance,
+        haiku_fidelity=haiku_fidelity,
+        haiku_relevance=haiku_relevance,  # Legacy
         haiku_divergence=haiku_divergence,
         haiku_bridge_similarity=haiku_bridge_similarity,
         status=GameStatus.COMPLETED if is_llm_game else GameStatus.PENDING_GUESS,
@@ -840,8 +858,13 @@ async def submit_bridging_bridge(
     recipient_embs = all_embs[2:2+len(clues_clean)]
     sender_embs = all_embs[2+len(clues_clean):]
 
-    # Score recipient's bridge
-    recipient_scores_dict = score_bridging(recipient_embs, anchor_emb, target_emb)
+    # Get vocabulary pool for fidelity calculation
+    vocab_pool = VocabularyPool.get_instance()
+    vocab_with_emb = vocab_pool.get_random_with_embeddings(200)
+    vocab_embeddings = [emb for _, emb in vocab_with_emb] if vocab_with_emb else []
+
+    # Score recipient's bridge (with vocabulary for fidelity)
+    recipient_scores_dict = score_bridging(recipient_embs, anchor_emb, target_emb, vocab_embeddings)
     bridge_sim = compute_bridge_similarity(sender_embs, recipient_embs)
 
     # Build recipient input with optional timing data
@@ -856,7 +879,8 @@ async def submit_bridging_bridge(
     supabase.table("games").update({
         "recipient_input": recipient_input,
         "recipient_scores": {
-            "relevance": recipient_scores_dict["relevance"],
+            "fidelity": recipient_scores_dict["fidelity"],
+            "relevance": recipient_scores_dict["relevance"],  # Legacy
             "divergence": recipient_scores_dict["divergence"],
             "bridge_similarity": bridge_sim,
         },
@@ -867,17 +891,21 @@ async def submit_bridging_bridge(
     return SubmitBridgingBridgeResponse(
         game_id=game_id,
         recipient_clues=clues_clean,
-        recipient_relevance=recipient_scores_dict["relevance"],
+        recipient_fidelity=recipient_scores_dict["fidelity"],
+        recipient_relevance=recipient_scores_dict["relevance"],  # Legacy
         recipient_divergence=recipient_scores_dict["divergence"],
         sender_clues=sender_clues,
-        sender_relevance=sender_scores.get("relevance", 0),
+        sender_fidelity=sender_scores.get("fidelity", 0),
+        sender_relevance=sender_scores.get("relevance", 0),  # Legacy
         sender_divergence=sender_scores.get("divergence", 0),
         bridge_similarity=bridge_sim,
         haiku_clues=baselines.get("llm", {}).get("clues"),
-        haiku_relevance=baselines.get("llm", {}).get("relevance"),
+        haiku_fidelity=baselines.get("llm", {}).get("fidelity"),
+        haiku_relevance=baselines.get("llm", {}).get("relevance"),  # Legacy
         haiku_divergence=baselines.get("llm", {}).get("divergence"),
         lexical_bridge=baselines.get("lexical", {}).get("path"),
-        lexical_relevance=baselines.get("lexical", {}).get("relevance"),
+        lexical_fidelity=baselines.get("lexical", {}).get("fidelity"),
+        lexical_relevance=baselines.get("lexical", {}).get("relevance"),  # Legacy
         lexical_divergence=baselines.get("lexical", {}).get("divergence"),
         anchor_word=anchor,
         target_word=target,
