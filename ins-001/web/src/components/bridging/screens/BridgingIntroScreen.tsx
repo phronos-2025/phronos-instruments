@@ -132,7 +132,7 @@ export const BridgingIntroScreen: React.FC = () => {
               See what emerges
             </div>
             <div style={{ color: 'var(--faded)', fontSize: '0.65rem' }}>
-              Spread.
+              Fidelity. Spread.
             </div>
           </div>
         </div>
@@ -152,6 +152,10 @@ export const BridgingIntroScreen: React.FC = () => {
           <strong style={{ color: 'var(--text-light)' }}>
             What this measures:
           </strong>
+          <br />
+          <br />
+          <strong>Fidelity</strong> — How well your clues jointly identify the anchor-target pair.
+          Higher fidelity means your clues efficiently narrow down to the correct endpoints.
           <br />
           <br />
           <strong>Spread</strong> — How much semantic territory your clues cover.
