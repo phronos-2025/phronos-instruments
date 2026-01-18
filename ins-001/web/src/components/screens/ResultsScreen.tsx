@@ -20,13 +20,15 @@ interface ResultsScreenProps {
 }
 
 // INS-001.1 interpretation bands for clues-only spread
-// Measures diversity AMONG associations (excludes seed word)
+// Haiku baseline (reference): mean 65.5, SD 4.6
+// Human scores expected to be lower than Haiku on average
+// Provisional bands - will refine with human data
 const SPREAD_BANDS = [
-  { max: 20, label: 'Low', description: 'Very similar/repetitive associations' },
-  { max: 40, label: 'Below Average', description: 'Somewhat clustered associations' },
-  { max: 60, label: 'Average', description: 'Typical associative spread' },
-  { max: 80, label: 'Above Average', description: 'Diverse, creative associations' },
-  { max: 100, label: 'High', description: 'Highly diverse semantic territory' },
+  { max: 50, label: 'Low', description: 'Very similar/repetitive associations' },
+  { max: 58, label: 'Below Average', description: 'Somewhat clustered associations' },
+  { max: 65, label: 'Average', description: 'Typical associative spread' },
+  { max: 72, label: 'Above Average', description: 'Diverse, creative associations' },
+  { max: 100, label: 'High', description: 'Highly diverse (Haiku-level)' },
 ];
 
 function getSpreadInterpretation(score: number): { label: string; description: string } {
@@ -94,17 +96,26 @@ interface SpreadBarProps {
 }
 
 function SpreadBar({ score, interpretation }: SpreadBarProps) {
-  // Linear scale: score 0-100 maps directly to position 0-100%
-  // Bands are evenly distributed: 0-20, 20-40, 40-60, 60-80, 80-100
-  const position = Math.min(100, Math.max(0, score));
+  // Map score to position using non-linear scale
+  // Bands: Low (<50), Below Avg (50-58), Average (58-65), Above Avg (65-72), High (>72)
+  // Map each band to even 20% segments for better visualization
+  const getPosition = (s: number): number => {
+    if (s < 50) return (s / 50) * 20;                    // 0-50 → 0-20%
+    if (s < 58) return 20 + ((s - 50) / 8) * 20;         // 50-58 → 20-40%
+    if (s < 65) return 40 + ((s - 58) / 7) * 20;         // 58-65 → 40-60%
+    if (s < 72) return 60 + ((s - 65) / 7) * 20;         // 65-72 → 60-80%
+    return Math.min(100, 80 + ((s - 72) / 8) * 20);      // 72-80 → 80-100%
+  };
 
-  // Band labels at boundaries
+  const position = getPosition(score);
+
+  // Labels at band boundaries (evenly spaced at 0, 20, 40, 60, 80%)
   const bandLabels = [
     { pos: 0, label: 'Low' },
-    { pos: 40, label: 'Below Avg' },
-    { pos: 60, label: 'Average' },
-    { pos: 80, label: 'Above Avg' },
-    { pos: 100, label: 'High' },
+    { pos: 20, label: 'Below Avg' },
+    { pos: 40, label: 'Average' },
+    { pos: 60, label: 'Above Avg' },
+    { pos: 80, label: 'High' },
   ];
 
   return (

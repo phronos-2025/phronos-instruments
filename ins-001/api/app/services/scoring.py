@@ -536,12 +536,15 @@ def get_spread_interpretation_ins001_1(score: float) -> str:
     Uses clues-only spread (excludes seed word from pairwise distance calculation).
     This measures how diverse the associations are from EACH OTHER.
 
-    Interpretation bands (0-100 scale):
-    - < 20: Low - Very similar/repetitive associations
-    - 20-40: Below Average - Somewhat clustered associations
-    - 40-60: Average - Typical associative spread
-    - 60-80: Above Average - Diverse, creative associations
-    - > 80: High - Highly diverse semantic territory
+    Haiku baseline (for reference): mean 65.5, SD 4.6
+    Human scores expected to be lower than Haiku on average.
+
+    Provisional interpretation bands (will refine with human data):
+    - < 50: Low - Very similar/repetitive associations
+    - 50-58: Below Average - Somewhat clustered associations
+    - 58-65: Average - Typical human associative spread
+    - 65-72: Above Average - Diverse, creative (approaching Haiku mean)
+    - > 72: High - Highly diverse (Haiku-level or above)
 
     Args:
         score: Spread score (0-100, clues-only)
@@ -549,13 +552,13 @@ def get_spread_interpretation_ins001_1(score: float) -> str:
     Returns:
         Interpretation label
     """
-    if score < 20:
+    if score < 50:
         return "Low"
-    elif score < 40:
+    elif score < 58:
         return "Below Average"
-    elif score < 60:
+    elif score < 65:
         return "Average"
-    elif score < 80:
+    elif score < 72:
         return "Above Average"
     else:
         return "High"
@@ -1054,12 +1057,14 @@ def test_interpretation_helpers():
     assert get_divergence_interpretation(85) == "Above Average"
     assert get_divergence_interpretation(95) == "High"
 
-    # Spread interpretations (INS-001.1 clues-only bands)
-    assert get_spread_interpretation_ins001_1(10) == "Low"
-    assert get_spread_interpretation_ins001_1(30) == "Below Average"
-    assert get_spread_interpretation_ins001_1(50) == "Average"
-    assert get_spread_interpretation_ins001_1(70) == "Above Average"
-    assert get_spread_interpretation_ins001_1(90) == "High"
+    # Spread interpretations (INS-001.1 clues-only bands, provisional)
+    # Bands: <50=Low, 50-58=Below Avg, 58-65=Average, 65-72=Above Avg, >72=High
+    # Human scores expected lower than Haiku (mean 65.5)
+    assert get_spread_interpretation_ins001_1(40) == "Low"
+    assert get_spread_interpretation_ins001_1(55) == "Below Average"
+    assert get_spread_interpretation_ins001_1(60) == "Average"
+    assert get_spread_interpretation_ins001_1(68) == "Above Average"
+    assert get_spread_interpretation_ins001_1(75) == "High"
 
 
 if __name__ == "__main__":
