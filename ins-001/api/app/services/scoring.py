@@ -70,13 +70,14 @@ def calculate_divergence(
 ) -> float:
     """
     Mean pairwise cosine distance between all words (clues + prompt).
-    Works for both INS-001.1 and INS-001.2.
 
-    This follows the Divergent Association Task (DAT) methodology, which
-    has been validated against established creativity measures. By including
-    the prompt words, the score captures both:
-    - How spread out the clues are from each other
-    - How far the clues range from the prompt
+    NOTE: For INS-001.2 (bridging), use calculate_spread_clues_only() instead.
+    Including anchor/target in the calculation conflates pair difficulty with
+    participant performance. See MTH-002.1 v2.0 Section 3.1.
+
+    This function is retained for:
+    - Legacy compatibility
+    - Contexts where prompt-inclusive divergence is explicitly needed
 
     Args:
         clue_embeddings: Embeddings for submitted clues
@@ -227,7 +228,11 @@ def score_union(
     Uses min(sim_anchor, sim_target) to ensure clues bridge both endpoints,
     not just cluster near one. This matches the lexical union baseline scoring.
 
-    Divergence: How spread out are the clues? (DAT-style, includes anchor+target)
+    Spread: Mean pairwise distance among clues only (excludes anchor/target).
+    This isolates participant performance from pair difficulty and aligns with
+    the DAT methodology which only uses participant-generated words.
+
+    See MTH-002.1 v2.0 Section 3.1 for methodology details.
 
     Args:
         clue_embeddings: List of embedding vectors for submitted clues
@@ -238,13 +243,15 @@ def score_union(
         Dictionary with:
         - relevance: Overall relevance score (mean of min(sim_a, sim_t) per clue)
         - relevance_individual: Per-clue relevance scores
-        - divergence: Overall divergence (0-100, DAT-style, includes anchor+target)
+        - spread: Clue-only spread (0-100, excludes anchor/target)
+        - divergence: Alias for spread (for backwards compatibility)
         - valid: Whether submission passes relevance threshold
     """
     if not clue_embeddings:
         return {
             "relevance": 0.0,
             "relevance_individual": [],
+            "spread": 0.0,
             "divergence": 0.0,
             "valid": False
         }
@@ -259,17 +266,18 @@ def score_union(
         relevance_scores.append(min(sim_a, sim_t))
 
     overall_relevance = float(np.mean(relevance_scores))
-    overall_divergence = calculate_divergence(
-        clue_embeddings,
-        [anchor_embedding, target_embedding]
-    )
+
+    # Spread: clue-only pairwise distance (MTH-002.1 v2.0)
+    # This isolates participant contribution from pair difficulty
+    overall_spread = calculate_spread_clues_only(clue_embeddings)
 
     valid = overall_relevance >= RELEVANCE_THRESHOLD
 
     return {
         "relevance": overall_relevance,
         "relevance_individual": relevance_scores,
-        "divergence": overall_divergence,
+        "spread": overall_spread,
+        "divergence": overall_spread,  # Alias for backwards compatibility
         "valid": valid
     }
 
@@ -908,8 +916,10 @@ def test_score_union():
 
     assert result["valid"] == True
     assert result["relevance"] > 0.3
-    # Divergence includes anchor-target distance, so should be substantial
-    assert result["divergence"] > 40
+    # Spread is now clue-only (MTH-002.1 v2.0)
+    assert "spread" in result
+    assert result["spread"] > 0  # Two different clues should have some spread
+    assert result["divergence"] == result["spread"]  # Alias for backwards compat
     assert len(result["relevance_individual"]) == 2
 
 
