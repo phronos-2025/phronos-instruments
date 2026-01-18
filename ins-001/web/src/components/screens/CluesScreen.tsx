@@ -1,7 +1,7 @@
 /**
- * Concepts Screen (formerly Clues Screen)
+ * Associations Screen (INS-001.1)
  *
- * Noise floor visualization, 1-5 concept inputs with morphological validation
+ * Noise floor visualization, 1-5 association inputs with morphological validation
  */
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
@@ -285,19 +285,19 @@ export const CluesScreen: React.FC<CluesScreenProps> = ({
       <h1 className="title">Provide your concepts.</h1>
 
       <p className="description">
-        Enter single-word concepts that will help someone guess your target word:{' '}
-        <span className="target-word">{seedWord}</span>
+        Write up to 5 different words that "<span className="target-word">{seedWord}</span>" brings to mind.
+        Give varied associations—not synonyms or obvious connections.
       </p>
 
       <Panel title="Semantic Neighborhood" meta="Top 10 predictable associations">
         <NoiseFloor words={noiseFloor} />
         <p className="hint-text">
-          These are the most predictable associations. Your divergence score measures how far your concepts venture from this neighborhood.
+          These are the most predictable associations. Your spread score measures how far your associations venture from this neighborhood.
         </p>
       </Panel>
 
       <form onSubmit={handleSubmit}>
-        <Panel title="Your Concepts" meta={`${validFilledCount}/5 concepts`}>
+        <Panel title="Your Associations" meta={`${validFilledCount}/5 associations`}>
           <div className="clue-inputs">
             {concepts.map((concept, index) => {
               const validation = validations[index];
@@ -331,7 +331,7 @@ export const CluesScreen: React.FC<CluesScreenProps> = ({
                     className="text-input"
                     value={concept}
                     onChange={(e) => updateConcept(index, e.target.value)}
-                    placeholder={index === 0 ? 'first concept' : ''}
+                    placeholder={index === 0 ? 'first association' : ''}
                     autoComplete="off"
                     spellCheck="false"
                     autoFocus={index === 0}
@@ -390,7 +390,7 @@ export const CluesScreen: React.FC<CluesScreenProps> = ({
             )}
 
             <p className="input-hint" style={{ marginTop: 'var(--space-sm)' }}>
-              At least 1 concept required. More concepts provide more signal.
+              At least 1 association required. More associations provide more signal.
             </p>
           </div>
         </Panel>

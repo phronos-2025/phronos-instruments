@@ -481,6 +481,35 @@ def get_divergence_interpretation(score: float) -> str:
         return "High"
 
 
+def get_spread_interpretation_ins001_1(score: float) -> str:
+    """
+    Get human-readable interpretation of spread score for INS-001.1 (Signal).
+
+    Based on INS-001.1 calibration data:
+    - < 59: Constrained/repetitive associations
+    - 59-62: Somewhat conventional
+    - 62-69: Typical divergent range
+    - 69-72: Creative/exploratory
+    - > 72: Highly divergent (approaching DAT reference of 74.1)
+
+    Args:
+        score: Spread score (0-100)
+
+    Returns:
+        Interpretation label
+    """
+    if score < 59:
+        return "Low"
+    elif score < 62:
+        return "Below Average"
+    elif score < 69:
+        return "Average"
+    elif score < 72:
+        return "Above Average"
+    else:
+        return "High"
+
+
 # ============================================
 # DEPRECATED FUNCTIONS (Backwards Compatibility)
 # ============================================
@@ -937,12 +966,19 @@ def test_interpretation_helpers():
     assert get_relevance_interpretation(0.35) == "Moderate"
     assert get_relevance_interpretation(0.50) == "Strong"
 
-    # Divergence interpretations (DAT-style)
+    # Divergence interpretations (DAT-style, used by INS-001.2)
     assert get_divergence_interpretation(40) == "Low"
     assert get_divergence_interpretation(60) == "Below Average"
     assert get_divergence_interpretation(75) == "Average"
     assert get_divergence_interpretation(85) == "Above Average"
     assert get_divergence_interpretation(95) == "High"
+
+    # Spread interpretations (INS-001.1 calibrated bands)
+    assert get_spread_interpretation_ins001_1(50) == "Low"
+    assert get_spread_interpretation_ins001_1(60) == "Below Average"
+    assert get_spread_interpretation_ins001_1(65) == "Average"
+    assert get_spread_interpretation_ins001_1(70) == "Above Average"
+    assert get_spread_interpretation_ins001_1(75) == "High"
 
 
 if __name__ == "__main__":

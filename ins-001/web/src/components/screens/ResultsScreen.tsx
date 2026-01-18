@@ -1,16 +1,15 @@
 /**
- * Results Screen
+ * Results Screen (INS-001.1)
  *
- * Connected dot plot visualization for relevance/spread metrics,
- * matching INS-001.2 design with rows for You, Haiku, and Statistical.
- * "Unregistered Record" panel with progress, footer links
+ * Redesigned UI with SpreadBar visualization, conventionality indicator,
+ * and AI interpretation section.
  */
 
 import React, { useState } from 'react';
 import { useGameState } from '../../lib/state';
 import { useAuth } from '../auth/AuthProvider';
 import { api } from '../../lib/api';
-import type { GameResponse } from '../../lib/api';
+import type { GameResponse, NoiseFloorWord } from '../../lib/api';
 import { Panel } from '../ui/Panel';
 import { Button } from '../ui/Button';
 import { ShareLinkBox } from '../ui/ShareLinkBox';
@@ -20,276 +19,215 @@ interface ResultsScreenProps {
   game: GameResponse;
 }
 
-// Dot plot row component (matching INS-001.2 BridgingResultsScreen)
-interface DotPlotRowProps {
-  label: string;
-  concepts: string[];
-  relevance: number;
-  spread: number;
-  isYou?: boolean;
+// INS-001.1 calibrated interpretation bands
+// Based on calibration data - different from INS-001.2
+const SPREAD_BANDS = [
+  { max: 59, label: 'Low', description: 'Constrained/repetitive associations' },
+  { max: 62, label: 'Below Average', description: 'Somewhat conventional' },
+  { max: 69, label: 'Average', description: 'Typical divergent range' },
+  { max: 72, label: 'Above Average', description: 'Creative/exploratory' },
+  { max: 100, label: 'High', description: 'Highly divergent' },
+];
+
+const DAT_REFERENCE = 74.1; // DAT reference score for context
+
+function getSpreadInterpretation(score: number): { label: string; description: string } {
+  for (const band of SPREAD_BANDS) {
+    if (score < band.max) {
+      return { label: band.label, description: band.description };
+    }
+  }
+  return SPREAD_BANDS[SPREAD_BANDS.length - 1];
 }
 
-// Human row placeholder for sharing
-function HumanShareRow({
-  shareUrl,
-  isCreatingShare,
-  shareError,
-  onCreateShare,
-}: {
-  shareUrl: string | null;
-  isCreatingShare: boolean;
-  shareError: string | null;
-  onCreateShare: () => void;
-}) {
-  return (
-    <div className="dot-plot-row" style={{ marginBottom: 'var(--space-lg)' }}>
-      {/* Placeholder concepts - aligned with track using axis-scale class */}
-      <div
-        className="dot-plot-concepts dot-plot-axis-scale"
-        style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: '0.75rem',
-          color: 'var(--faded)',
-          marginBottom: 'var(--space-xs)',
-          letterSpacing: '0.02em',
-          fontStyle: 'italic',
-          textAlign: 'center',
-        }}
-      >
-        compare your concepts
-      </div>
-
-      {/* Row with label, track placeholder, and share button */}
-      <div className="dot-plot-track-row" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
-        {/* Label */}
-        <div
-          className="dot-plot-label"
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.65rem',
-            fontWeight: 600,
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px',
-            color: 'var(--text-light)',
-            flexShrink: 0,
-          }}
-        >
-          Human
-        </div>
-
-        {/* Track placeholder with dashed line */}
-        <div
-          className="dot-plot-track"
-          style={{
-            flex: 1,
-            minWidth: 0,
-            height: '32px',
-            position: 'relative',
-            backgroundColor: 'rgba(255, 255, 255, 0.08)',
-            borderRadius: '2px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          {/* Dashed placeholder line */}
-          <div
-            style={{
-              position: 'absolute',
-              left: '10%',
-              right: '10%',
-              top: '50%',
-              height: '1px',
-              borderTop: '1px dashed var(--faded-light)',
-              transform: 'translateY(-50%)',
-            }}
-          />
-
-          {/* Button only shown when no share URL yet */}
-          {!shareUrl && (
-            <div style={{ position: 'relative', zIndex: 1 }}>
-              <Button
-                variant="secondary"
-                onClick={onCreateShare}
-                disabled={isCreatingShare}
-                style={{
-                  fontSize: '0.65rem',
-                  padding: '4px 12px',
-                }}
-              >
-                {isCreatingShare ? 'Creating...' : 'Create Share Link'}
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Share link shown below the track when created */}
-      {shareUrl && (
-        <div
-          style={{
-            marginTop: 'var(--space-sm)',
-          }}
-        >
-          <ShareLinkBox url={shareUrl} />
-        </div>
-      )}
-
-      {shareError && (
-        <div
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.6rem',
-            color: 'var(--alert)',
-            marginTop: 'var(--space-xs)',
-          }}
-        >
-          {shareError}
-        </div>
-      )}
-    </div>
-  );
+// Morphological variant detection (mirrors CluesScreen logic)
+function getWordStem(word: string): string {
+  word = word.toLowerCase();
+  const suffixes = [
+    'ically', 'ation', 'ness', 'ment', 'able', 'ible', 'tion',
+    'sion', 'ally', 'ical', 'ful', 'less', 'ing', 'ity', 'ous', 'ive',
+    'est', 'ier', 'ies', 'ied', 'ic', 'ly', 'ed', 'er', 'en', 'es', 's'
+  ];
+  for (const suffix of suffixes) {
+    if (word.endsWith(suffix) && word.length > suffix.length + 2) {
+      return word.slice(0, -suffix.length);
+    }
+  }
+  return word;
 }
 
-function DotPlotRow({ label, concepts, relevance, spread, isYou }: DotPlotRowProps) {
-  const scale = (val: number) => Math.min(100, Math.max(0, val));
+function isMorphologicalVariant(word1: string, word2: string): boolean {
+  const w1 = word1.toLowerCase();
+  const w2 = word2.toLowerCase();
+  if (w1 === w2) return true;
+  if (w1.startsWith(w2) || w2.startsWith(w1)) {
+    if (Math.abs(w1.length - w2.length) <= 4) return true;
+  }
+  const stem1 = getWordStem(w1);
+  const stem2 = getWordStem(w2);
+  return stem1 === stem2;
+}
+
+// Calculate conventionality based on noise floor overlap
+function calculateConventionality(
+  associations: string[],
+  noiseFloor: NoiseFloorWord[]
+): { level: 'Low' | 'Moderate' | 'High'; overlaps: number; description: string } {
+  const overlaps = associations.filter(assoc =>
+    noiseFloor.some(nf =>
+      nf.word.toLowerCase() === assoc.toLowerCase() ||
+      isMorphologicalVariant(assoc, nf.word)
+    )
+  ).length;
+
+  if (overlaps === 0) {
+    return { level: 'Low', overlaps, description: 'Your associations were unexpected—you avoided the obvious connections.' };
+  } else if (overlaps <= 2) {
+    return { level: 'Moderate', overlaps, description: 'Your associations included some expected words, with original additions.' };
+  } else {
+    return { level: 'High', overlaps, description: 'Your associations clustered around predictable connections.' };
+  }
+}
+
+// SpreadBar component - single horizontal bar with marker
+interface SpreadBarProps {
+  score: number;
+  interpretation: { label: string; description: string };
+}
+
+function SpreadBar({ score, interpretation }: SpreadBarProps) {
+  // Scale: 0-80 to fit bands nicely, with DAT reference visible
+  const maxScale = 80;
+  const position = Math.min(100, (score / maxScale) * 100);
+  const datPosition = (DAT_REFERENCE / maxScale) * 100;
+
+  // Band positions (as percentages of maxScale)
+  const bandPositions = [
+    { pos: (59 / maxScale) * 100, label: 'Low' },
+    { pos: (62 / maxScale) * 100, label: 'Below Avg' },
+    { pos: (69 / maxScale) * 100, label: 'Average' },
+    { pos: (72 / maxScale) * 100, label: 'Above Avg' },
+    { pos: datPosition, label: 'High' },
+  ];
 
   return (
-    <div className="dot-plot-row" style={{ marginBottom: 'var(--space-lg)' }}>
-      {/* Concepts above the track - aligned with track using axis-scale class */}
-      <div
-        className="dot-plot-concepts dot-plot-axis-scale"
-        style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: '0.75rem',
-          color: isYou ? 'var(--gold)' : 'var(--text-light)',
-          marginBottom: 'var(--space-xs)',
-          letterSpacing: '0.02em',
-          textAlign: 'center',
-        }}
-      >
-        {concepts.join(' · ')}
+    <div style={{ marginBottom: 'var(--space-lg)' }}>
+      {/* Score and interpretation label */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'baseline',
+        gap: 'var(--space-sm)',
+        marginBottom: 'var(--space-sm)',
+        fontFamily: 'var(--font-mono)',
+      }}>
+        <span style={{ fontSize: '1.5rem', color: 'var(--gold)', fontWeight: 600 }}>
+          {Math.round(score)}
+        </span>
+        <span style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>
+          {interpretation.label}
+        </span>
       </div>
 
-      {/* Row with label, track, and values */}
-      <div className="dot-plot-track-row" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
-        {/* Label */}
-        <div
-          className="dot-plot-label"
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.65rem',
-            fontWeight: 600,
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px',
-            color: isYou ? 'var(--gold)' : 'var(--text-light)',
-            flexShrink: 0,
-          }}
-        >
-          {label}
-        </div>
+      {/* The bar track */}
+      <div style={{
+        position: 'relative',
+        height: '8px',
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        borderRadius: '4px',
+        marginBottom: '24px',
+      }}>
+        {/* Filled portion up to score */}
+        <div style={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          height: '100%',
+          width: `${position}%`,
+          backgroundColor: 'var(--gold)',
+          borderRadius: '4px',
+          transition: 'width 0.3s ease',
+        }} />
 
-        {/* Track */}
-        <div
-          className="dot-plot-track"
-          style={{
-            flex: 1,
-            minWidth: 0,
-            height: '32px',
-            position: 'relative',
-            backgroundColor: 'rgba(255, 255, 255, 0.08)',
-            borderRadius: '2px',
-            marginBottom: '16px',
-          }}
-        >
-          {/* Gridlines */}
-          {[25, 50, 75].map((v) => (
-            <div
-              key={v}
-              style={{
-                position: 'absolute',
-                left: `${v}%`,
-                top: 0,
-                bottom: 0,
-                width: '1px',
-                backgroundColor: 'rgba(255, 255, 255, 0.05)',
-              }}
-            />
-          ))}
+        {/* Marker at score position */}
+        <div style={{
+          position: 'absolute',
+          left: `${position}%`,
+          top: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: '16px',
+          height: '16px',
+          borderRadius: '50%',
+          backgroundColor: 'var(--gold)',
+          border: '3px solid var(--bg)',
+          boxShadow: '0 0 0 1px var(--gold)',
+        }} />
 
-          {/* Connecting line */}
+        {/* Band tick marks */}
+        {bandPositions.map((band, i) => (
           <div
+            key={i}
             style={{
               position: 'absolute',
-              left: `${Math.min(scale(relevance), scale(spread))}%`,
-              width: `${Math.abs(scale(spread) - scale(relevance))}%`,
-              top: '50%',
-              height: '2px',
-              backgroundColor: 'var(--gold)',
-              opacity: 0.4,
-              transform: 'translateY(-50%)',
-            }}
-          />
-
-          {/* Relevance dot (filled) */}
-          <div
-            style={{
-              position: 'absolute',
-              left: `${scale(relevance)}%`,
-              top: '50%',
-              transform: 'translate(-50%, -50%)',
-              width: '12px',
-              height: '12px',
-              borderRadius: '50%',
-              backgroundColor: 'var(--gold)',
-            }}
-          />
-
-          {/* Spread dot (hollow) */}
-          <div
-            style={{
-              position: 'absolute',
-              left: `${scale(spread)}%`,
-              top: '50%',
-              transform: 'translate(-50%, -50%)',
-              width: '12px',
-              height: '12px',
-              borderRadius: '50%',
-              border: '2px solid var(--gold)',
-              backgroundColor: 'var(--bg)',
-              boxSizing: 'border-box',
-            }}
-          />
-
-          {/* Value labels */}
-          <span
-            style={{
-              position: 'absolute',
-              left: `${scale(relevance)}%`,
-              bottom: '-16px',
+              left: `${band.pos}%`,
+              top: '100%',
               transform: 'translateX(-50%)',
-              fontFamily: 'var(--font-mono)',
-              fontSize: '0.6rem',
-              color: 'var(--gold)',
             }}
           >
-            {Math.round(relevance)}
-          </span>
-          <span
-            style={{
-              position: 'absolute',
-              left: `${scale(spread)}%`,
-              bottom: '-16px',
-              transform: 'translateX(-50%)',
+            <div style={{
+              width: '1px',
+              height: '8px',
+              backgroundColor: 'var(--border)',
+              marginBottom: '4px',
+            }} />
+            <span style={{
+              display: 'block',
               fontFamily: 'var(--font-mono)',
-              fontSize: '0.6rem',
+              fontSize: '0.55rem',
               color: 'var(--faded)',
-            }}
-          >
-            {Math.round(spread)}
+              whiteSpace: 'nowrap',
+              textAlign: 'center',
+            }}>
+              {band.label}
+            </span>
+          </div>
+        ))}
+
+        {/* DAT reference marker */}
+        <div style={{
+          position: 'absolute',
+          left: `${datPosition}%`,
+          top: '100%',
+          transform: 'translateX(-50%)',
+        }}>
+          <div style={{
+            width: '1px',
+            height: '8px',
+            backgroundColor: 'var(--faded)',
+            marginBottom: '4px',
+          }} />
+          <span style={{
+            display: 'block',
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.55rem',
+            color: 'var(--faded)',
+            whiteSpace: 'nowrap',
+          }}>
+            (DAT)
           </span>
         </div>
       </div>
+
+      {/* DAT reference note if score is high */}
+      {score > 72 && (
+        <div style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: '0.65rem',
+          color: 'var(--faded)',
+          marginTop: 'var(--space-md)',
+        }}>
+          Approaching DAT reference ({DAT_REFERENCE})
+        </div>
+      )}
     </div>
   );
 }
@@ -327,58 +265,24 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
   // New API: relevance (0-1), spread (0-100 DAT-style)
   // Legacy: divergence_score (0-1), convergence_score (0-1)
   const spreadDisplay = game.spread ?? (game.divergence_score ?? 0) * 100;
-  const relevanceDisplay = game.relevance !== undefined
-    ? game.relevance * 100  // Convert 0-1 to 0-100 for display
-    : (game.convergence_score ?? 0) * 100;  // Legacy fallback
 
-  // Haiku data (from LLM guesses - we'll show the guesses as Haiku's "clues")
+  // Get interpretation using INS-001.1 calibrated bands
+  const spreadInterp = getSpreadInterpretation(spreadDisplay);
+
+  // Haiku data (from LLM guesses)
   const hasHaikuData = game.recipient_type === 'llm' && game.guesses && game.guesses.length > 0;
-  // For Haiku, we use guess similarities as a proxy for relevance
-  const haikuRelevance = game.guess_similarities
-    ? (game.guess_similarities.reduce((a, b) => a + b, 0) / game.guess_similarities.length) * 100
-    : 0;
-  // Haiku spread is estimated from variance of similarities (low variance = low spread)
-  const haikuSpread = game.guess_similarities && game.guess_similarities.length > 1
-    ? Math.min(100, Math.max(0,
-        (1 - Math.max(...game.guess_similarities) + Math.min(...game.guess_similarities)) * 100
-      ))
-    : 50;
+  const targetWord = game.seed_word?.toLowerCase();
+  const haikuGuessedCorrectly = game.guesses?.some(
+    (guess) => guess.toLowerCase() === targetWord
+  );
 
-  const spreadInterpretation =
-    spreadDisplay < 30 ? 'Low' : spreadDisplay < 60 ? 'Moderate' : 'High';
+  // Calculate conventionality based on noise floor overlap
+  const associations = game.clues || [];
+  const noiseFloor = game.noise_floor || [];
+  const conventionality = calculateConventionality(associations, noiseFloor);
 
-  const relevanceInterpretation =
-    relevanceDisplay < 40 ? 'Weak' : relevanceDisplay < 70 ? 'Moderate' : 'Strong';
-
-  // Format guesses for display as pills with shaded bars
-  const formatGuess = (guess: string, index: number) => {
-    const similarity = game.guess_similarities?.[index];
-    const isExact = guess.toLowerCase() === game.seed_word.toLowerCase();
-    const similarityPercent =
-      similarity !== undefined ? Math.min(Math.max(similarity * 100, 0), 100) : 0;
-    const borderColor = isExact ? 'var(--active)' : 'rgba(242, 240, 233, 0.15)';
-    const textColor = isExact ? 'var(--active)' : 'var(--faded)';
-
-    return (
-      <span
-        key={index}
-        className="noise-word"
-        data-similarity={similarity !== undefined ? similarity.toFixed(2) : '—'}
-        style={
-          {
-            '--similarity-width': `${similarityPercent}%`,
-            borderColor: borderColor,
-            color: textColor,
-          } as React.CSSProperties
-        }
-        title={
-          similarity !== undefined ? `Similarity: ${similarity.toFixed(2)}` : 'Similarity: —'
-        }
-      >
-        {guess}
-      </span>
-    );
-  };
+  // Get other guesses for display (excluding exact match if present)
+  const otherGuesses = game.guesses?.filter(g => g.toLowerCase() !== targetWord) || [];
 
   return (
     <div>
@@ -389,270 +293,183 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
 
       <p className="description">Your semantic association profile for this session.</p>
 
+      {/* Main results panel */}
       <Panel>
-        {/* Target word display - aligned with track using axis-scale class */}
-        <div
-          className="dot-plot-axis-scale"
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.8rem',
-            color: 'var(--gold)',
-            textAlign: 'center',
-            marginBottom: 'var(--space-lg)',
-          }}
-        >
-          Target: {game.seed_word}
+        {/* Your associations header */}
+        <div style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: '0.65rem',
+          color: 'var(--faded)',
+          textTransform: 'uppercase',
+          letterSpacing: '0.5px',
+          marginBottom: 'var(--space-xs)',
+        }}>
+          Your associations for "{game.seed_word}"
         </div>
 
-        {/* Legend - aligned with track using axis-scale class */}
-        <div
-          className="dot-plot-axis-scale"
-          style={{
+        {/* Display associations */}
+        <div style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: '0.9rem',
+          color: 'var(--gold)',
+          marginBottom: 'var(--space-lg)',
+          letterSpacing: '0.02em',
+        }}>
+          {associations.join(', ')}
+        </div>
+
+        {/* Spread section */}
+        <div style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: '0.65rem',
+          color: 'var(--faded)',
+          textTransform: 'uppercase',
+          letterSpacing: '0.5px',
+          marginBottom: 'var(--space-sm)',
+        }}>
+          Spread
+        </div>
+
+        <SpreadBar score={spreadDisplay} interpretation={spreadInterp} />
+
+        {/* Conventionality section */}
+        <div style={{
+          marginTop: 'var(--space-lg)',
+          paddingTop: 'var(--space-md)',
+          borderTop: '1px solid var(--border)',
+        }}>
+          <div style={{
             display: 'flex',
-            justifyContent: 'center',
-            gap: 'var(--space-md)',
-            marginBottom: 'var(--space-md)',
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.6rem',
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px',
-            color: 'var(--faded)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <div
-              style={{
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                backgroundColor: 'var(--gold)',
-              }}
-            />
-            <span>Relevance</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <div
-              style={{
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                border: '2px solid var(--gold)',
-                backgroundColor: 'transparent',
-                boxSizing: 'border-box',
-              }}
-            />
-            <span>Spread</span>
-          </div>
-        </div>
-
-        {/* Section: Your Clues */}
-        <div
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.6rem',
-            color: 'var(--faded)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px',
+            alignItems: 'baseline',
+            gap: 'var(--space-sm)',
             marginBottom: 'var(--space-xs)',
-            marginTop: 'var(--space-md)',
-          }}
-        >
-          Your Clues
-        </div>
-
-        {/* Axis scale */}
-        <div className="dot-plot-axis-scale" style={{ marginBottom: 'var(--space-sm)' }}>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
+          }}>
+            <span style={{
               fontFamily: 'var(--font-mono)',
-              fontSize: '11px',
+              fontSize: '0.65rem',
               color: 'var(--faded)',
-              marginBottom: '2px',
-            }}
-          >
-            {[0, 25, 50, 75, 100].map((v) => (
-              <span key={v}>{v}</span>
-            ))}
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+            }}>
+              Conventionality:
+            </span>
+            <span style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.85rem',
+              color: conventionality.level === 'Low' ? 'var(--active)' :
+                     conventionality.level === 'High' ? 'var(--alert)' : 'var(--gold)',
+            }}>
+              {conventionality.level}
+            </span>
           </div>
-          <div
-            style={{
-              height: '1px',
-              backgroundColor: 'var(--border)',
-              position: 'relative',
-            }}
-          >
-            {[0, 25, 50, 75, 100].map((v) => (
-              <div
-                key={v}
-                style={{
-                  position: 'absolute',
-                  left: `${v}%`,
-                  top: '-2px',
-                  width: '1px',
-                  height: '5px',
-                  backgroundColor: 'var(--border)',
-                }}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Dot plot visualization - rows for You, Haiku, Statistical */}
-        <div style={{ marginTop: 'var(--space-md)' }}>
-          {/* Your row */}
-          <DotPlotRow
-            label="You"
-            concepts={game.clues || []}
-            relevance={relevanceDisplay}
-            spread={spreadDisplay}
-            isYou
-          />
-
-          {/* Section: Guesses from your clues */}
-          {(hasHaikuData || (game.noise_floor && game.noise_floor.length > 0)) && (
-            <div
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.6rem',
-                color: 'var(--faded)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                marginBottom: 'var(--space-xs)',
-                marginTop: 'var(--space-lg)',
-                paddingTop: 'var(--space-md)',
-                borderTop: '1px solid var(--border)',
-              }}
-            >
-              Guesses (from your clues)
-            </div>
-          )}
-
-          {/* Haiku row - these are GUESSES of the target, not clues */}
-          {hasHaikuData && (
-            <DotPlotRow
-              label="Haiku"
-              concepts={game.guesses || []}
-              relevance={haikuRelevance}
-              spread={haikuSpread}
-            />
-          )}
-
-          {/* Statistical row - using noise floor as baseline (show all words from previous screen) */}
-          {game.noise_floor && game.noise_floor.length > 0 && (
-            <>
-              <div
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '0.6rem',
-                  color: 'var(--faded)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                  marginBottom: 'var(--space-xs)',
-                  marginTop: 'var(--space-lg)',
-                  paddingTop: 'var(--space-md)',
-                  borderTop: '1px solid var(--border)',
-                }}
-              >
-                Noise Floor (predictable associations)
-              </div>
-              <DotPlotRow
-                label="Statistical"
-                concepts={game.noise_floor.map(w => w.word)}
-                relevance={game.noise_floor.reduce((sum, w) => sum + w.similarity * 100, 0) / game.noise_floor.length}
-                spread={50} // Noise floor is designed to have moderate spread
-              />
-            </>
-          )}
-
-          {/* Human row */}
-          <HumanShareRow
-            shareUrl={shareUrl}
-            isCreatingShare={isCreatingShare}
-            shareError={shareError}
-            onCreateShare={handleCreateShareLink}
-          />
-        </div>
-      </Panel>
-
-      <Panel
-        className=""
-        style={{ background: 'transparent', borderColor: 'var(--faded-light)' }}
-      >
-        <div className="panel-header">
-          <span className="panel-title">Interpretation</span>
-        </div>
-        <div
-          className="panel-content"
-          style={{
+          <p style={{
             fontFamily: 'var(--font-body)',
-            fontSize: '0.9rem',
+            fontSize: '0.85rem',
             color: 'var(--faded)',
-            lineHeight: '1.7',
-          }}
-        >
-          {(() => {
-            // Determine if Haiku correctly guessed the target
-            const targetWord = game.seed_word?.toLowerCase();
-            const haikuGuessedCorrectly = game.guesses?.some(
-              (guess) => guess.toLowerCase() === targetWord
-            );
+            margin: 0,
+            lineHeight: 1.5,
+          }}>
+            {conventionality.description}
+          </p>
+        </div>
 
-            // Check for semantic win: user has high relevance but Haiku failed to guess
-            // Semantic win = relevance >= Haiku's relevance (or moderately high) AND Haiku didn't guess correctly
-            const isSemanticWin = hasHaikuData && !haikuGuessedCorrectly && relevanceDisplay >= 60;
+        {/* AI Interpretation section */}
+        {hasHaikuData && (
+          <div style={{
+            marginTop: 'var(--space-lg)',
+            paddingTop: 'var(--space-md)',
+            borderTop: '1px solid var(--border)',
+          }}>
+            <div style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.65rem',
+              color: 'var(--faded)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+              marginBottom: 'var(--space-sm)',
+            }}>
+              AI Interpretation
+            </div>
 
-            // Build interpretation based on metrics and outcome
-            let primaryMessage = '';
-            let secondaryMessage = '';
-
-            if (isSemanticWin) {
-              // Semantic win scenario
-              primaryMessage = `Your clues show ${spreadInterpretation.toLowerCase()} spread (${Math.round(spreadDisplay)}) with ${relevanceInterpretation.toLowerCase()} relevance (${Math.round(relevanceDisplay)}) to the target concept.`;
-              if (spreadDisplay < 40) {
-                primaryMessage += ' You sacrificed spread for precision, but it was sufficient to mislead Haiku while maintaining strong semantic connection to the target.';
-              } else {
-                primaryMessage += ' Your associations successfully balanced relevance and unpredictability.';
-              }
-            } else {
-              // Standard interpretation
-              primaryMessage = `Your clues show ${spreadInterpretation.toLowerCase()} spread (${Math.round(spreadDisplay)}) with ${relevanceInterpretation.toLowerCase()} relevance (${Math.round(relevanceDisplay)}) to the target concept.`;
-              if (spreadDisplay > 60 && relevanceDisplay > 50) {
-                primaryMessage += ' This indicates creative but valid associations.';
-              } else if (spreadDisplay < 40 && relevanceDisplay > 50) {
-                primaryMessage += ' This indicates conventional, predictable associations.';
-              } else if (relevanceDisplay < 40) {
-                primaryMessage += ' The associations may be too distant from the target concept.';
-              }
-            }
-
-            // Haiku outcome message
-            if (hasHaikuData) {
-              if (haikuGuessedCorrectly) {
-                secondaryMessage = `Haiku guessed "${game.guesses?.join(', ')}" from your clues — accurately inferring the target.`;
-              } else if (haikuRelevance > 70) {
-                secondaryMessage = `Haiku guessed "${game.guesses?.join(', ')}" from your clues — getting very close to the target, but not an exact match.`;
-              } else if (haikuRelevance > 40) {
-                secondaryMessage = `Haiku guessed "${game.guesses?.join(', ')}" from your clues — partially inferring the semantic space.`;
-              } else {
-                secondaryMessage = `Haiku guessed "${game.guesses?.join(', ')}" from your clues — struggling to identify the target.`;
-              }
-            }
-
-            return (
-              <>
-                <p style={{ marginBottom: hasHaikuData ? 'var(--space-sm)' : 0 }}>
-                  {primaryMessage}
+            <div style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 'var(--space-sm)',
+            }}>
+              <span style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '1rem',
+                color: haikuGuessedCorrectly ? 'var(--active)' : 'var(--alert)',
+              }}>
+                {haikuGuessedCorrectly ? '✓' : '✗'}
+              </span>
+              <div>
+                <p style={{
+                  fontFamily: 'var(--font-body)',
+                  fontSize: '0.85rem',
+                  color: 'var(--text-light)',
+                  margin: 0,
+                  marginBottom: 'var(--space-xs)',
+                }}>
+                  {haikuGuessedCorrectly
+                    ? `Haiku guessed "${game.seed_word}" from your associations`
+                    : `Haiku couldn't guess "${game.seed_word}" from your associations`}
                 </p>
-                {hasHaikuData && (
-                  <p style={{ marginBottom: 0, fontSize: '0.85rem' }}>
-                    {secondaryMessage}
+                {otherGuesses.length > 0 && (
+                  <p style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '0.75rem',
+                    color: 'var(--faded)',
+                    margin: 0,
+                  }}>
+                    (Also considered: {otherGuesses.join(', ')})
                   </p>
                 )}
-              </>
-            );
-          })()}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Share section */}
+        <div style={{
+          marginTop: 'var(--space-lg)',
+          paddingTop: 'var(--space-md)',
+          borderTop: '1px solid var(--border)',
+        }}>
+          <div style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.65rem',
+            color: 'var(--faded)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+            marginBottom: 'var(--space-sm)',
+          }}>
+            Test a Friend
+          </div>
+
+          {!shareUrl ? (
+            <Button
+              variant="secondary"
+              onClick={handleCreateShareLink}
+              disabled={isCreatingShare}
+              style={{ fontSize: '0.75rem' }}
+            >
+              {isCreatingShare ? 'Creating...' : 'Can they guess your word?'}
+            </Button>
+          ) : (
+            <ShareLinkBox url={shareUrl} />
+          )}
+
+          {shareError && (
+            <div style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.65rem',
+              color: 'var(--alert)',
+              marginTop: 'var(--space-xs)',
+            }}>
+              {shareError}
+            </div>
+          )}
         </div>
       </Panel>
 

@@ -79,8 +79,8 @@ export const IntroScreen: React.FC = () => {
           </div>
           <div>
             <div style={{ color: 'var(--gold)', fontSize: '1.5rem', marginBottom: 'var(--space-xs)' }}>02</div>
-            <div style={{ color: 'var(--text-light)', marginBottom: '4px' }}>Give 1-5 concepts</div>
-            <div style={{ color: 'var(--faded)', fontSize: '0.65rem' }}>One-word associations.</div>
+            <div style={{ color: 'var(--text-light)', marginBottom: '4px' }}>Give 1-5 associations</div>
+            <div style={{ color: 'var(--faded)', fontSize: '0.65rem' }}>Single words it brings to mind.</div>
           </div>
           <div>
             <div style={{ color: 'var(--gold)', fontSize: '1.5rem', marginBottom: 'var(--space-xs)' }}>03</div>
@@ -93,8 +93,8 @@ export const IntroScreen: React.FC = () => {
       <Panel className="" style={{ background: 'transparent', borderColor: 'var(--gold-dim)' }}>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--faded)' }}>
           <strong style={{ color: 'var(--text-light)' }}>What this measures:</strong><br /><br />
-          <strong>Divergence</strong> — How far your associations venture from the predictable. High divergence indicates unexpected semantic paths.<br /><br />
-          <strong>Convergence</strong> — How accurately others can decode your associations. High convergence indicates effective communication of meaning.<br /><br />
+          <strong>Spread</strong> — How far your associations venture from the predictable. High spread indicates unexpected semantic paths.<br /><br />
+          <strong>Communicability</strong> — How accurately others can decode your associations. High communicability indicates effective transmission of meaning.<br /><br />
           <span style={{ fontSize: '0.65rem' }}>
             <a href="https://phronos.org/methods/semantic-association-metrics/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--gold)', textDecoration: 'none', borderBottom: '1px dotted' }}>MTH-002</a>
             {' '}· How scores are calculated |{' '}

@@ -30,29 +30,29 @@ anthropic_client = AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
 # GUESSING
 # ============================================
 
-async def llm_guess(clues: list[str], num_guesses: int = 3) -> list[str]:
+async def llm_guess(associations: list[str], num_guesses: int = 3) -> list[str]:
     """
-    Have Claude guess the target word from clues.
-    
+    Have Claude guess the target word from associations.
+
     Args:
-        clues: List of clue words (already validated against vocabulary)
+        associations: List of association words (already validated against vocabulary)
         num_guesses: Number of guesses to return (default 3)
-        
+
     Returns:
         List of guess words (may be fewer than num_guesses if parsing fails)
     """
-    # Build prompt with XML-escaped clues for safety
-    # Even though clues are validated, defense in depth
-    escaped_clues = [html.escape(c) for c in clues]
-    clue_xml = "\n".join(f"  <clue>{c}</clue>" for c in escaped_clues)
-    
-    prompt = f"""You are playing a word-guessing game. Someone is trying to communicate a target word to you using clues.
+    # Build prompt with XML-escaped associations for safety
+    # Even though associations are validated, defense in depth
+    escaped_associations = [html.escape(a) for a in associations]
+    association_xml = "\n".join(f"  <association>{a}</association>" for a in escaped_associations)
 
-<clues>
-{clue_xml}
-</clues>
+    prompt = f"""You are playing a word-guessing game. Someone is trying to communicate a target word to you using word associations.
 
-Based on these clues, what do you think the target word is?
+<associations>
+{association_xml}
+</associations>
+
+Based on these associations, what do you think the target word is?
 
 Rules:
 - Provide exactly {num_guesses} guesses
@@ -271,14 +271,14 @@ Your concepts:"""
 # ============================================
 
 async def test_llm_guess():
-    """Test the LLM guesser with known clues."""
-    # These clues should make "coffee" fairly guessable
-    clues = ["morning", "caffeine", "bean", "cup", "brew"]
-    guesses = await llm_guess(clues, num_guesses=3)
-    
-    print(f"Clues: {clues}")
+    """Test the LLM guesser with known associations."""
+    # These associations should make "coffee" fairly guessable
+    associations = ["morning", "caffeine", "bean", "cup", "brew"]
+    guesses = await llm_guess(associations, num_guesses=3)
+
+    print(f"Associations: {associations}")
     print(f"Guesses: {guesses}")
-    
+
     # Coffee should be in the guesses
     assert any("coffee" in g.lower() for g in guesses), f"Expected 'coffee' in guesses: {guesses}"
     print("Test passed!")
