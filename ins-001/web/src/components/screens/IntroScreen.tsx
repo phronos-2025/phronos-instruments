@@ -107,10 +107,8 @@ export const IntroScreen: React.FC = () => {
           <strong>Relevance</strong> — How close your associations are to both the anchor and target. Low relevance is an indicator of random words.<br /><br />
           <strong>Communicability</strong> — How accurately others can decode your associations. High communicability indicates effective transmission of meaning.<br /><br />
           <span style={{ fontSize: '0.65rem' }}>
-            <a href="https://phronos.org/methods/semantic-association-metrics/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--gold)', textDecoration: 'none', borderBottom: '1px dotted' }}>MTH-002</a>
-            {' '}· How scores are calculated |{' '}
-            <a href="https://phronos.org/library/digital-validity/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--gold)', textDecoration: 'none', borderBottom: '1px dotted' }}>LIB-002</a>
-            {' '}· The theory behind it
+            <a href="https://phronos.org/dispatches/semantic-cartography/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--gold)', textDecoration: 'none', borderBottom: '1px dotted' }}>DSP-003</a>
+            {' '}About this instrument
           </span>
         </div>
       </Panel>

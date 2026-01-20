@@ -163,10 +163,8 @@ export const BridgingIntroScreen: React.FC = () => {
           <br />
           <br />
           <span style={{ fontSize: '0.65rem' }}>
-            <a href="https://phronos.org/methods/semantic-association-metrics/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--gold)', textDecoration: 'none', borderBottom: '1px dotted' }}>MTH-002</a>
-            {' '}· How scores are calculated |{' '}
-            <a href="https://phronos.org/library/digital-validity/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--gold)', textDecoration: 'none', borderBottom: '1px dotted' }}>LIB-002</a>
-            {' '}· The theory behind it
+            <a href="https://phronos.org/dispatches/semantic-cartography/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--gold)', textDecoration: 'none', borderBottom: '1px dotted' }}>DSP-003</a>
+            {' '}About this instrument
           </span>
         </div>
       </Panel>
