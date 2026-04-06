@@ -699,4 +699,252 @@ export const api = {
         body: JSON.stringify({ anonymous_user_id: anonymousUserId }),
       }),
   },
+
+  // ============================================
+  // STUDIES API
+  // ============================================
+
+  studies: {
+    get: (slug: string): Promise<StudyResponse> =>
+      apiCall(`/api/v1/studies/${slug}`),
+
+    enroll: (slug: string): Promise<EnrollResponse> =>
+      apiCall(`/api/v1/studies/${slug}/enroll`, { method: 'POST' }),
+
+    consent: (slug: string): Promise<{ consented_at: string }> =>
+      apiCall(`/api/v1/studies/${slug}/consent`, { method: 'POST' }),
+
+    getSurveyItems: (slug: string, timing: 'pre' | 'post'): Promise<{ timing: string; items: SurveyItem[] }> =>
+      apiCall(`/api/v1/studies/${slug}/survey/${timing}`),
+
+    submitSurvey: (slug: string, timing: 'pre' | 'post', responses: SurveyResponse[]): Promise<{ timing: string; submitted_at: string }> =>
+      apiCall(`/api/v1/studies/${slug}/survey`, {
+        method: 'POST',
+        body: JSON.stringify({ timing, responses }),
+      }),
+
+    getProgress: (slug: string): Promise<StudyProgressResponse> =>
+      apiCall(`/api/v1/studies/${slug}/progress`),
+
+    // v3: next-item (handles both generative and evaluative)
+    nextItem: (slug: string): Promise<StudyNextItemResponse> =>
+      apiCall(`/api/v1/studies/${slug}/next-item`, { method: 'POST' }),
+
+    // Backwards compat alias
+    nextGame: (slug: string): Promise<StudyNextItemResponse> =>
+      apiCall(`/api/v1/studies/${slug}/next-item`, { method: 'POST' }),
+
+    submitGame: (slug: string, gameId: string, words: string[], autoSubmitted: boolean = false, timeMs?: number): Promise<StudyGameScoreResponse> =>
+      apiCall(`/api/v1/studies/${slug}/games/${gameId}/submit`, {
+        method: 'POST',
+        body: JSON.stringify({
+          words,
+          auto_submitted: autoSubmitted,
+          time_to_complete_ms: timeMs,
+        }),
+      }),
+
+    // v3: submit evaluative item
+    submitEvaluation: (slug: string, itemNumber: number, response: Record<string, any>, timeMs?: number): Promise<StudyEvaluationScoreResponse> =>
+      apiCall(`/api/v1/studies/${slug}/evaluations/${itemNumber}/submit`, {
+        method: 'POST',
+        body: JSON.stringify({
+          response,
+          time_to_complete_ms: timeMs,
+        }),
+      }),
+
+    // v3: opt for partial completion at break
+    optPartial: (slug: string, partial: boolean): Promise<{ opted_partial: boolean }> =>
+      apiCall(`/api/v1/studies/${slug}/opt-partial`, {
+        method: 'POST',
+        body: JSON.stringify({ opted_partial: partial }),
+      }),
+
+    getDashboard: (slug: string): Promise<StudyDashboardResponse> =>
+      apiCall(`/api/v1/studies/${slug}/dashboard`),
+  },
 };
+
+// ============================================
+// STUDIES TYPES (v3)
+// ============================================
+
+export interface StudyResponse {
+  slug: string;
+  title: string;
+  description: string | null;
+  game_count: number;      // total items in battery
+  is_active: boolean;
+  participant_count: number;
+  require_auth: boolean;
+}
+
+export interface EnrollResponse {
+  enrollment_id: number;
+  study_slug: string;
+  games_completed: number;
+  items_completed: number;
+  already_enrolled: boolean;
+}
+
+export interface SurveyItem {
+  id: string;
+  type: 'likert' | 'categorical' | 'text';
+  text: string;
+  labels?: string[];
+  options?: string[];
+}
+
+export interface SurveyResponse {
+  item_id: string;
+  value: string | number;
+}
+
+// v3 item config (generative items)
+export interface StudyItemConfig {
+  item_number: number;
+  type: 'generative' | 'evaluative';
+  task: 'dat' | 'rat' | 'bridge' | 'alignment_ranking' | 'parsimony_loo' | 'peer_rating';
+  m: number;
+  n: number;
+  targets: string[];
+  solution: string | null;
+  min_words: number;
+  show_timer: boolean;
+  show_worked_example: boolean;
+  instructions: string;
+  scoring: Record<string, boolean>;
+  optional?: boolean;
+  // Evaluative-specific fields
+  stimulus_sets?: Record<string, { label: string; words: string[]; precomputed_alignment: number | null }>;
+  stimulus_set?: { words: string[]; expected_redundant: string; precomputed_deltas: Record<string, number> | null };
+  dimensions?: Array<{ key: string; prompt: string; low: string; high: string }>;
+  source_item?: number;
+  n_responses_to_rate?: number;
+  cold_start_threshold?: number;
+  cold_start_sets?: Record<string, { words: string[]; precomputed_divergence: number | null; precomputed_alignment: number | null; precomputed_parsimony: number | null }>;
+}
+
+// Backwards compat alias
+export type StudyGameConfig = StudyItemConfig;
+
+export interface WorkedExample {
+  show_before_item: number;
+  targets: string[];
+  associations: string[];
+  explanations: Array<{ word: string; connections: string }>;
+}
+
+// v3 next-item response (covers both generative and evaluative)
+export interface StudyNextItemResponse {
+  // Generative items
+  game_id?: string;
+  // Common fields
+  item_number: number;
+  config: StudyItemConfig;
+  worked_example: WorkedExample | null;
+  resumed: boolean;
+  show_break: boolean;
+  // Evaluative items
+  stimulus?: Record<string, any>;
+}
+
+// Backwards compat alias
+export type StudyNextGameResponse = StudyNextItemResponse;
+
+export interface StudyGameScoreResponse {
+  game_id: string;
+  game_number: number;
+  item_number: number;
+  game_type: string;
+  scores: Record<string, number | boolean>;
+  percentiles: Record<string, number> | null;
+  exact_match: boolean | null;
+  insufficient_data: boolean;
+  comparison?: {
+    paired_item: number;
+    paired_scores: Record<string, number | boolean>;
+    deltas: Record<string, number>;
+  } | null;
+}
+
+export interface StudyEvaluationScoreResponse {
+  item_number: number;
+  task: string;
+  feedback: Record<string, any>;
+  correct?: boolean;
+}
+
+export interface StudyProgressResponse {
+  study_slug: string;
+  enrollment_id: number;
+  games_completed: number;
+  items_completed: number;
+  total_games: number;
+  total_items: number;
+  completed_at: string | null;
+  consented_at: string | null;
+  pre_survey_done: boolean;
+  post_survey_done: boolean;
+  opted_partial: boolean | null;
+  game_scores: Array<{
+    game_id: string;
+    game_number: number;
+    item_number: number;
+    game_type: string;
+    status: string;
+    scores: Record<string, number | boolean>;
+  }>;
+  evaluation_scores: Array<{
+    item_number: number;
+    task: string;
+    feedback: Record<string, any>;
+  }>;
+}
+
+export interface StudyDashboardResponse {
+  study_slug: string;
+  study_title: string;
+  participant_count: number;
+  insufficient_data: boolean;
+  aggregate_percentiles: Record<string, number> | null;
+  per_game_scores: Array<{
+    game_number: number;
+    item_number: number;
+    game_type: string;
+    m: number;
+    n: number;
+    scores: Record<string, number | boolean>;
+    percentiles?: Record<string, number>;
+  }>;
+  scatterplot_data: Array<{
+    sender_id: string;
+    game_number: number;
+    divergence: number;
+    alignment: number;
+    parsimony: number | null;
+    is_current_user: boolean;
+  }> | null;
+  learning_curve: Array<{
+    game_number: number;
+    game_type: string;
+    divergence_percentile: number | null;
+    alignment_percentile: number | null;
+    parsimony_percentile: number | null;
+  }> | null;
+  comparison_charts: Array<{
+    label: string;
+    item_a: number;
+    item_b: number;
+    scores_a: Record<string, number>;
+    scores_b: Record<string, number>;
+  }> | null;
+  peer_feedback: {
+    item_number: number;
+    n_raters: number;
+    mean_difference: number;
+    mean_connection: number;
+    mean_uniqueness: number;
+  } | null;
+}

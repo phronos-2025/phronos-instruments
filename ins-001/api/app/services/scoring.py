@@ -25,6 +25,7 @@ Literature basis:
 
 import numpy as np
 from typing import Optional
+from scipy.optimize import linear_sum_assignment
 
 
 # ============================================
@@ -1401,6 +1402,364 @@ def test_interpretation_helpers():
     assert get_spread_interpretation_ins001_1(65) == "High"     # normalized 75%
 
 
+# ============================================
+# PAPER FORMULATIONS — Studies Scoring
+# Scale-invariant metrics from:
+# "Measuring Constructive Creativity in AI-Augmented Work" (Patel, 2026)
+# ============================================
+
+def _similarity_matrix(targets: np.ndarray, associations: np.ndarray) -> np.ndarray:
+    """
+    Build m×n cosine similarity matrix.
+
+    Args:
+        targets: (m, d) array of target embeddings
+        associations: (n, d) array of association embeddings
+
+    Returns:
+        (m, n) similarity matrix where S[i,j] = sim(t_i, a_j)
+    """
+    t_norms = np.linalg.norm(targets, axis=1, keepdims=True)
+    a_norms = np.linalg.norm(associations, axis=1, keepdims=True)
+    t_norms = np.where(t_norms == 0, 1, t_norms)
+    a_norms = np.where(a_norms == 0, 1, a_norms)
+    t_norm = targets / t_norms
+    a_norm = associations / a_norms
+    return t_norm @ a_norm.T
+
+
+def bipartite_fit(targets: np.ndarray, associations: np.ndarray) -> float:
+    """
+    Optimal one-to-one matching via Hungarian algorithm.
+
+    fit(T, A) = (1 / min(m, n)) * sum_{(i,j) in M*} S_ij
+
+    Args:
+        targets: (m, d) array
+        associations: (n, d) array
+
+    Returns:
+        Mean similarity of optimal matching.
+    """
+    S = _similarity_matrix(targets, associations)
+    row_ind, col_ind = linear_sum_assignment(-S)
+    matched_sims = S[row_ind, col_ind]
+    return float(np.mean(matched_sims))
+
+
+def compute_alignment(
+    targets: np.ndarray,
+    associations: np.ndarray,
+    foil_sets: list[np.ndarray],
+) -> float:
+    """
+    Scale-invariant alignment via foil comparison.
+
+    A_scaled = (1/k) * sum_{f=1}^{k} 1[fit(T_f, A) < fit(T, A)]
+
+    Returns proportion of foil targets for which associations provide
+    a worse fit than for the true targets.
+
+    Args:
+        targets: (m, d) array of true target embeddings
+        associations: (n, d) array of association embeddings
+        foil_sets: List of k arrays, each (m, d) — random foil target sets
+
+    Returns:
+        Alignment score in [0, 1]. 1.0 = associations uniquely suited to targets.
+    """
+    true_fit = bipartite_fit(targets, associations)
+    beats_count = sum(
+        1 for foil_targets in foil_sets
+        if bipartite_fit(foil_targets, associations) < true_fit
+    )
+    return beats_count / len(foil_sets) if foil_sets else 0.5
+
+
+def compute_alignment_simple(
+    targets: np.ndarray,
+    association: np.ndarray,
+) -> float:
+    """
+    Simple alignment for RAT items (n=1): mean cosine similarity
+    between the single association and each target.
+
+    Args:
+        targets: (m, d) array of target embeddings (RAT cue words)
+        association: (d,) single association embedding
+
+    Returns:
+        Mean similarity in [-1, 1].
+    """
+    sims = []
+    a = association / (np.linalg.norm(association) or 1)
+    for t in targets:
+        t_n = t / (np.linalg.norm(t) or 1)
+        sims.append(float(np.dot(t_n, a)))
+    return float(np.mean(sims))
+
+
+def generate_foil_sets(
+    m: int,
+    vocab_embeddings: np.ndarray,
+    k: int = 100,
+    seed: int = 42,
+) -> list[np.ndarray]:
+    """
+    Draw k random foil sets from vocabulary, each containing m words.
+    Precompute once per (m, study) — not per participant.
+
+    Args:
+        m: Number of targets to match
+        vocab_embeddings: (V, d) array of vocabulary embeddings
+        k: Number of foil sets
+        seed: Random seed for reproducibility
+
+    Returns:
+        List of k arrays, each (m, d)
+    """
+    rng = np.random.default_rng(seed)
+    V = len(vocab_embeddings)
+    foil_sets = []
+    for _ in range(k):
+        indices = rng.choice(V, size=m, replace=False)
+        foil_sets.append(vocab_embeddings[indices])
+    return foil_sets
+
+
+def _max_sim_fit(associations: np.ndarray, targets: np.ndarray) -> float:
+    """
+    fit(A, T) = (1/m) * sum_i max_j sim(t_i, a_j)
+
+    For each target, find the best-matching association.
+    """
+    S = _similarity_matrix(targets, associations)  # (m, n)
+    return float(np.mean(np.max(S, axis=1)))
+
+
+def compute_parsimony(
+    targets: np.ndarray,
+    associations: np.ndarray,
+) -> float:
+    """
+    Parsimony via leave-one-out marginal contribution.
+
+    P = mean(delta) / max(delta)
+    where delta_j = fit(A, T) - fit(A_{-j}, T)
+
+    Args:
+        targets: (m, d) array
+        associations: (n, d) array
+
+    Returns:
+        Parsimony in [1/n, 1]. 1.0 = all associations contribute equally.
+        Returns 1.0 for n=1 or if max(delta) <= 0.
+    """
+    n = len(associations)
+    if n <= 1:
+        return 1.0
+
+    full_fit = _max_sim_fit(associations, targets)
+    deltas = []
+    for j in range(n):
+        reduced = np.delete(associations, j, axis=0)
+        reduced_fit = _max_sim_fit(reduced, targets)
+        deltas.append(full_fit - reduced_fit)
+
+    deltas = np.array(deltas)
+    max_delta = np.max(deltas)
+
+    if max_delta <= 0:
+        return 1.0
+
+    return float(np.mean(deltas) / max_delta)
+
+
+def compute_recovery_mrr(
+    targets: np.ndarray,
+    associations: np.ndarray,
+    vocab_embeddings: np.ndarray,
+) -> float:
+    """
+    Mean Reciprocal Rank of true targets when vocabulary is ranked
+    by maximum similarity to any association.
+
+    Rec-MRR = (1/m) * sum_i 1/(rank_i + 1)
+
+    Args:
+        targets: (m, d) array of target embeddings
+        associations: (n, d) array of association embeddings
+        vocab_embeddings: (V, d) array — full vocabulary
+
+    Returns:
+        Recovery MRR score. Higher = associations make targets more identifiable.
+    """
+    v_norms = np.linalg.norm(vocab_embeddings, axis=1, keepdims=True)
+    a_norms = np.linalg.norm(associations, axis=1, keepdims=True)
+    v_norms = np.where(v_norms == 0, 1, v_norms)
+    a_norms = np.where(a_norms == 0, 1, a_norms)
+    v_norm = vocab_embeddings / v_norms
+    a_norm = associations / a_norms
+
+    # (V, n) similarity matrix → max per vocab word
+    sim = v_norm @ a_norm.T
+    max_sim = np.max(sim, axis=1)  # (V,)
+
+    # Each target's max-sim score
+    t_norms = np.linalg.norm(targets, axis=1, keepdims=True)
+    t_norms = np.where(t_norms == 0, 1, t_norms)
+    t_norm = targets / t_norms
+    target_sims = t_norm @ a_norm.T  # (m, n)
+    target_max_sims = np.max(target_sims, axis=1)  # (m,)
+
+    # Reciprocal rank: count vocab words with higher score
+    reciprocal_ranks = []
+    for t_score in target_max_sims:
+        rank = int(np.sum(max_sim > t_score))
+        reciprocal_ranks.append(1.0 / (rank + 1))
+
+    return float(np.mean(reciprocal_ranks))
+
+
+def score_study_dat(association_embeddings: np.ndarray) -> dict:
+    """
+    Score a DAT submission for a study (free association, no targets).
+    Uses existing calculate_spread_clues_only for 0-100 scale divergence.
+    """
+    emb_list = [e.tolist() if isinstance(e, np.ndarray) else e for e in association_embeddings]
+    return {
+        "divergence": calculate_spread_clues_only(emb_list),
+    }
+
+
+def score_study_rat(
+    target_embeddings: np.ndarray,
+    association_embedding: np.ndarray,
+    solution: Optional[str] = None,
+    submitted_word: Optional[str] = None,
+) -> dict:
+    """
+    Score a RAT submission for a study (n=1 association, m=3 cues).
+    Uses simple alignment (mean cosine similarity to targets).
+
+    Args:
+        target_embeddings: (m, d) array of RAT cue embeddings
+        association_embedding: (d,) single submitted word embedding
+        solution: canonical answer (e.g., "blue")
+        submitted_word: what the participant typed
+
+    Returns:
+        Dict with alignment and exact_match.
+    """
+    alignment = compute_alignment_simple(target_embeddings, association_embedding)
+    exact_match = (
+        submitted_word is not None
+        and solution is not None
+        and submitted_word.strip().lower() == solution.strip().lower()
+    )
+    return {
+        "alignment": alignment,
+        "exact_match": exact_match,
+    }
+
+
+def score_study_bridge(
+    target_embeddings: np.ndarray,
+    association_embeddings: np.ndarray,
+    foil_sets: list[np.ndarray],
+    vocab_embeddings: Optional[np.ndarray] = None,
+) -> dict:
+    """
+    Score a Bridge submission for a study using paper formulations.
+
+    Args:
+        target_embeddings: (m, d) array
+        association_embeddings: (n, d) array
+        foil_sets: Precomputed foil sets for alignment
+        vocab_embeddings: Optional (V, d) array for recovery computation
+
+    Returns:
+        Dict with divergence, alignment, parsimony, and optionally recovery_mrr.
+    """
+    emb_list = [e.tolist() if isinstance(e, np.ndarray) else e for e in association_embeddings]
+    result = {
+        "divergence": calculate_spread_clues_only(emb_list),
+        "alignment": compute_alignment(target_embeddings, association_embeddings, foil_sets),
+        "parsimony": compute_parsimony(target_embeddings, association_embeddings),
+    }
+    if vocab_embeddings is not None:
+        result["recovery_mrr"] = compute_recovery_mrr(
+            target_embeddings, association_embeddings, vocab_embeddings
+        )
+    return result
+
+
+# ============================================
+# In-memory foil set cache for studies
+# ============================================
+
+_foil_cache: dict[tuple[str, int], list[np.ndarray]] = {}
+
+def get_or_create_foil_sets(
+    study_slug: str,
+    m: int,
+    vocab_embeddings: np.ndarray,
+    k: int = 100,
+    seed: int = 42,
+) -> list[np.ndarray]:
+    """
+    Get cached foil sets or generate and cache them.
+    Keyed by (study_slug, m) — one set per target count per study.
+    """
+    key = (study_slug, m)
+    if key not in _foil_cache:
+        _foil_cache[key] = generate_foil_sets(m, vocab_embeddings, k=k, seed=seed)
+    return _foil_cache[key]
+
+
+# ============================================
+# TESTS — Paper Formulations
+# ============================================
+
+def test_bipartite_fit():
+    targets = np.array([[1, 0, 0], [0, 1, 0]], dtype=float)
+    assoc_good = np.array([[1, 0, 0], [0, 1, 0]], dtype=float)
+    assert bipartite_fit(targets, assoc_good) > 0.99
+    assoc_bad = np.array([[0, 0, 1], [0, 0, 1]], dtype=float)
+    assert bipartite_fit(targets, assoc_bad) < 0.01
+
+
+def test_alignment():
+    rng = np.random.default_rng(42)
+    d = 50
+    targets = rng.standard_normal((3, d))
+    good_assoc = targets + rng.standard_normal((3, d)) * 0.1
+    vocab = rng.standard_normal((500, d))
+    foils = generate_foil_sets(3, vocab, k=50, seed=42)
+    alignment = compute_alignment(targets, good_assoc, foils)
+    assert alignment > 0.8, f"Expected high alignment, got {alignment}"
+
+
+def test_parsimony():
+    targets = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=float)
+    assoc_diverse = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=float)
+    p = compute_parsimony(targets, assoc_diverse)
+    assert p > 0.9, f"Expected high parsimony, got {p}"
+    assert compute_parsimony(targets, np.array([[1, 0, 0]], dtype=float)) == 1.0
+    assoc_identical = np.array([[1, 0, 0], [1, 0, 0], [1, 0, 0]], dtype=float)
+    assert compute_parsimony(targets, assoc_identical) == 1.0
+
+
+def test_recovery_mrr():
+    rng = np.random.default_rng(42)
+    d = 50
+    targets = rng.standard_normal((3, d))
+    good_assoc = targets + rng.standard_normal((3, d)) * 0.05
+    vocab = rng.standard_normal((200, d))
+    mrr = compute_recovery_mrr(targets, good_assoc, vocab)
+    assert mrr > 0.1, f"Expected decent MRR, got {mrr}"
+
+
 if __name__ == "__main__":
     test_cosine_similarity()
     test_relevance_radiation()
@@ -1419,4 +1778,8 @@ if __name__ == "__main__":
     test_normalize_scores_zscore()
     test_compare_submissions()
     test_interpretation_helpers()
+    test_bipartite_fit()
+    test_alignment()
+    test_parsimony()
+    test_recovery_mrr()
     print("All tests passed!")

@@ -250,6 +250,63 @@ export function generateSpreadComparison(
 }
 
 // =============================================================================
+// HUMAN-AI SIMILARITY INTERPRETATIONS
+// =============================================================================
+
+export type SimilarityBand = 'divergent' | 'different' | 'moderate' | 'similar' | 'convergent';
+
+export interface SimilarityInterpretation {
+  observation: string;
+  implication: string;
+}
+
+export const SIMILARITY_INTERPRETATIONS: Record<SimilarityBand, SimilarityInterpretation> = {
+  divergent: {
+    observation: 'You and Haiku navigated this connection through very different concepts.',
+    implication: 'Your conceptual path was highly distinct from the AI baseline.',
+  },
+  different: {
+    observation: 'You and Haiku found different conceptual paths between the words.',
+    implication: 'Some divergence in how you bridged the concepts.',
+  },
+  moderate: {
+    observation: 'You and Haiku found moderately similar conceptual paths.',
+    implication: 'Some overlap in your approaches to bridging these concepts.',
+  },
+  similar: {
+    observation: 'You and Haiku navigated this connection through similar concepts.',
+    implication: 'Your conceptual path aligned with the AI baseline.',
+  },
+  convergent: {
+    observation: 'You and Haiku found nearly identical conceptual paths.',
+    implication: 'High alignment in how you bridged these concepts.',
+  },
+};
+
+// Human-AI similarity band thresholds (0-1 scale, displayed as 0-100%)
+export function getSimilarityBand(similarity: number): SimilarityBand {
+  // Normalize to 0-1 if passed as 0-100
+  const normalized = similarity > 1 ? similarity / 100 : similarity;
+  if (normalized < 0.3) return 'divergent';
+  if (normalized < 0.45) return 'different';
+  if (normalized < 0.6) return 'moderate';
+  if (normalized < 0.75) return 'similar';
+  return 'convergent';
+}
+
+// Human-readable similarity label
+export function getSimilarityLabel(band: SimilarityBand): string {
+  const labels: Record<SimilarityBand, string> = {
+    divergent: 'Divergent',
+    different: 'Different',
+    moderate: 'Moderate',
+    similar: 'Similar',
+    convergent: 'Convergent',
+  };
+  return labels[band];
+}
+
+// =============================================================================
 // METHODOLOGY NOTES
 // =============================================================================
 

@@ -4,12 +4,15 @@
  * Displays user's cognitive profile, game history, and data rights information.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { AuthProvider, useAuth } from '../auth/AuthProvider';
 import { MagicLinkModal } from '../auth/MagicLinkModal';
 import { Panel } from '../ui/Panel';
 import { api } from '../../lib/api';
 import type { UserResponse, ProfileResponse, GameHistoryResponse } from '../../lib/api';
+
+// Lazy load the dashboard to avoid loading chart.js on initial page load
+const PeerComparison = lazy(() => import('./PeerComparison').then(m => ({ default: m.PeerComparison })));
 
 const ProfilePageInner: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
@@ -193,6 +196,11 @@ const ProfilePageInner: React.FC = () => {
           <p className="no-games-text">No games played yet. Start with Signal or Common Ground.</p>
         )}
       </Panel>
+
+      {/* Peer Comparison Dashboard (from study participation) */}
+      <Suspense fallback={null}>
+        <PeerComparison />
+      </Suspense>
 
       {/* Data & Privacy */}
       <Panel title="Data & Privacy">

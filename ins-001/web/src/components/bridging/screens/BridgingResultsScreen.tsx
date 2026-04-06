@@ -29,16 +29,20 @@ import { InterpretationPanel, MetricRow, ComparisonRow } from '../../ui/Interpre
 import {
   FIDELITY_INTERPRETATIONS,
   SPREAD_INTERPRETATIONS_001_2,
+  SIMILARITY_INTERPRETATIONS,
   METHODOLOGY_NOTES,
   VALIDITY_WARNINGS,
   getFidelityBand,
   getFidelityLabel,
   getSpreadBand001_2,
   getSpreadLabel001_2,
+  getSimilarityBand,
+  getSimilarityLabel,
   generateSpreadComparison,
   isFidelityValid,
   type FidelityBand,
   type SpreadBand001_2,
+  type SimilarityBand,
 } from '../../../lib/interpretation';
 
 // Morphological variant detection (mirrors backend logic)
@@ -214,6 +218,13 @@ interface InterpretationResult {
     observation: string;
     implication: string;
   };
+  humanAiSimilarity?: {
+    score: number;
+    band: SimilarityBand;
+    label: string;
+    observation: string;
+    implication: string;
+  };
   comparisons: {
     haiku?: string;
     statistical?: string;
@@ -225,7 +236,8 @@ function generateStructuredInterpretation(
   participantSpread: number,
   haikuSpread: number | null,
   statisticalSpread: number | null,
-  participantFidelity: number
+  participantFidelity: number,
+  haikuBridgeSimilarity: number | null
 ): InterpretationResult {
   const fidelityDisplay = participantFidelity > 1 ? participantFidelity : participantFidelity * 100;
   const fidelityBand = getFidelityBand(participantFidelity);
@@ -258,6 +270,21 @@ function generateStructuredInterpretation(
     result.validityWarning = VALIDITY_WARNINGS.fidelity;
   }
 
+  // Human-AI Similarity (if Haiku data available)
+  if (haikuBridgeSimilarity !== null) {
+    const similarityDisplay = haikuBridgeSimilarity <= 1 ? haikuBridgeSimilarity * 100 : haikuBridgeSimilarity;
+    const similarityBand = getSimilarityBand(haikuBridgeSimilarity);
+    const similarityInterp = SIMILARITY_INTERPRETATIONS[similarityBand];
+
+    result.humanAiSimilarity = {
+      score: similarityDisplay,
+      band: similarityBand,
+      label: getSimilarityLabel(similarityBand),
+      observation: similarityInterp.observation,
+      implication: similarityInterp.implication,
+    };
+  }
+
   // Haiku comparison
   if (haikuSpread !== null) {
     const comparison = generateSpreadComparison(participantSpread, haikuSpread, 'Haiku');
@@ -278,13 +305,15 @@ function generateInterpretation(
   participantSpread: number,
   haikuSpread: number | null,
   statisticalSpread: number | null,
-  participantFidelity: number
+  participantFidelity: number,
+  haikuBridgeSimilarity: number | null = null
 ): string {
   const result = generateStructuredInterpretation(
     participantSpread,
     haikuSpread,
     statisticalSpread,
-    participantFidelity
+    participantFidelity,
+    haikuBridgeSimilarity
   );
 
   if (!result.isValid) {
@@ -655,6 +684,7 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
   const haikuClues = game.haiku_clues;
   const haikuFidelity = game.haiku_fidelity ?? game.haiku_relevance ?? game.haiku_binding;
   const haikuSpread = game.haiku_divergence;
+  const haikuBridgeSimilarity = game.haiku_bridge_similarity;
   const hasHaikuUnion = haikuClues && haikuClues.length > 0;
 
   // Lexical/Statistical data
@@ -845,7 +875,8 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
           spread,
           hasHaikuUnion && haikuSpread !== undefined ? haikuSpread : null,
           hasLexicalUnion && lexicalSpread != null ? lexicalSpread : null,
-          fidelityDisplay
+          fidelityDisplay,
+          hasHaikuUnion && haikuBridgeSimilarity != null ? haikuBridgeSimilarity : null
         );
 
         return (
@@ -883,6 +914,17 @@ export const BridgingResultsScreen: React.FC<BridgingResultsScreenProps> = ({
               observation={interpretation.spread.observation}
               implication={interpretation.spread.implication}
             />
+
+            {/* Human-AI Similarity interpretation */}
+            {interpretation.humanAiSimilarity && (
+              <MetricRow
+                label="Human-AI Similarity"
+                score={interpretation.humanAiSimilarity.score}
+                band={interpretation.humanAiSimilarity.label}
+                observation={interpretation.humanAiSimilarity.observation}
+                implication={interpretation.humanAiSimilarity.implication}
+              />
+            )}
 
             {/* Baseline comparisons */}
             {interpretation.comparisons.haiku && (
