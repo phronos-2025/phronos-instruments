@@ -1,0 +1,57 @@
+---
+/**
+ * Study Page — Self-paced game battery with surveys and peer comparison.
+ * Renders the StudyPage React component which handles all internal routing.
+ */
+export const prerender = false;
+
+import '../../../styles/global.css';
+import '../../../styles/components.css';
+import { StudyPage } from '../../../components/study/StudyPage';
+
+const { slug } = Astro.params;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Phronos — Study</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <meta name="description" content="Participate in a Phronos creativity study" />
+    <meta name="theme-color" content="#0D0D0D" />
+  </head>
+  <body>
+    <main>
+      <StudyPage client:load slug={slug!} />
+    </main>
+  </body>
+</html>
+
+<style>
+  body {
+    min-height: 100vh;
+    background: var(--bg-deep);
+    position: relative;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-image:
+      linear-gradient(var(--grid-color) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+    background-size: var(--grid-size) var(--grid-size);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  main {
+    position: relative;
+    z-index: 1;
+    min-height: 100vh;
+  }
+</style>

@@ -1,0 +1,28 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="512" height="512" fill="#1A1A1A"/>
+
+  <!-- Ouroboros (serpent ring) - matches original orientation with head at top-right -->
+  <g transform="translate(256, 256) rotate(-45)">
+    <!-- Serpent body arc - goes from tail to just before head position -->
+    <path
+      d="M 95 -75 A 121 121 0 1 0 95 75"
+      stroke="#E5E5E5"
+      stroke-width="28"
+      stroke-linecap="round"
+      fill="none"
+    />
+
+    <!-- Serpent head -->
+    <circle cx="95" cy="-75" r="35" fill="#E5E5E5"/>
+
+    <!-- Serpent eye -->
+    <circle cx="95" cy="-75" r="13" fill="#B08D55"/>
+  </g>
+
+  <!-- Center pulsing ring (static representation) -->
+  <circle cx="256" cy="256" r="50" stroke="rgba(176, 141, 85, 0.4)" stroke-width="12" fill="none"/>
+
+  <!-- Center gold dot -->
+  <circle cx="256" cy="256" r="18" fill="#B08D55"/>
+</svg>

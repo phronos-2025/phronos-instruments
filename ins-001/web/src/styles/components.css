@@ -1117,3 +1117,53 @@
     padding: var(--space-sm);
   }
 }
+
+
+/* ============================================
+   STUDY FLOW
+   ============================================ */
+
+.study-container {
+  max-width: 700px;
+  margin: 0 auto;
+  padding: var(--space-lg) var(--space-md);
+}
+
+.study-loading,
+.study-error {
+  text-align: center;
+  padding: var(--space-2xl) var(--space-md);
+}
+
+.study-error h2 {
+  font-family: var(--font-serif);
+  font-weight: 300;
+  font-size: 1.5rem;
+  color: var(--text-light);
+  margin-bottom: var(--space-md);
+}
+
+.study-error p {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--faded);
+  margin-bottom: var(--space-md);
+}
+
+.study-error button {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--bg-deep);
+  background: var(--gold);
+  border: 1px solid var(--gold);
+  padding: var(--space-sm) var(--space-md);
+  cursor: pointer;
+}
+
+@media (max-width: 600px) {
+  .study-container {
+    padding: var(--space-md) var(--space-sm);
+  }
+}
