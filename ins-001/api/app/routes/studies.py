@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, Any
 from postgrest.exceptions import APIError
 
-from app.middleware.auth import get_authenticated_client, get_optional_client
+from app.middleware.auth import get_authenticated_client, get_optional_client, get_service_client
 from app.services.cache import EmbeddingCache, VocabularyPool
 from app.routes.games import get_current_model_versions
 from app.services.scoring import (
@@ -320,6 +320,17 @@ def _increment_items_only(supabase, slug: str, user_id: str):
         .execute()
 
 
+def _count_completed_participants(slug: str) -> int:
+    """Count completed participants using service client to bypass RLS."""
+    svc = get_service_client()
+    result = svc.table("study_enrollments") \
+        .select("id", count="exact") \
+        .eq("study_slug", slug) \
+        .not_.is_("completed_at", "null") \
+        .execute()
+    return result.count or 0
+
+
 # ============================================
 # ROUTES
 # ============================================
@@ -365,9 +376,10 @@ async def list_studies(auth=Depends(get_optional_client)):
 
     slugs = [s["slug"] for s in studies_data]
 
-    # Get participant counts per study (completed enrollments)
-    counts_result = supabase.table("study_enrollments") \
-        .select("study_slug, id", count="exact") \
+    # Get participant counts per study using service client to bypass RLS
+    svc = get_service_client()
+    counts_result = svc.table("study_enrollments") \
+        .select("study_slug, id") \
         .in_("study_slug", slugs) \
         .not_.is_("completed_at", "null") \
         .execute()
@@ -438,13 +450,7 @@ async def get_study(slug: str, auth=Depends(get_optional_client)):
     study = result.data
     battery, _, _ = _parse_study_config(study.get("config", []))
 
-    count_result = supabase.table("study_enrollments") \
-        .select("id", count="exact") \
-        .eq("study_slug", slug) \
-        .not_.is_("completed_at", "null") \
-        .execute()
-
-    participant_count = count_result.count or 0
+    participant_count = _count_completed_participants(slug)
 
     return StudyResponse(
         slug=study["slug"],
@@ -1082,7 +1088,8 @@ async def _compute_percentiles(
     supabase, slug: str, game_number: int, my_scores: dict, user_id: str
 ) -> dict:
     """Compute percentile rank within the study cohort for a specific game."""
-    result = supabase.table("games") \
+    svc = get_service_client()
+    result = svc.table("games") \
         .select("sender_scores") \
         .eq("study_slug", slug) \
         .eq("game_number", game_number) \
@@ -1154,15 +1161,11 @@ async def get_dashboard(slug: str, auth=Depends(get_authenticated_client)):
 
     battery, _, _ = _parse_study_config(study_result.data.get("config", []))
 
-    count_result = supabase.table("study_enrollments") \
-        .select("id", count="exact") \
-        .eq("study_slug", slug) \
-        .not_.is_("completed_at", "null") \
-        .execute()
-    participant_count = count_result.count or 0
+    participant_count = _count_completed_participants(slug)
     insufficient = participant_count < 20
 
-    all_games = supabase.table("games") \
+    svc = get_service_client()
+    all_games = svc.table("games") \
         .select("sender_id, game_number, sender_scores, game_type") \
         .eq("study_slug", slug) \
         .eq("status", "completed") \
