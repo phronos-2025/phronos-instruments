@@ -123,8 +123,8 @@ export function StudyScoreReveal() {
         </h2>
       </div>
 
-      {/* RAT exact match callout */}
-      {score.exact_match === true && (
+      {/* RAT correct/incorrect callout */}
+      {isRat && score.exact_match === true && (
         <div style={{
           textAlign: 'center',
           marginBottom: 'var(--space-md)',
@@ -133,8 +133,26 @@ export function StudyScoreReveal() {
           background: 'rgba(68, 170, 119, 0.1)',
         }}>
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--active)' }}>
-            Correct answer!
+            Correct!
           </span>
+        </div>
+      )}
+      {isRat && score.exact_match === false && (
+        <div style={{
+          textAlign: 'center',
+          marginBottom: 'var(--space-md)',
+          padding: 'var(--space-sm)',
+          border: '1px solid #CC5544',
+          background: 'rgba(204, 85, 68, 0.1)',
+        }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: '#CC5544' }}>
+            Not quite
+          </span>
+          {state.currentItem?.config?.solution && (
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--text-light)', marginTop: 'var(--space-xs)' }}>
+              The answer was <strong style={{ color: 'var(--gold)' }}>{state.currentItem.config.solution}</strong>
+            </p>
+          )}
         </div>
       )}
 
