@@ -80,20 +80,66 @@ export function EvaluativeFeedback() {
               </div>
             )}
 
-            {/* Parsimony LOO feedback */}
-            {(evaluation.feedback.expected_word || evaluation.feedback.expected_redundant) && (
+            {/* Parsimony LOO feedback — show how choice compares to others */}
+            {evaluation.task === 'parsimony_loo' && evaluation.feedback.choice_counts && (
               <div>
                 <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'var(--faded)', textTransform: 'uppercase', marginBottom: 'var(--space-xs)' }}>
-                  Most redundant word
+                  You chose: <span style={{ color: 'var(--gold)' }}>{evaluation.feedback.selected as string}</span>
                 </p>
-                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem', color: 'var(--gold)' }}>
-                  {(evaluation.feedback.expected_word || evaluation.feedback.expected_redundant) as string}
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--faded)', marginBottom: 'var(--space-sm)', lineHeight: 1.5 }}>
+                  Here's how others answered:
                 </p>
-                {evaluation.feedback.explanation && (
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--faded)', marginTop: 'var(--space-xs)', lineHeight: 1.5 }}>
-                    {evaluation.feedback.explanation as string}
-                  </p>
-                )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {Object.entries(evaluation.feedback.choice_counts as Record<string, number>)
+                    .sort(([, a], [, b]) => (b as number) - (a as number))
+                    .map(([word, count]) => {
+                      const total = evaluation.feedback.total_responses as number || 1;
+                      const pct = Math.round(((count as number) / total) * 100);
+                      const isSelected = word === evaluation.feedback.selected;
+                      return (
+                        <div key={word} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
+                          <span style={{
+                            fontFamily: 'var(--font-mono)',
+                            fontSize: '0.8rem',
+                            width: '70px',
+                            textAlign: 'right',
+                            color: isSelected ? 'var(--gold)' : 'var(--text-light)',
+                            fontWeight: isSelected ? 600 : 400,
+                          }}>
+                            {word}
+                          </span>
+                          <div style={{
+                            flex: 1,
+                            height: '16px',
+                            background: 'rgba(255,255,255,0.05)',
+                            borderRadius: '2px',
+                            overflow: 'hidden',
+                          }}>
+                            <div style={{
+                              width: `${pct}%`,
+                              height: '100%',
+                              background: isSelected ? 'var(--gold)' : 'rgba(255,255,255,0.15)',
+                              borderRadius: '2px',
+                              transition: 'width 0.4s ease',
+                              minWidth: (count as number) > 0 ? '2px' : '0',
+                            }} />
+                          </div>
+                          <span style={{
+                            fontFamily: 'var(--font-mono)',
+                            fontSize: '0.7rem',
+                            color: 'var(--faded)',
+                            width: '36px',
+                            textAlign: 'right',
+                          }}>
+                            {pct}%
+                          </span>
+                        </div>
+                      );
+                    })}
+                </div>
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', color: 'var(--faded)', marginTop: 'var(--space-sm)' }}>
+                  Based on {evaluation.feedback.total_responses as number} response{(evaluation.feedback.total_responses as number) !== 1 ? 's' : ''}
+                </p>
               </div>
             )}
 
