@@ -174,6 +174,7 @@ class GroupResultsData(BaseModel):
     learning_curve: Optional[list[dict[str, Any]]] = None
     validation: Optional[dict[str, Any]] = None
     feedback: Optional[dict[str, Any]] = None
+    user_scores: Optional[dict[str, Any]] = None
 
 
 # ============================================
@@ -1348,8 +1349,9 @@ async def get_dashboard(slug: str, auth=Depends(get_authenticated_client)):
 
 
 @router.get("/{slug}/group-results", response_model=GroupResultsData)
-async def get_group_results(slug: str):
-    """Public aggregate results for the group dashboard. No auth required."""
+async def get_group_results(slug: str, auth=Depends(get_optional_client)):
+    """Public aggregate results for the group dashboard. Auth optional for personal overlay."""
+    _, user = auth
     svc = get_service_client()
 
     try:
@@ -1756,6 +1758,69 @@ async def get_group_results(slug: str):
     except Exception:
         pass
 
+    # --- User's personal scores (when authenticated) ---
+    user_scores = None
+    if user and games_data:
+        user_id = user["id"]
+        my_games = [g for g in games_data if g["sender_id"] == user_id]
+        if my_games:
+            per_item = []
+            for g in my_games:
+                scores = g.get("sender_scores") or {}
+                item_num = g["game_number"]
+                item_cfg = battery[item_num - 1] if item_num <= len(battery) else {}
+                ali = scores.get("alignment_display", scores.get("alignment"))
+                if ali is not None and ali <= 1:
+                    ali = ali * 100
+                per_item.append({
+                    "item_number": item_num,
+                    "game_type": item_cfg.get("task", g.get("game_type", "")),
+                    "m": item_cfg.get("m"),
+                    "n": item_cfg.get("n"),
+                    "divergence": scores.get("divergence"),
+                    "alignment": round(ali, 1) if ali is not None else None,
+                    "parsimony": scores.get("parsimony"),
+                })
+
+            # Compute aggregate percentiles for this user
+            agg_pcts = {}
+            for metric, fb in [("divergence", None), ("alignment_display", "alignment"), ("parsimony", None)]:
+                pcts = []
+                for g in my_games:
+                    scores = g.get("sender_scores") or {}
+                    val = scores.get(metric)
+                    if val is None and fb:
+                        raw = scores.get(fb)
+                        if raw is not None:
+                            val = raw * 100 if raw <= 1 else raw
+                    if val is None:
+                        continue
+                    # Count how many in this item scored <= this user
+                    same_item = [
+                        gg["sender_scores"] for gg in games_data
+                        if gg["game_number"] == g["game_number"] and gg.get("sender_scores")
+                    ]
+                    vals = []
+                    for s in same_item:
+                        v = s.get(metric)
+                        if v is None and fb:
+                            raw = s.get(fb)
+                            if raw is not None:
+                                v = raw * 100 if raw <= 1 else raw
+                        if v is not None:
+                            vals.append(v)
+                    if vals:
+                        count_below = sum(1 for v in vals if v <= val)
+                        pcts.append(100 * count_below / len(vals))
+                display_key = "alignment" if metric == "alignment_display" else metric
+                if pcts:
+                    agg_pcts[display_key] = round(sum(pcts) / len(pcts), 1)
+
+            user_scores = {
+                "per_item": per_item,
+                "aggregate_percentiles": agg_pcts if agg_pcts else None,
+            }
+
     return GroupResultsData(
         study_slug=slug,
         study_title=study_result.data["title"],
@@ -1767,6 +1832,7 @@ async def get_group_results(slug: str):
         learning_curve=learning_curve,
         validation=validation,
         feedback=feedback,
+        user_scores=user_scores,
     )
 
 

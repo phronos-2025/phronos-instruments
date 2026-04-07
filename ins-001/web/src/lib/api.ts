@@ -1052,4 +1052,16 @@ export interface GroupResultsResponse {
     }>;
     quotes: string[];
   } | null;
+  user_scores: {
+    per_item: Array<{
+      item_number: number;
+      game_type: string;
+      m: number | null;
+      n: number | null;
+      divergence: number | null;
+      alignment: number | null;
+      parsimony: number | null;
+    }>;
+    aggregate_percentiles: Record<string, number> | null;
+  } | null;
 }

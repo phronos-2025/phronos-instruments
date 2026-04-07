@@ -1,6 +1,7 @@
 /**
  * Group Dashboard — Public aggregate results for a study.
  * Designed for projection (1920×1080) and sharing via link.
+ * When authenticated, overlays the user's personal scores on each chart.
  */
 
 import React, { useState, useEffect, lazy, Suspense } from 'react';
@@ -17,6 +18,8 @@ const JoinCTA = lazy(() => import('../dashboard/group/JoinCTA').then(m => ({ def
 interface GroupDashboardProps {
   slug: string;
 }
+
+export type UserScores = NonNullable<GroupResultsResponse['user_scores']>;
 
 function formatDateRange(range: { first: string; last: string } | null): string {
   if (!range) return '';
@@ -50,10 +53,45 @@ function ThresholdMessage({ message }: { message: string }) {
   );
 }
 
+function MyScoresToggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
+  return (
+    <button
+      onClick={onToggle}
+      style={{
+        fontFamily: 'var(--font-mono)',
+        fontSize: '0.7rem',
+        textTransform: 'uppercase',
+        letterSpacing: '1px',
+        color: enabled ? 'var(--gold)' : 'var(--faded)',
+        background: enabled ? 'rgba(176, 141, 85, 0.12)' : 'var(--card-bg)',
+        border: `1px solid ${enabled ? 'var(--gold)' : 'var(--faded-light)'}`,
+        padding: '0.4rem 0.8rem',
+        cursor: 'pointer',
+        transition: 'all 0.2s ease',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.4rem',
+      }}
+    >
+      <span style={{
+        width: '8px',
+        height: '8px',
+        background: enabled ? 'var(--gold)' : 'transparent',
+        border: `1.5px solid ${enabled ? 'var(--gold)' : 'var(--faded)'}`,
+        borderRadius: '1px',
+        transform: 'rotate(45deg)',
+        display: 'inline-block',
+      }} />
+      My scores
+    </button>
+  );
+}
+
 export function GroupDashboard({ slug }: GroupDashboardProps) {
   const [data, setData] = useState<GroupResultsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showMyScores, setShowMyScores] = useState(true);
 
   useEffect(() => {
     async function load() {
@@ -91,24 +129,35 @@ export function GroupDashboard({ slug }: GroupDashboardProps) {
 
   const dateStr = formatDateRange(data.date_range);
   const insufficientForAll = data.participant_count < 5;
+  const hasUserScores = !!data.user_scores;
+  const userScores = showMyScores ? data.user_scores : null;
 
   return (
     <div style={containerStyle}>
       {/* Header */}
       <header style={{ marginBottom: '3rem' }}>
         <div style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: '0.65rem',
-          textTransform: 'uppercase',
-          letterSpacing: '2px',
-          color: 'var(--gold)',
-          marginBottom: '1rem',
           display: 'flex',
+          justifyContent: 'space-between',
           alignItems: 'center',
-          gap: '0.5rem',
+          marginBottom: '1rem',
         }}>
-          <span style={{ width: '24px', height: '1px', background: 'var(--gold)', display: 'inline-block' }} />
-          Group Results
+          <div style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.65rem',
+            textTransform: 'uppercase',
+            letterSpacing: '2px',
+            color: 'var(--gold)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+          }}>
+            <span style={{ width: '24px', height: '1px', background: 'var(--gold)', display: 'inline-block' }} />
+            Group Results
+          </div>
+          {hasUserScores && (
+            <MyScoresToggle enabled={showMyScores} onToggle={() => setShowMyScores(v => !v)} />
+          )}
         </div>
         <h1 style={{
           fontFamily: 'var(--font-serif)',
@@ -140,6 +189,7 @@ export function GroupDashboard({ slug }: GroupDashboardProps) {
               <CohortDistributions
                 distributions={data.cohort_distributions}
                 participantCount={data.participant_count}
+                userPercentiles={userScores?.aggregate_percentiles ?? undefined}
               />
             ) : (
               <ThresholdMessage message="Cohort distributions require more participants." />
@@ -149,7 +199,10 @@ export function GroupDashboard({ slug }: GroupDashboardProps) {
           {/* Section 3: Scatterplot */}
           <section style={sectionStyle}>
             {data.scatterplot_data && data.scatterplot_data.length > 0 ? (
-              <DivAlignScatterAll data={data.scatterplot_data} />
+              <DivAlignScatterAll
+                data={data.scatterplot_data}
+                userScores={userScores?.per_item}
+              />
             ) : (
               <ThresholdMessage message="Scatterplot data not yet available." />
             )}
@@ -158,7 +211,10 @@ export function GroupDashboard({ slug }: GroupDashboardProps) {
           {/* Section 4: Constraint Effects */}
           <section style={sectionStyle}>
             {data.constraint_effects ? (
-              <ConstraintEffects effects={data.constraint_effects} />
+              <ConstraintEffects
+                effects={data.constraint_effects}
+                userScores={userScores?.per_item}
+              />
             ) : (
               <ThresholdMessage message="Constraint effect comparison requires data from both Item 4 and Item 8." />
             )}

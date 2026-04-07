@@ -16,8 +16,19 @@ interface DataPoint {
   n: number;
 }
 
+interface UserItem {
+  item_number: number;
+  game_type: string;
+  m: number | null;
+  n: number | null;
+  divergence: number | null;
+  alignment: number | null;
+  parsimony: number | null;
+}
+
 interface Props {
   data: DataPoint[];
+  userScores?: UserItem[];
 }
 
 const ITEM_COLORS: Record<number, { bg: string; border: string; label: string }> = {
@@ -27,7 +38,7 @@ const ITEM_COLORS: Record<number, { bg: string; border: string; label: string }>
   10: { bg: 'rgba(170, 100, 180, 0.35)', border: '#AA64B4', label: 'Item 10 (5,5)' },
 };
 
-export function DivAlignScatterAll({ data }: Props) {
+export function DivAlignScatterAll({ data, userScores }: Props) {
   const itemGroups = new Map<number, DataPoint[]>();
   for (const d of data) {
     if (!itemGroups.has(d.item_number)) itemGroups.set(d.item_number, []);
@@ -50,6 +61,27 @@ export function DivAlignScatterAll({ data }: Props) {
         }),
       };
     });
+
+  // Add user's Bridge items as a highlighted dataset
+  if (userScores) {
+    const userBridge = userScores.filter(s =>
+      s.game_type === 'bridge' && s.divergence != null && s.alignment != null
+    );
+    if (userBridge.length > 0) {
+      datasets.push({
+        label: 'You',
+        data: userBridge.map(s => ({ x: s.divergence!, y: s.alignment! })),
+        backgroundColor: CHART_COLORS.goldDim,
+        borderColor: CHART_COLORS.gold,
+        borderWidth: 2.5,
+        pointRadius: userBridge.map(s => {
+          const p = s.parsimony ?? 0.5;
+          return 6 + p * 10;
+        }),
+        pointStyle: 'rectRot' as const,
+      } as any);
+    }
+  }
 
   const options = {
     ...baseChartOptions('Divergence vs Alignment'),

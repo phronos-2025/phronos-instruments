@@ -1,6 +1,7 @@
 /**
  * Cohort Distributions — 3 full-width histograms showing aggregate percentile
  * distributions for divergence, alignment, and parsimony across all participants.
+ * Optionally overlays the authenticated user's percentile as a gold marker.
  */
 
 import React from 'react';
@@ -21,6 +22,7 @@ interface Props {
     parsimony?: MetricDist;
   };
   participantCount: number;
+  userPercentiles?: Record<string, number>;
 }
 
 function buildHistogram(values: number[], bins = 20): number[] {
@@ -32,7 +34,7 @@ function buildHistogram(values: number[], bins = 20): number[] {
   return counts;
 }
 
-function DistributionChart({ label, dist, color }: { label: string; dist: MetricDist; color: string }) {
+function DistributionChart({ label, dist, color, userPct }: { label: string; dist: MetricDist; color: string; userPct?: number }) {
   const bins = 20;
   const counts = buildHistogram(dist.values, bins);
   const labels = Array.from({ length: bins }, (_, i) => `${i * 5}`);
@@ -62,6 +64,29 @@ function DistributionChart({ label, dist, color }: { label: string; dist: Metric
           label: (ctx: any) => `${ctx.raw} participants`,
         },
       },
+      // Annotation plugin for user marker line
+      ...(userPct != null ? {
+        annotation: {
+          annotations: {
+            userLine: {
+              type: 'line' as const,
+              xMin: userPct / 5,
+              xMax: userPct / 5,
+              borderColor: CHART_COLORS.gold,
+              borderWidth: 2,
+              borderDash: [4, 2],
+              label: {
+                display: true,
+                content: 'You',
+                position: 'start' as const,
+                backgroundColor: 'transparent',
+                color: CHART_COLORS.gold,
+                font: { family: "'Fira Code', monospace", size: 10, weight: 'bold' as const },
+              },
+            },
+          },
+        },
+      } : {}),
     },
     scales: {
       x: {
@@ -90,7 +115,7 @@ function DistributionChart({ label, dist, color }: { label: string; dist: Metric
   };
 
   return (
-    <div style={{ marginBottom: '2rem' }}>
+    <div style={{ marginBottom: '2rem', position: 'relative' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.75rem' }}>
         <span style={{
           fontFamily: "var(--font-serif)",
@@ -104,6 +129,9 @@ function DistributionChart({ label, dist, color }: { label: string; dist: Metric
           color: 'var(--faded)',
         }}>
           mean: {dist.mean.toFixed(1)}&nbsp;&nbsp;&nbsp;&nbsp;median: {dist.median.toFixed(1)}
+          {userPct != null && (
+            <>&nbsp;&nbsp;&nbsp;&nbsp;<span style={{ color: CHART_COLORS.gold }}>you: {userPct.toFixed(0)}th</span></>
+          )}
         </span>
       </div>
       <div style={{ height: '100px' }}>
@@ -113,9 +141,8 @@ function DistributionChart({ label, dist, color }: { label: string; dist: Metric
   );
 }
 
-export function CohortDistributions({ distributions, participantCount }: Props) {
+export function CohortDistributions({ distributions, participantCount, userPercentiles }: Props) {
   if (participantCount < 5) {
-    // Show text-only mean/SD
     const metrics = [
       { key: 'divergence' as const, label: 'Divergence', color: METRIC_COLORS.divergence },
       { key: 'alignment' as const, label: 'Alignment', color: METRIC_COLORS.alignment },
@@ -167,13 +194,13 @@ export function CohortDistributions({ distributions, participantCount }: Props) 
         marginBottom: '1.5rem',
       }}>Cohort Distributions</div>
       {distributions.divergence && (
-        <DistributionChart label="Divergence" dist={distributions.divergence} color={METRIC_COLORS.divergence} />
+        <DistributionChart label="Divergence" dist={distributions.divergence} color={METRIC_COLORS.divergence} userPct={userPercentiles?.divergence} />
       )}
       {distributions.alignment && (
-        <DistributionChart label="Alignment" dist={distributions.alignment} color={METRIC_COLORS.alignment} />
+        <DistributionChart label="Alignment" dist={distributions.alignment} color={METRIC_COLORS.alignment} userPct={userPercentiles?.alignment} />
       )}
       {distributions.parsimony && (
-        <DistributionChart label="Parsimony" dist={distributions.parsimony} color={METRIC_COLORS.parsimony} />
+        <DistributionChart label="Parsimony" dist={distributions.parsimony} color={METRIC_COLORS.parsimony} userPct={userPercentiles?.parsimony} />
       )}
     </div>
   );
