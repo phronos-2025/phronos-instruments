@@ -158,7 +158,7 @@ async def get_game_history(
 
     # Get games with pagination
     games_result = supabase.table("games") \
-        .select("id, game_type, setup, sender_scores, status, created_at, completed_at, study_slug") \
+        .select("id, game_type, setup, sender_scores, status, created_at, completed_at, study_slug, game_number") \
         .eq("sender_id", user["id"]) \
         .order("created_at", desc=True) \
         .range(offset, offset + limit - 1) \
@@ -178,10 +178,17 @@ async def get_game_history(
             divergence=scores.get("divergence"),
             relevance=scores.get("relevance"),
             convergence=scores.get("convergence"),
+            alignment=scores.get("alignment"),
+            parsimony=scores.get("parsimony"),
+            recovery_mrr=scores.get("recovery_mrr"),
             status=g["status"],
             created_at=g["created_at"],
             completed_at=g.get("completed_at"),
             study_slug=g.get("study_slug"),
+            game_number=g.get("game_number"),
+            study_game_type=setup.get("study_game_type"),
+            targets=setup.get("targets"),
+            n=setup.get("n"),
         )
         games.append(item)
 

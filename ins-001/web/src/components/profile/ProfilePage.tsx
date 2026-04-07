@@ -9,11 +9,29 @@ import { AuthProvider, useAuth } from '../auth/AuthProvider';
 import { MagicLinkModal } from '../auth/MagicLinkModal';
 import { Panel } from '../ui/Panel';
 import { api } from '../../lib/api';
-import type { UserResponse, ProfileResponse, GameHistoryResponse, StudyListItem } from '../../lib/api';
+import type { UserResponse, ProfileResponse, GameHistoryResponse, GameHistoryItem, StudyListItem } from '../../lib/api';
 import { StudyCard } from '../studies/StudyCard';
 
 // Lazy load the dashboard to avoid loading chart.js on initial page load
 const PeerComparison = lazy(() => import('./PeerComparison').then(m => ({ default: m.PeerComparison })));
+
+function getStudyTaskLabel(game: GameHistoryItem): string {
+  const m = game.targets?.length ?? 0;
+  const n = game.n ?? 0;
+  const parts: string[] = [];
+  if (m > 0) parts.push(`${m} ${m === 1 ? 'target' : 'targets'}`);
+  if (n > 0) parts.push(`${n} ${n === 1 ? 'association' : 'associations'}`);
+  if (parts.length === 0) return game.game_number ? `Task #${game.game_number}` : 'Task';
+  return parts.join(', ');
+}
+
+function getStudyDetail(game: GameHistoryItem): string {
+  if (game.targets && game.targets.length > 0) {
+    return game.targets.join(', ');
+  }
+  if (game.seed_word) return game.seed_word;
+  return '';
+}
 
 const ProfilePageInner: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
@@ -185,39 +203,63 @@ const ProfilePageInner: React.FC = () => {
       <Panel title="Game History" meta={`${gameHistory?.total || 0} sessions`}>
         {gameHistory && gameHistory.games.length > 0 ? (
           <div className="history-list">
-            {gameHistory.games.map((game) => (
-              <div key={game.game_id} className="history-item">
-                <div className="history-item-header">
-                  <span className="history-type">
-                    {game.game_type === 'radiation' ? 'Signal' : 'Common Ground'}
-                  </span>
-                  <span className="history-date">
-                    {formatDate(game.created_at)}
-                    {game.study_slug && (
-                      <span className="history-study-tag">{game.study_slug.toUpperCase()}</span>
-                    )}
+            {gameHistory.games.map((game) => {
+              const isStudyGame = !!game.study_slug;
+              const taskLabel = isStudyGame
+                ? getStudyTaskLabel(game)
+                : game.game_type === 'radiation' ? 'Signal' : 'Common Ground';
+              const detail = isStudyGame
+                ? getStudyDetail(game)
+                : game.game_type === 'radiation'
+                  ? game.seed_word
+                  : `${game.anchor_word} → ${game.target_word}`;
+
+              return (
+                <div key={game.game_id} className="history-item">
+                  <div className="history-item-header">
+                    <span className="history-type">
+                      {taskLabel}
+                    </span>
+                    <span className="history-date">
+                      {formatDate(game.created_at)}
+                      {game.study_slug && (
+                        <span className="history-study-tag">{game.study_slug.toUpperCase()}</span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="history-item-details">
+                    <span className="history-seed">{detail}</span>
+                    <span className="history-scores">
+                      {isStudyGame ? (
+                        <>
+                          {game.divergence != null && (
+                            <span className="score-badge">Div: {formatScore(game.divergence)}</span>
+                          )}
+                          {game.alignment != null && (
+                            <span className="score-badge">Align: {formatScore(game.alignment)}</span>
+                          )}
+                          {game.parsimony != null && (
+                            <span className="score-badge">Pars: {formatScore(game.parsimony)}</span>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          {game.divergence != null && (
+                            <span className="score-badge">Div: {formatScore(game.divergence)}</span>
+                          )}
+                          {game.relevance != null && (
+                            <span className="score-badge">Rel: {formatScore(game.relevance! * 100)}%</span>
+                          )}
+                        </>
+                      )}
+                    </span>
+                  </div>
+                  <span className={`history-status status-${game.status}`}>
+                    {game.status === 'completed' ? 'Completed' : game.status}
                   </span>
                 </div>
-                <div className="history-item-details">
-                  <span className="history-seed">
-                    {game.game_type === 'radiation'
-                      ? game.seed_word
-                      : `${game.anchor_word} → ${game.target_word}`}
-                  </span>
-                  <span className="history-scores">
-                    {game.divergence !== null && game.divergence !== undefined && (
-                      <span className="score-badge">Div: {formatScore(game.divergence)}</span>
-                    )}
-                    {game.relevance !== null && game.relevance !== undefined && (
-                      <span className="score-badge">Rel: {formatScore(game.relevance * 100)}%</span>
-                    )}
-                  </span>
-                </div>
-                <span className={`history-status status-${game.status}`}>
-                  {game.status === 'completed' ? 'Completed' : game.status}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <p className="no-games-text">No games played yet. Start with Signal or Common Ground.</p>

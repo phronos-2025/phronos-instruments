@@ -467,11 +467,19 @@ class GameHistoryItem(BaseModel):
     divergence: Optional[float] = None
     relevance: Optional[float] = None
     convergence: Optional[float] = None
+    alignment: Optional[float] = None
+    parsimony: Optional[float] = None
+    recovery_mrr: Optional[float] = None
     # Meta
     status: str
     created_at: datetime
     completed_at: Optional[datetime] = None
     study_slug: Optional[str] = None
+    # Study context
+    game_number: Optional[int] = None
+    study_game_type: Optional[str] = None  # 'dat', 'rat', 'bridge'
+    targets: Optional[List[str]] = None
+    n: Optional[int] = None  # associations per target
 
 
 class GameHistoryResponse(BaseModel):

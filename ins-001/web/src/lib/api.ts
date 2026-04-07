@@ -434,10 +434,17 @@ export interface GameHistoryItem {
   fidelity?: number;  // V4: primary metric for bridging
   relevance?: number;  // Legacy
   convergence?: number;
+  alignment?: number;
+  parsimony?: number;
+  recovery_mrr?: number;
   status: string;
   created_at: string;
   completed_at?: string;
   study_slug?: string;
+  game_number?: number;
+  study_game_type?: string;  // 'dat' | 'rat' | 'bridge'
+  targets?: string[];
+  n?: number;  // associations per target
 }
 
 export interface GameHistoryResponse {
