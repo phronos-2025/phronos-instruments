@@ -193,19 +193,19 @@ VALUES (
       "id": "novelty",
       "type": "likert",
       "text": "How novel do you find this approach to measuring creativity?",
-      "labels": ["Strongly disagree", "Disagree", "Neutral", "Agree", "Strongly agree"]
+      "labels": ["Not at all novel", "Slightly novel", "Moderately novel", "Very novel", "Extremely novel"]
     },
     {
       "id": "relevance",
       "type": "likert",
       "text": "How relevant is this to your own work?",
-      "labels": ["Strongly disagree", "Disagree", "Neutral", "Agree", "Strongly agree"]
+      "labels": ["Not at all relevant", "Slightly relevant", "Moderately relevant", "Very relevant", "Extremely relevant"]
     },
     {
       "id": "likelihood_to_use",
       "type": "likert",
       "text": "How likely are you to use a tool like this in your research or organization?",
-      "labels": ["Strongly disagree", "Disagree", "Neutral", "Agree", "Strongly agree"]
+      "labels": ["Very unlikely", "Unlikely", "Neutral", "Likely", "Very likely"]
     },
     {
       "id": "free_text",
