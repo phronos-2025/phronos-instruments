@@ -134,51 +134,35 @@ const ProfilePageInner: React.FC = () => {
       </section>
 
       {/* Profile Stats */}
-      <Panel title="Cognitive Profile" meta={profile?.profile_ready ? 'Ready' : `${profile?.games_until_ready || 15} games until ready`}>
-        <div className="stats-grid">
-          <div className="stat-item">
-            <span className="stat-label">Games Played</span>
-            <span className="stat-value">{profile?.games_played || 0}</span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-label">Signal Games</span>
-            <span className="stat-value">{profile?.radiation_games || 0}</span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-label">Common Ground</span>
-            <span className="stat-value">{profile?.bridging_games || 0}</span>
-          </div>
-        </div>
+      <Panel title="Cognitive Profile">
+        {(() => {
+          const games = gameHistory?.games || [];
+          const divScores = games.map(g => g.divergence).filter((v): v is number => v != null);
+          const alignScores = games.map(g => g.alignment).filter((v): v is number => v != null);
+          const parsScores = games.map(g => g.parsimony).filter((v): v is number => v != null);
+          const avg = (arr: number[]) => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
 
-        {profile && profile.games_played > 0 && (
-          <>
-            <div className="stats-divider" />
+          return (
             <div className="stats-grid">
               <div className="stat-item">
+                <span className="stat-label">Games Played</span>
+                <span className="stat-value">{profile?.games_played || 0}</span>
+              </div>
+              <div className="stat-item">
                 <span className="stat-label">Avg Divergence</span>
-                <span className="stat-value">{formatScore(profile.divergence_mean)}</span>
+                <span className="stat-value">{formatScore(avg(divScores) ?? profile?.divergence_mean)}</span>
               </div>
               <div className="stat-item">
-                <span className="stat-label">Consistency</span>
-                <span className="stat-value">
-                  {profile.consistency_score !== null && profile.consistency_score !== undefined
-                    ? `${(profile.consistency_score * 100).toFixed(0)}%`
-                    : '--'}
-                </span>
+                <span className="stat-label">Avg Alignment</span>
+                <span className="stat-value">{formatScore(avg(alignScores))}</span>
               </div>
               <div className="stat-item">
-                <span className="stat-label">LLM Convergence</span>
-                <span className="stat-value">{formatScore(profile.llm_convergence_mean)}</span>
+                <span className="stat-label">Avg Parsimony</span>
+                <span className="stat-value">{formatScore(avg(parsScores))}</span>
               </div>
             </div>
-          </>
-        )}
-
-        {!profile?.profile_ready && (
-          <p className="profile-progress-text">
-            Play {profile?.games_until_ready || 15} more games to unlock your full cognitive profile.
-          </p>
-        )}
+          );
+        })()}
       </Panel>
 
       {/* Study Results (Peer Comparison Dashboard) */}
