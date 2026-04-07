@@ -39,9 +39,14 @@ function computeStats(values: number[]) {
   return { mean, median, q1, q3, iqr, sd, min: sorted[0], max: sorted[n - 1] };
 }
 
-function StatRow({ label, config, values, color, userValue }: { label: string; config: string; values: number[]; color: string; userValue?: number }) {
+function StatRow({ label, config, values, color, userValue, scaleMin = 0, scaleMax }: { label: string; config: string; values: number[]; color: string; userValue?: number; scaleMin?: number; scaleMax?: number }) {
   const stats = computeStats(values);
-  const range = stats.max - stats.min || 1;
+  // Use fixed scale: 0–1 for parsimony, 0–100 for alignment
+  const lo = scaleMin;
+  const hi = scaleMax ?? (stats.max > 1 ? 100 : 1);
+  const range = hi - lo;
+
+  const pct = (v: number) => ((v - lo) / range) * 100;
 
   return (
     <div style={{ marginBottom: '1rem' }}>
@@ -60,8 +65,8 @@ function StatRow({ label, config, values, color, userValue }: { label: string; c
         {/* IQR box */}
         <div style={{
           position: 'absolute',
-          left: `${((stats.q1 - stats.min) / range) * 100}%`,
-          width: `${((stats.q3 - stats.q1) / range) * 100}%`,
+          left: `${pct(stats.q1)}%`,
+          width: `${pct(stats.q3) - pct(stats.q1)}%`,
           top: '4px',
           height: '16px',
           background: color + '44',
@@ -71,7 +76,7 @@ function StatRow({ label, config, values, color, userValue }: { label: string; c
         {/* Median line */}
         <div style={{
           position: 'absolute',
-          left: `${((stats.median - stats.min) / range) * 100}%`,
+          left: `${pct(stats.median)}%`,
           top: '2px',
           height: '20px',
           width: '2px',
@@ -81,7 +86,7 @@ function StatRow({ label, config, values, color, userValue }: { label: string; c
         {userValue != null && (
           <div style={{
             position: 'absolute',
-            left: `${((userValue - stats.min) / range) * 100}%`,
+            left: `${pct(userValue)}%`,
             top: '4px',
             width: '10px',
             height: '10px',
@@ -114,8 +119,8 @@ export function ConstraintEffects({ effects, userScores }: Props) {
         Parsimony by task structure
       </p>
 
-      <StatRow label="Item 4" config="5 targets, 3 words" values={effects.item_4_parsimony} color={METRIC_COLORS.parsimony} userValue={user4?.parsimony ?? undefined} />
-      <StatRow label="Item 8" config="3 targets, 5 words" values={effects.item_8_parsimony} color={METRIC_COLORS.parsimony} userValue={user8?.parsimony ?? undefined} />
+      <StatRow label="Item 4" config="5 targets, 3 words" values={effects.item_4_parsimony} color={METRIC_COLORS.parsimony} userValue={user4?.parsimony ?? undefined} scaleMin={0} scaleMax={1} />
+      <StatRow label="Item 8" config="3 targets, 5 words" values={effects.item_8_parsimony} color={METRIC_COLORS.parsimony} userValue={user8?.parsimony ?? undefined} scaleMin={0} scaleMax={1} />
 
       <div style={{ height: '1px', background: 'var(--faded-light)', margin: '1.5rem 0' }} />
 
@@ -123,8 +128,8 @@ export function ConstraintEffects({ effects, userScores }: Props) {
         Alignment by task structure
       </p>
 
-      <StatRow label="Item 4" config="5 targets, 3 words" values={effects.item_4_alignment} color={METRIC_COLORS.alignment} userValue={user4?.alignment ?? undefined} />
-      <StatRow label="Item 8" config="3 targets, 5 words" values={effects.item_8_alignment} color={METRIC_COLORS.alignment} userValue={user8?.alignment ?? undefined} />
+      <StatRow label="Item 4" config="5 targets, 3 words" values={effects.item_4_alignment} color={METRIC_COLORS.alignment} userValue={user4?.alignment ?? undefined} scaleMin={0} scaleMax={100} />
+      <StatRow label="Item 8" config="3 targets, 5 words" values={effects.item_8_alignment} color={METRIC_COLORS.alignment} userValue={user8?.alignment ?? undefined} scaleMin={0} scaleMax={100} />
 
       <p style={{
         fontFamily: 'var(--font-body)',
