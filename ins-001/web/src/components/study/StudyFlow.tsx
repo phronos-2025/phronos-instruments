@@ -6,7 +6,7 @@
  * and evaluative items.
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useAuth } from '../auth/AuthProvider';
 import { StudyProvider, useStudy } from '../../lib/study-state';
 import { api } from '../../lib/api';
@@ -43,10 +43,13 @@ function StudyFlowInner() {
     load();
   }, [state.slug]);
 
-  // After study loads + auth resolves, check for resume
+  // After study loads + auth resolves, check for resume (only once)
+  const resumeCheckedRef = useRef(false);
   useEffect(() => {
     if (!state.study || authLoading) return;
     if (!user) return;
+    if (resumeCheckedRef.current) return;
+    resumeCheckedRef.current = true;
 
     async function checkResume() {
       try {

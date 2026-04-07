@@ -903,6 +903,7 @@ export interface StudyGameScoreResponse {
     paired_scores: Record<string, number | boolean>;
     deltas: Record<string, number>;
   } | null;
+  time_to_complete_ms?: number | null;
 }
 
 export interface StudyEvaluationScoreResponse {
