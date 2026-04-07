@@ -1399,13 +1399,18 @@ async def get_group_results(slug: str):
             participants[sid].append(g)
 
         # Per-item percentile ranks for each participant
-        def compute_participant_aggregates(metric):
+        def compute_participant_aggregates(metric, fallback=None):
             """For each participant, compute mean percentile across items for a metric."""
             # First build per-item distributions
             items = {}
             for g in games_data:
                 scores = g.get("sender_scores") or {}
                 val = scores.get(metric)
+                # Fallback for alignment_display -> alignment * 100
+                if val is None and fallback:
+                    raw = scores.get(fallback)
+                    if raw is not None:
+                        val = raw * 100 if raw <= 1 else raw
                 if val is None:
                     continue
                 item = g["game_number"]
@@ -1431,8 +1436,8 @@ async def get_group_results(slug: str):
             return [sum(pcts) / len(pcts) for pcts in participant_pcts.values() if pcts]
 
         dists = {}
-        for metric, key in [("divergence", "divergence"), ("alignment_display", "alignment"), ("parsimony", "parsimony")]:
-            values = compute_participant_aggregates(metric)
+        for metric, key, fb in [("divergence", "divergence", None), ("alignment_display", "alignment", "alignment"), ("parsimony", "parsimony", None)]:
+            values = compute_participant_aggregates(metric, fallback=fb)
             if values:
                 mean_val = sum(values) / len(values)
                 sorted_vals = sorted(values)
