@@ -13,7 +13,7 @@ Usage:
   python scripts/backfill_alignment_display.py --apply
 
 Requires environment variables:
-  SUPABASE_URL, SUPABASE_SERVICE_KEY, OPENAI_API_KEY
+  SUPABASE_URL, SUPABASE_SERVICE_KEY
 """
 
 import argparse
@@ -21,6 +21,7 @@ import json
 import os
 import sys
 import numpy as np
+from typing import Optional
 from supabase import create_client
 
 # Add parent to path so we can import scoring functions
@@ -29,7 +30,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from app.services.scoring import (
     compute_alignment,
     generate_foil_sets,
-    bipartite_fit,
 )
 
 
@@ -45,12 +45,11 @@ def get_supabase():
 def fetch_vocab_embeddings(supabase) -> np.ndarray:
     """Fetch vocabulary embeddings from the database."""
     print("Fetching vocabulary embeddings...")
-    # Fetch in batches
     all_embeddings = []
     offset = 0
     batch_size = 1000
     while True:
-        result = supabase.table("vocabulary") \
+        result = supabase.table("vocabulary_embeddings") \
             .select("embedding") \
             .range(offset, offset + batch_size - 1) \
             .execute()
@@ -62,75 +61,35 @@ def fetch_vocab_embeddings(supabase) -> np.ndarray:
                 emb = json.loads(emb)
             all_embeddings.append(emb)
         offset += batch_size
+        print(f"  ... loaded {len(all_embeddings)} so far")
         if len(result.data) < batch_size:
             break
-    print(f"  Loaded {len(all_embeddings)} vocabulary embeddings")
+    print(f"  Total: {len(all_embeddings)} vocabulary embeddings")
     return np.array(all_embeddings, dtype=np.float32)
 
 
-def fetch_study_games(supabase, slug: str) -> list[dict]:
-    """Fetch all completed study games that need backfilling."""
-    print(f"Fetching completed games for study '{slug}'...")
-    result = supabase.table("games") \
-        .select("id, game_number, sender_scores, setup") \
-        .eq("study_slug", slug) \
-        .eq("status", "completed") \
-        .order("game_number") \
+def fetch_word_embedding(supabase, word: str) -> Optional[np.ndarray]:
+    """Fetch embedding for a single word."""
+    result = supabase.table("vocabulary_embeddings") \
+        .select("embedding") \
+        .eq("word", word.lower().strip()) \
         .execute()
-    games = result.data or []
-    print(f"  Found {len(games)} completed games")
-    return games
+    if not result.data:
+        return None
+    emb = result.data[0]["embedding"]
+    if isinstance(emb, str):
+        emb = json.loads(emb)
+    return np.array(emb, dtype=np.float32)
 
 
-def fetch_study_config(supabase, slug: str) -> list[dict]:
-    """Fetch study battery config."""
-    result = supabase.table("studies") \
-        .select("config") \
-        .eq("slug", slug) \
-        .single() \
-        .execute()
-    config = result.data.get("config", {})
-    if isinstance(config, str):
-        config = json.loads(config)
-    battery = config.get("battery", config) if isinstance(config, dict) else config
-    return battery
-
-
-def get_target_embeddings(supabase, targets: list[str]) -> np.ndarray:
-    """Fetch embeddings for target words."""
-    embeddings = []
-    for word in targets:
-        result = supabase.table("vocabulary") \
-            .select("embedding") \
-            .eq("word", word) \
-            .execute()
-        if result.data:
-            emb = result.data[0]["embedding"]
-            if isinstance(emb, str):
-                emb = json.loads(emb)
-            embeddings.append(emb)
-        else:
-            print(f"  WARNING: target word '{word}' not found in vocabulary")
-            return None
-    return np.array(embeddings, dtype=np.float32)
-
-
-def get_word_embeddings(supabase, words: list[str]) -> np.ndarray | None:
-    """Fetch embeddings for submitted words."""
+def fetch_word_embeddings_batch(supabase, words: list) -> Optional[np.ndarray]:
+    """Fetch embeddings for a list of words. Returns None if any word is missing."""
     embeddings = []
     for word in words:
-        result = supabase.table("vocabulary") \
-            .select("embedding") \
-            .eq("word", word.lower().strip()) \
-            .execute()
-        if result.data:
-            emb = result.data[0]["embedding"]
-            if isinstance(emb, str):
-                emb = json.loads(emb)
-            embeddings.append(emb)
-        else:
-            print(f"  WARNING: word '{word}' not found in vocabulary, skipping game")
+        emb = fetch_word_embedding(supabase, word)
+        if emb is None:
             return None
+        embeddings.append(emb)
     return np.array(embeddings, dtype=np.float32)
 
 
@@ -142,29 +101,50 @@ def main():
 
     supabase = get_supabase()
     vocab_embeddings = fetch_vocab_embeddings(supabase)
-    battery = fetch_study_config(supabase, args.slug)
-    games = fetch_study_games(supabase, args.slug)
 
-    # Pre-generate foil sets per target count (deterministic, same as runtime)
-    foil_cache: dict[int, list[np.ndarray]] = {}
+    # Fetch study config
+    print(f"\nFetching study config for '{args.slug}'...")
+    study_result = supabase.table("studies") \
+        .select("config") \
+        .eq("slug", args.slug) \
+        .single() \
+        .execute()
+    config = study_result.data.get("config", {})
+    if isinstance(config, str):
+        config = json.loads(config)
+    battery = config.get("battery", config) if isinstance(config, dict) else config
 
-    # Build item config lookup
     item_configs = {}
     for item in battery:
         item_configs[item["item_number"]] = item
 
+    # Fetch all completed games with sender_input
+    print("Fetching completed games...")
+    games = supabase.table("games") \
+        .select("id, game_number, sender_scores, sender_input") \
+        .eq("study_slug", args.slug) \
+        .eq("status", "completed") \
+        .order("game_number") \
+        .execute()
+    games_data = games.data or []
+    print(f"  Found {len(games_data)} completed games")
+
+    # Pre-generate foil sets per target count (deterministic, same as runtime)
+    foil_cache = {}
+
     updated = 0
     skipped = 0
     already_done = 0
+    errors = 0
 
-    for game in games:
+    for game in games_data:
         game_id = game["id"]
         item_num = game["game_number"]
         scores = game.get("sender_scores") or {}
         config = item_configs.get(item_num, {})
         task = config.get("task", "")
 
-        # Only process bridge games (they have alignment)
+        # Only process bridge games (they have foil-based alignment)
         if task != "bridge":
             skipped += 1
             continue
@@ -178,50 +158,55 @@ def main():
             skipped += 1
             continue
 
-        # Get target embeddings
+        # Get targets from config
         targets = config.get("targets", [])
         m = config.get("m", len(targets))
         if not targets:
-            print(f"  Game {game_id}: no targets in config, skipping")
+            print(f"  Game {game_id[:8]}...: no targets in config, skipping")
             skipped += 1
             continue
 
-        target_emb = get_target_embeddings(supabase, targets)
+        # Get target embeddings
+        target_emb = fetch_word_embeddings_batch(supabase, targets)
         if target_emb is None:
-            skipped += 1
+            print(f"  Game {game_id[:8]}...: missing target embedding, skipping")
+            errors += 1
             continue
 
-        # Get submitted words from game setup/input
-        setup = game.get("setup") or {}
-        sender_input = None
-        # Need to fetch sender_input separately since we didn't select it
-        game_full = supabase.table("games") \
-            .select("sender_input") \
-            .eq("id", game_id) \
-            .single() \
-            .execute()
-        sender_input = game_full.data.get("sender_input")
+        # Get submitted words from sender_input
+        sender_input = game.get("sender_input")
         if not sender_input:
-            print(f"  Game {game_id}: no sender_input, skipping")
+            print(f"  Game {game_id[:8]}...: no sender_input, skipping")
             skipped += 1
             continue
-
-        # Extract words from sender_input
         if isinstance(sender_input, str):
             sender_input = json.loads(sender_input)
-        words = sender_input if isinstance(sender_input, list) else sender_input.get("words", sender_input.get("clues", []))
-        if not words:
-            print(f"  Game {game_id}: empty words, skipping")
+
+        # Extract clues/words
+        if isinstance(sender_input, list):
+            words = sender_input
+        elif isinstance(sender_input, dict):
+            words = sender_input.get("clues", sender_input.get("words", []))
+        else:
+            print(f"  Game {game_id[:8]}...: unknown sender_input format, skipping")
             skipped += 1
             continue
 
-        word_emb = get_word_embeddings(supabase, words)
-        if word_emb is None:
+        if not words:
+            print(f"  Game {game_id[:8]}...: empty words, skipping")
             skipped += 1
+            continue
+
+        # Get word embeddings
+        word_emb = fetch_word_embeddings_batch(supabase, words)
+        if word_emb is None:
+            print(f"  Game {game_id[:8]}...: missing word embedding for {words}, skipping")
+            errors += 1
             continue
 
         # Get or generate foil sets
         if m not in foil_cache:
+            print(f"  Generating foil sets for m={m}...")
             foil_cache[m] = generate_foil_sets(m, vocab_embeddings, k=100, seed=42)
         foil_sets = foil_cache[m]
 
@@ -230,13 +215,12 @@ def main():
         a_z = alignment["a_z"]
         a_display = alignment["a_display"]
         a_scaled = alignment["a_scaled"]
-
         old_alignment = scores.get("alignment")
 
-        print(f"  Game {game_id} (item {item_num}): "
-              f"a_scaled {old_alignment:.3f}->{a_scaled:.3f}, "
-              f"a_z={'None' if a_z is None else f'{a_z:.2f}'}, "
-              f"a_display={a_display:.1f}")
+        print(f"  Item {item_num} | {game_id[:8]}... | "
+              f"a_scaled: {old_alignment:.3f} -> {a_scaled:.3f} | "
+              f"a_z: {f'{a_z:.2f}' if a_z is not None else 'None'} | "
+              f"a_display: {a_display:.1f}")
 
         if args.apply:
             new_scores = {**scores}
@@ -250,12 +234,16 @@ def main():
 
         updated += 1
 
-    print(f"\nSummary:")
-    print(f"  Updated:      {updated}")
+    print(f"\n{'=' * 50}")
+    print(f"Summary for study '{args.slug}':")
+    print(f"  Would update:  {updated}")
     print(f"  Already done:  {already_done}")
-    print(f"  Skipped:       {skipped}")
+    print(f"  Skipped:       {skipped} (non-bridge or no alignment)")
+    print(f"  Errors:        {errors} (missing embeddings)")
     if not args.apply and updated > 0:
-        print(f"\n  Dry run — no changes made. Run with --apply to update.")
+        print(f"\n  DRY RUN — no changes made. Run with --apply to update.")
+    elif args.apply:
+        print(f"\n  APPLIED — {updated} games updated.")
 
 
 if __name__ == "__main__":
