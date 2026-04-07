@@ -4,7 +4,7 @@
  * Optionally overlays the authenticated user's percentile as a gold marker.
  */
 
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Bar } from 'react-chartjs-2';
 import { METRIC_COLORS, CHART_COLORS, baseChartOptions } from '../../../lib/chart-config';
 
@@ -39,17 +39,20 @@ function DistributionChart({ label, dist, color, userPct }: { label: string; dis
   const counts = buildHistogram(dist.values, bins);
   const labels = Array.from({ length: bins }, (_, i) => `${i * 5}`);
 
-  // Custom plugin to draw user percentile line directly on canvas
-  const userLinePlugin = userPct != null ? {
+  // Use a ref so the plugin always reads the latest userPct value
+  const userPctRef = useRef(userPct);
+  useEffect(() => { userPctRef.current = userPct; }, [userPct]);
+
+  // Always register the plugin — it checks the ref to decide whether to draw
+  const userLinePlugin = {
     id: `userLine-${label}`,
     afterDraw: (chart: any) => {
+      const pct = userPctRef.current;
+      if (pct == null) return;
       const { ctx, chartArea, scales } = chart;
       if (!chartArea || !scales?.x) return;
-      // userPct is 0-100, bins are 0-19 mapped to labels "0","5",...,"95"
-      // Find the x pixel for the user's percentile bin
-      const binIndex = Math.min(Math.floor(userPct! / 5), bins - 1);
-      // Interpolate within the bin for sub-bin precision
-      const fraction = (userPct! % 5) / 5;
+      const binIndex = Math.min(Math.floor(pct / 5), bins - 1);
+      const fraction = (pct % 5) / 5;
       const binPixel = scales.x.getPixelForValue(binIndex);
       const nextBinPixel = binIndex < bins - 1
         ? scales.x.getPixelForValue(binIndex + 1)
@@ -64,7 +67,7 @@ function DistributionChart({ label, dist, color, userPct }: { label: string; dis
       ctx.moveTo(xPixel, chartArea.top);
       ctx.lineTo(xPixel, chartArea.bottom);
       ctx.stroke();
-      // Draw small diamond marker at top
+      // Diamond marker at top
       ctx.setLineDash([]);
       ctx.fillStyle = CHART_COLORS.gold;
       ctx.beginPath();
@@ -77,7 +80,7 @@ function DistributionChart({ label, dist, color, userPct }: { label: string; dis
       ctx.fill();
       ctx.restore();
     },
-  } : null;
+  };
 
   const data = {
     labels,
@@ -131,7 +134,7 @@ function DistributionChart({ label, dist, color, userPct }: { label: string; dis
     },
   };
 
-  const plugins = userLinePlugin ? [userLinePlugin] : [];
+  const plugins = [userLinePlugin];
 
   return (
     <div style={{ marginBottom: '2rem', position: 'relative' }}>
@@ -153,7 +156,7 @@ function DistributionChart({ label, dist, color, userPct }: { label: string; dis
           )}
         </span>
       </div>
-      <div style={{ height: '100px' }}>
+      <div key={userPct != null ? `with-user-${userPct}` : 'no-user'} style={{ height: '100px' }}>
         <Bar data={data} options={options as any} plugins={plugins} />
       </div>
     </div>
