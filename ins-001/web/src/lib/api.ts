@@ -437,6 +437,7 @@ export interface GameHistoryItem {
   status: string;
   created_at: string;
   completed_at?: string;
+  study_slug?: string;
 }
 
 export interface GameHistoryResponse {
@@ -705,6 +706,9 @@ export const api = {
   // ============================================
 
   studies: {
+    list: (): Promise<StudyListResponse> =>
+      apiCall('/api/v1/studies/'),
+
     get: (slug: string): Promise<StudyResponse> =>
       apiCall(`/api/v1/studies/${slug}`),
 
@@ -781,6 +785,28 @@ export interface StudyResponse {
   is_active: boolean;
   participant_count: number;
   require_auth: boolean;
+}
+
+export interface StudyListEnrollment {
+  items_completed: number;
+  completed_at: string | null;
+  opted_partial: boolean | null;
+  enrolled_at: string;
+}
+
+export interface StudyListItem {
+  slug: string;
+  title: string;
+  description: string | null;
+  is_active: boolean;
+  game_count: number;
+  participant_count: number;
+  created_at: string;
+  enrollment: StudyListEnrollment | null;
+}
+
+export interface StudyListResponse {
+  studies: StudyListItem[];
 }
 
 export interface EnrollResponse {
