@@ -178,7 +178,7 @@ async def get_game_history(
             divergence=scores.get("divergence"),
             relevance=scores.get("relevance"),
             convergence=scores.get("convergence"),
-            alignment=scores.get("alignment"),
+            alignment=scores.get("alignment_display", scores.get("alignment")),
             parsimony=scores.get("parsimony"),
             recovery_mrr=scores.get("recovery_mrr"),
             status=g["status"],
