@@ -1390,34 +1390,21 @@ async def get_group_results(slug: str, auth=Depends(get_optional_client)):
     games_data = all_games.data or []
 
     def _get_alignment_display(scores: dict) -> float | None:
-        """Extract the sigmoid-transformed alignment score, computing from z if needed."""
+        """Extract the sigmoid-transformed alignment score."""
         import math
-        # Best: alignment_display already computed (post A_z update)
+        # Best: alignment_display already computed
         ad = scores.get("alignment_display")
         if ad is not None:
             return float(ad)
-        # Next best: compute sigmoid from alignment_z
+        # Compute sigmoid from alignment_z if available
         az = scores.get("alignment_z")
         if az is not None:
             c, beta = 1.5, 0.8
             return 100.0 / (1.0 + math.exp(-beta * (float(az) - c)))
-        # Fallback: raw alignment (a_scaled, proportion 0-1).
-        # Apply sigmoid to spread the ceiling-clustered distribution.
-        # a_scaled ~0.95 = "beats 95% of foils"; map via logit then sigmoid
-        # so values discriminate visually instead of clustering at 95-100.
+        # Fallback: raw alignment * 100 (should only happen for non-backfilled games)
         raw = scores.get("alignment")
         if raw is not None:
-            a = float(raw)
-            if a > 1:
-                return a  # already on 0-100 scale
-            # Clamp to avoid log(0) or log(inf)
-            a = max(0.01, min(0.99, a))
-            # Convert proportion to approximate z-score via probit-like transform
-            # logit(a) maps 0.5->0, 0.95->2.94, 0.99->4.6
-            logit = math.log(a / (1 - a))
-            # Apply the same sigmoid used in compute_alignment
-            c, beta = 1.5, 0.8
-            return 100.0 / (1.0 + math.exp(-beta * (logit - c)))
+            return float(raw) * 100 if float(raw) <= 1 else float(raw)
         return None
 
     # --- Cohort distributions (N≥20 for histograms, else mean/SD) ---
