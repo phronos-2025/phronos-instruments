@@ -911,7 +911,7 @@ async def submit_game(
             if paired_result.data and paired_result.data.get("sender_scores"):
                 paired_scores = paired_result.data["sender_scores"]
                 deltas = {}
-                for metric in ["alignment", "divergence", "parsimony", "recovery_mrr"]:
+                for metric in ["alignment_display", "divergence", "parsimony", "recovery_mrr"]:
                     if metric in scores and scores[metric] is not None and metric in paired_scores and paired_scores[metric] is not None:
                         deltas[metric] = round(scores[metric] - paired_scores[metric], 2)
                 comparison = {
@@ -996,12 +996,36 @@ async def submit_evaluation(
     elif task == "parsimony_loo":
         selected = response_data.get("selected_word") or response_data.get("selected")
         stimulus = item_cfg.get("stimulus_set", {})
-        expected = stimulus.get("expected_redundant")
-        correct = selected == expected if expected else None
+        words = stimulus.get("words", [])
+        # No absolute correct answer — show how choice compares to others
+        correct = None
+        # Query aggregate choices from all participants (bypass RLS)
+        choice_counts = {w: 0 for w in words}
+        try:
+            from app.middleware.auth import get_service_client
+            svc = get_service_client()
+            agg_result = svc.table("study_evaluations") \
+                .select("response") \
+                .eq("study_slug", slug) \
+                .eq("item_number", item_number) \
+                .execute()
+            for row in (agg_result.data or []):
+                resp = row.get("response")
+                if isinstance(resp, str):
+                    resp = json.loads(resp)
+                w = (resp or {}).get("selected_word") or (resp or {}).get("selected")
+                if w in choice_counts:
+                    choice_counts[w] += 1
+        except Exception:
+            pass  # Gracefully degrade — just show selection without distribution
+        # Include current participant's choice in the count
+        if selected in choice_counts and choice_counts[selected] == 0:
+            choice_counts[selected] = 1
+        total = sum(choice_counts.values())
         feedback = {
             "selected": selected,
-            "expected_redundant": expected,
-            "precomputed_deltas": stimulus.get("precomputed_deltas"),
+            "choice_counts": choice_counts,
+            "total_responses": total,
         }
 
     elif task == "peer_rating":
@@ -1102,7 +1126,7 @@ async def _compute_percentiles(
         return {"insufficient_data": True, "participant_count": len(all_scores)}
 
     percentiles = {}
-    for metric in ["divergence", "alignment", "parsimony", "recovery_mrr"]:
+    for metric in ["divergence", "alignment", "alignment_display", "parsimony", "recovery_mrr"]:
         if metric not in my_scores or my_scores[metric] is None:
             continue
         my_val = my_scores[metric]
@@ -1194,7 +1218,7 @@ async def get_dashboard(slug: str, auth=Depends(get_authenticated_client)):
                 if gg["game_number"] == item_num and gg.get("sender_scores")
             ]
             pcts = {}
-            for metric in ["divergence", "alignment", "parsimony", "recovery_mrr"]:
+            for metric in ["divergence", "alignment", "alignment_display", "parsimony", "recovery_mrr"]:
                 if metric not in scores or scores[metric] is None:
                     continue
                 vals = [s[metric] for s in same_game if metric in s and s[metric] is not None]
@@ -1209,7 +1233,7 @@ async def get_dashboard(slug: str, auth=Depends(get_authenticated_client)):
     aggregate_percentiles = None
     if not insufficient and per_game_scores:
         agg = {}
-        for metric in ["divergence", "alignment", "parsimony"]:
+        for metric in ["divergence", "alignment_display", "parsimony"]:
             vals = [
                 g["percentiles"][metric]
                 for g in per_game_scores
@@ -1225,12 +1249,14 @@ async def get_dashboard(slug: str, auth=Depends(get_authenticated_client)):
         scatter = []
         for g in (all_games.data or []):
             scores = g.get("sender_scores") or {}
-            if "divergence" in scores and "alignment" in scores:
+            if "divergence" in scores and ("alignment_display" in scores or "alignment" in scores):
+                # Use alignment_display (0-100) if available, fall back to alignment * 100
+                ali = scores.get("alignment_display", scores.get("alignment", 0) * 100)
                 scatter.append({
                     "sender_id": g["sender_id"],
                     "item_number": g["game_number"],
                     "divergence": scores["divergence"],
-                    "alignment": scores["alignment"],
+                    "alignment": ali,
                     "parsimony": scores.get("parsimony"),
                     "is_current_user": g["sender_id"] == user["id"],
                 })
@@ -1245,7 +1271,7 @@ async def get_dashboard(slug: str, auth=Depends(get_authenticated_client)):
                 curve.append({
                     "item_number": g["item_number"],
                     "game_type": g["game_type"],
-                    **{f"{m}_percentile": g["percentiles"].get(m) for m in ["divergence", "alignment", "parsimony"]},
+                    **{f"{m}_percentile": g["percentiles"].get(m) for m in ["divergence", "alignment_display", "parsimony"]},
                 })
         learning_curve = curve if curve else None
 

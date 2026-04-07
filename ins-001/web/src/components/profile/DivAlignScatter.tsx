@@ -80,7 +80,7 @@ export function DivAlignScatter({ data }: Props) {
           font: { family: "'Fira Code', monospace", size: 10 },
         },
         min: 0,
-        max: 1,
+        max: 100,
         ticks: { color: CHART_COLORS.faded, font: { family: "'Fira Code', monospace", size: 9 } },
         grid: { color: CHART_COLORS.grid },
       },
@@ -93,7 +93,7 @@ export function DivAlignScatter({ data }: Props) {
           label: (ctx: any) => {
             const d = ctx.dataset.label === 'You' ? userPoints[ctx.dataIndex] : peerPoints[ctx.dataIndex];
             if (!d) return '';
-            return `Item ${d.item_number}: Div=${d.divergence.toFixed(1)}, Ali=${(d.alignment * 100).toFixed(0)}%`;
+            return `Item ${d.item_number}: Div=${d.divergence.toFixed(1)}, Ali=${Math.round(d.alignment)}%`;
           },
         },
       },

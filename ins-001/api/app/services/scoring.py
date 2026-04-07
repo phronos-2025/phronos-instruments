@@ -1451,14 +1451,14 @@ def compute_alignment(
     targets: np.ndarray,
     associations: np.ndarray,
     foil_sets: list[np.ndarray],
-) -> float:
+) -> dict:
     """
-    Scale-invariant alignment via foil comparison.
+    Alignment via foil comparison, with continuous z-score variant.
 
-    A_scaled = (1/k) * sum_{f=1}^{k} 1[fit(T_f, A) < fit(T, A)]
-
-    Returns proportion of foil targets for which associations provide
-    a worse fit than for the true targets.
+    Returns three values:
+    - a_scaled: published binary rank metric (proportion of foils beaten)
+    - a_z: continuous z-score of true fit within foil fit distribution
+    - a_display: sigmoid-mapped 0-100 score for visualization
 
     Args:
         targets: (m, d) array of true target embeddings
@@ -1466,14 +1466,32 @@ def compute_alignment(
         foil_sets: List of k arrays, each (m, d) — random foil target sets
 
     Returns:
-        Alignment score in [0, 1]. 1.0 = associations uniquely suited to targets.
+        Dict with a_scaled, a_z (nullable), and a_display.
     """
+    if not foil_sets:
+        return {"a_scaled": 0.5, "a_z": None, "a_display": 50.0}
+
     true_fit = bipartite_fit(targets, associations)
-    beats_count = sum(
-        1 for foil_targets in foil_sets
-        if bipartite_fit(foil_targets, associations) < true_fit
-    )
-    return beats_count / len(foil_sets) if foil_sets else 0.5
+    foil_fits = [bipartite_fit(f, associations) for f in foil_sets]
+
+    # Published metric (unchanged)
+    a_scaled = sum(1 for f in foil_fits if f < true_fit) / len(foil_fits)
+
+    # Continuous variant: z-score within foil distribution
+    mu = np.mean(foil_fits)
+    sigma = np.std(foil_fits)
+
+    if sigma < 1e-3:
+        # Near-zero variance — z-score unstable, fall back to percentile
+        a_z = None
+        a_display = a_scaled * 100
+    else:
+        a_z = float((true_fit - mu) / sigma)
+        # Sigmoid mapping: c=1.5 centers "decent" at 50, beta=0.8 controls slope
+        c, beta = 1.5, 0.8
+        a_display = float(100 / (1 + np.exp(-beta * (a_z - c))))
+
+    return {"a_scaled": a_scaled, "a_z": a_z, "a_display": a_display}
 
 
 def compute_alignment_simple(
@@ -1682,9 +1700,12 @@ def score_study_bridge(
         Dict with divergence, alignment, parsimony, and optionally recovery_mrr.
     """
     emb_list = [e.tolist() if isinstance(e, np.ndarray) else e for e in association_embeddings]
+    alignment = compute_alignment(target_embeddings, association_embeddings, foil_sets)
     result = {
         "divergence": calculate_spread_clues_only(emb_list),
-        "alignment": compute_alignment(target_embeddings, association_embeddings, foil_sets),
+        "alignment": alignment["a_scaled"],
+        "alignment_z": alignment["a_z"],
+        "alignment_display": alignment["a_display"],
         "parsimony": compute_parsimony(target_embeddings, association_embeddings),
     }
     if vocab_embeddings is not None:
@@ -1736,8 +1757,18 @@ def test_alignment():
     good_assoc = targets + rng.standard_normal((3, d)) * 0.1
     vocab = rng.standard_normal((500, d))
     foils = generate_foil_sets(3, vocab, k=50, seed=42)
-    alignment = compute_alignment(targets, good_assoc, foils)
-    assert alignment > 0.8, f"Expected high alignment, got {alignment}"
+    result = compute_alignment(targets, good_assoc, foils)
+    assert isinstance(result, dict), f"Expected dict, got {type(result)}"
+    assert result["a_scaled"] > 0.8, f"Expected high a_scaled, got {result['a_scaled']}"
+    assert result["a_z"] is not None, "Expected a_z to be computed"
+    assert result["a_z"] > 1.0, f"Expected positive a_z for good associations, got {result['a_z']}"
+    assert 0 <= result["a_display"] <= 100, f"a_display out of range: {result['a_display']}"
+
+    # Bad associations should score lower on display
+    bad_assoc = rng.standard_normal((3, d))
+    result_bad = compute_alignment(targets, bad_assoc, foils)
+    assert result["a_display"] > result_bad["a_display"], \
+        f"Good assoc display ({result['a_display']:.1f}) should beat bad ({result_bad['a_display']:.1f})"
 
 
 def test_parsimony():

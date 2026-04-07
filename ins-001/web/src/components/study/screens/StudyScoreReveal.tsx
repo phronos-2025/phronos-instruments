@@ -59,9 +59,9 @@ const METRIC_INFO: Record<string, { label: string; explanation: string }> = {
     label: 'Divergence (GloVe)',
     explanation: 'Spread measured using a different embedding model.',
   },
-  alignment: {
+  alignment_display: {
     label: 'Alignment',
-    explanation: 'How well your words connect to the target words.',
+    explanation: 'How well your words connect to the target words compared to random words.',
   },
   parsimony: {
     label: 'Parsimony',
@@ -76,7 +76,8 @@ export function StudyScoreReveal() {
 
   const metricsToShow = Object.keys(score.scores).filter(
     (key) => key !== 'exact_match' && key !== 'recovery_mrr'
-      && (isRat ? key !== 'alignment' : true)
+      && key !== 'alignment' && key !== 'alignment_z'
+      && (isRat ? key !== 'alignment_display' : true)
       && typeof score.scores[key] === 'number'
   );
 
@@ -100,15 +101,15 @@ export function StudyScoreReveal() {
 
   const formatScore = (metric: string, value: number): string => {
     if (metric === 'divergence' || metric === 'divergence_glove') return value.toFixed(1);
-    if (metric === 'alignment' || metric === 'parsimony') {
-      return (value * 100).toFixed(0) + '%';
-    }
+    if (metric === 'alignment_display') return Math.round(value) + '%';
+    if (metric === 'parsimony') return (value * 100).toFixed(0) + '%';
     return value.toFixed(2);
   };
 
   const formatDelta = (metric: string, delta: number): string => {
     const sign = delta > 0 ? '+' : '';
     if (metric === 'divergence' || metric === 'divergence_glove') return sign + delta.toFixed(1);
+    if (metric === 'alignment_display') return sign + Math.round(delta) + '%';
     return sign + (delta * 100).toFixed(0) + '%';
   };
 
