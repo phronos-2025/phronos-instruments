@@ -39,6 +39,46 @@ function DistributionChart({ label, dist, color, userPct }: { label: string; dis
   const counts = buildHistogram(dist.values, bins);
   const labels = Array.from({ length: bins }, (_, i) => `${i * 5}`);
 
+  // Custom plugin to draw user percentile line directly on canvas
+  const userLinePlugin = userPct != null ? {
+    id: `userLine-${label}`,
+    afterDraw: (chart: any) => {
+      const { ctx, chartArea, scales } = chart;
+      if (!chartArea || !scales?.x) return;
+      // userPct is 0-100, bins are 0-19 mapped to labels "0","5",...,"95"
+      // Find the x pixel for the user's percentile bin
+      const binIndex = Math.min(Math.floor(userPct! / 5), bins - 1);
+      // Interpolate within the bin for sub-bin precision
+      const fraction = (userPct! % 5) / 5;
+      const binPixel = scales.x.getPixelForValue(binIndex);
+      const nextBinPixel = binIndex < bins - 1
+        ? scales.x.getPixelForValue(binIndex + 1)
+        : binPixel + (binPixel - scales.x.getPixelForValue(binIndex - 1));
+      const xPixel = binPixel + fraction * (nextBinPixel - binPixel);
+
+      ctx.save();
+      ctx.strokeStyle = CHART_COLORS.gold;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      ctx.moveTo(xPixel, chartArea.top);
+      ctx.lineTo(xPixel, chartArea.bottom);
+      ctx.stroke();
+      // Draw small diamond marker at top
+      ctx.setLineDash([]);
+      ctx.fillStyle = CHART_COLORS.gold;
+      ctx.beginPath();
+      const dy = 5;
+      ctx.moveTo(xPixel, chartArea.top - dy);
+      ctx.lineTo(xPixel + dy, chartArea.top);
+      ctx.lineTo(xPixel, chartArea.top + dy);
+      ctx.lineTo(xPixel - dy, chartArea.top);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    },
+  } : null;
+
   const data = {
     labels,
     datasets: [{
@@ -64,29 +104,6 @@ function DistributionChart({ label, dist, color, userPct }: { label: string; dis
           label: (ctx: any) => `${ctx.raw} participants`,
         },
       },
-      // Annotation plugin for user marker line
-      ...(userPct != null ? {
-        annotation: {
-          annotations: {
-            userLine: {
-              type: 'line' as const,
-              xMin: userPct / 5,
-              xMax: userPct / 5,
-              borderColor: CHART_COLORS.gold,
-              borderWidth: 2,
-              borderDash: [4, 2],
-              label: {
-                display: true,
-                content: 'You',
-                position: 'start' as const,
-                backgroundColor: 'transparent',
-                color: CHART_COLORS.gold,
-                font: { family: "'Fira Code', monospace", size: 10, weight: 'bold' as const },
-              },
-            },
-          },
-        },
-      } : {}),
     },
     scales: {
       x: {
@@ -114,6 +131,8 @@ function DistributionChart({ label, dist, color, userPct }: { label: string; dis
     },
   };
 
+  const plugins = userLinePlugin ? [userLinePlugin] : [];
+
   return (
     <div style={{ marginBottom: '2rem', position: 'relative' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.75rem' }}>
@@ -135,7 +154,7 @@ function DistributionChart({ label, dist, color, userPct }: { label: string; dis
         </span>
       </div>
       <div style={{ height: '100px' }}>
-        <Bar data={data} options={options as any} />
+        <Bar data={data} options={options as any} plugins={plugins} />
       </div>
     </div>
   );

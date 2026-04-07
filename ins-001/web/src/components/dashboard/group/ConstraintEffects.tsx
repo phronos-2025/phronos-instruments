@@ -46,7 +46,7 @@ function StatRow({ label, config, values, color, userValue, scaleMin = 0, scaleM
   const hi = scaleMax ?? (stats.max > 1 ? 100 : 1);
   const range = hi - lo;
 
-  const pct = (v: number) => ((v - lo) / range) * 100;
+  const pct = (v: number) => Math.max(0, Math.min(100, ((v - lo) / range) * 100));
 
   return (
     <div style={{ marginBottom: '1rem' }}>
@@ -61,7 +61,7 @@ function StatRow({ label, config, values, color, userValue, scaleMin = 0, scaleM
           )}
         </span>
       </div>
-      <div style={{ position: 'relative', height: '24px', background: 'var(--faded-ultra)', borderRadius: '2px' }}>
+      <div style={{ position: 'relative', height: '24px', background: 'var(--faded-ultra)', borderRadius: '2px', overflow: 'hidden' }}>
         {/* IQR box */}
         <div style={{
           position: 'absolute',
