@@ -775,6 +775,9 @@ export const api = {
     getDashboard: (slug: string): Promise<StudyDashboardResponse> =>
       apiCall(`/api/v1/studies/${slug}/dashboard`),
 
+    getGroupResults: (slug: string): Promise<GroupResultsResponse> =>
+      apiCall(`/api/v1/studies/${slug}/group-results`),
+
     getMyCompletedStudies: (): Promise<Array<{ study_slug: string; study_title: string }>> =>
       apiCall('/api/v1/studies/my-completed'),
   },
@@ -981,5 +984,72 @@ export interface StudyDashboardResponse {
     mean_difference: number;
     mean_connection: number;
     mean_uniqueness: number;
+  } | null;
+}
+
+export interface GroupResultsResponse {
+  study_slug: string;
+  study_title: string;
+  participant_count: number;
+  date_range: { first: string; last: string } | null;
+  cohort_distributions: {
+    divergence?: { values: number[]; mean: number; median: number; sd: number };
+    alignment?: { values: number[]; mean: number; median: number; sd: number };
+    parsimony?: { values: number[]; mean: number; median: number; sd: number };
+  } | null;
+  scatterplot_data: Array<{
+    item_number: number;
+    divergence: number;
+    alignment: number;
+    parsimony: number | null;
+    m: number;
+    n: number;
+  }> | null;
+  constraint_effects: {
+    item_4_parsimony: number[];
+    item_8_parsimony: number[];
+    item_4_alignment: number[];
+    item_8_alignment: number[];
+  } | null;
+  learning_curve: Array<{
+    item_number: number;
+    game_type: string;
+    m: number | null;
+    n: number | null;
+    divergence_mean: number | null;
+    divergence_se: number | null;
+    alignment_mean: number | null;
+    alignment_se: number | null;
+    parsimony_mean: number | null;
+    parsimony_se: number | null;
+  }> | null;
+  validation: {
+    alignment_ranking?: {
+      counts: Record<string, number>;
+      total: number;
+      p_value: number | null;
+    };
+    parsimony_loo?: {
+      counts: Record<string, number>;
+      correct_word: string;
+      total: number;
+      p_value: number | null;
+    };
+    peer_correlations?: {
+      diff_div_r: number | null;
+      conn_ali_r: number | null;
+      uniq_par_r: number | null;
+      n: number;
+    };
+  } | null;
+  feedback: {
+    items: Array<{
+      label: string;
+      key: string;
+      mean: number;
+      distribution: number[];
+      n: number;
+    }>;
+    quotes: string[];
   } | null;
 }

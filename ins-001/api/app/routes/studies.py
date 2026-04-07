@@ -7,6 +7,7 @@ v3: Supports generative items (DAT, RAT, Bridge) and evaluative items
 
 import asyncio
 import json
+import math
 import uuid
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Depends, Query
@@ -159,6 +160,20 @@ class DashboardData(BaseModel):
     learning_curve: Optional[list[dict[str, Any]]] = None
     comparison_charts: Optional[list[dict[str, Any]]] = None
     peer_feedback: Optional[dict[str, Any]] = None
+
+
+class GroupResultsData(BaseModel):
+    """Public aggregate data for the group results dashboard."""
+    study_slug: str
+    study_title: str
+    participant_count: int
+    date_range: Optional[dict[str, str]] = None
+    cohort_distributions: Optional[dict[str, Any]] = None
+    scatterplot_data: Optional[list[dict[str, Any]]] = None
+    constraint_effects: Optional[dict[str, Any]] = None
+    learning_curve: Optional[list[dict[str, Any]]] = None
+    validation: Optional[dict[str, Any]] = None
+    feedback: Optional[dict[str, Any]] = None
 
 
 # ============================================
@@ -1329,6 +1344,424 @@ async def get_dashboard(slug: str, auth=Depends(get_authenticated_client)):
         learning_curve=learning_curve,
         comparison_charts=comparison_charts,
         peer_feedback=peer_feedback,
+    )
+
+
+@router.get("/{slug}/group-results", response_model=GroupResultsData)
+async def get_group_results(slug: str):
+    """Public aggregate results for the group dashboard. No auth required."""
+    svc = get_service_client()
+
+    try:
+        study_result = svc.table("studies") \
+            .select("title, config, post_survey") \
+            .eq("slug", slug) \
+            .single() \
+            .execute()
+    except APIError:
+        raise HTTPException(status_code=404, detail="Study not found")
+
+    battery, _, _ = _parse_study_config(study_result.data.get("config", []))
+    participant_count = _count_completed_participants(slug)
+
+    # Date range from enrollments
+    date_range = None
+    enrollments = svc.table("study_enrollments") \
+        .select("completed_at") \
+        .eq("study_slug", slug) \
+        .not_.is_("completed_at", "null") \
+        .order("completed_at") \
+        .execute()
+    if enrollments.data:
+        date_range = {
+            "first": enrollments.data[0]["completed_at"],
+            "last": enrollments.data[-1]["completed_at"],
+        }
+
+    # Fetch all completed games (service client bypasses RLS)
+    all_games = svc.table("games") \
+        .select("sender_id, game_number, sender_scores, game_type") \
+        .eq("study_slug", slug) \
+        .eq("status", "completed") \
+        .order("game_number") \
+        .execute()
+    games_data = all_games.data or []
+
+    # --- Cohort distributions (N≥20 for histograms, else mean/SD) ---
+    cohort_distributions = None
+    if participant_count >= 5:
+        # Group games by participant, compute aggregate percentile per metric
+        participants = {}
+        for g in games_data:
+            sid = g["sender_id"]
+            if sid not in participants:
+                participants[sid] = []
+            participants[sid].append(g)
+
+        # Per-item percentile ranks for each participant
+        def compute_participant_aggregates(metric):
+            """For each participant, compute mean percentile across items for a metric."""
+            # First build per-item distributions
+            items = {}
+            for g in games_data:
+                scores = g.get("sender_scores") or {}
+                val = scores.get(metric)
+                if val is None:
+                    continue
+                item = g["game_number"]
+                if item not in items:
+                    items[item] = []
+                items[item].append((g["sender_id"], val))
+
+            # Compute percentile for each participant in each item
+            participant_pcts = {}
+            for item, entries in items.items():
+                vals = [v for _, v in entries]
+                n = len(vals)
+                if n < 2:
+                    continue
+                for sid, val in entries:
+                    count_below = sum(1 for v in vals if v <= val)
+                    pct = 100 * count_below / n
+                    if sid not in participant_pcts:
+                        participant_pcts[sid] = []
+                    participant_pcts[sid].append(pct)
+
+            # Mean percentile per participant
+            return [sum(pcts) / len(pcts) for pcts in participant_pcts.values() if pcts]
+
+        dists = {}
+        for metric, key in [("divergence", "divergence"), ("alignment_display", "alignment"), ("parsimony", "parsimony")]:
+            values = compute_participant_aggregates(metric)
+            if values:
+                mean_val = sum(values) / len(values)
+                sorted_vals = sorted(values)
+                n = len(sorted_vals)
+                median_val = sorted_vals[n // 2] if n % 2 == 1 else (sorted_vals[n // 2 - 1] + sorted_vals[n // 2]) / 2
+                sd_val = (sum((v - mean_val) ** 2 for v in values) / max(n - 1, 1)) ** 0.5
+                dists[key] = {
+                    "values": [round(v, 1) for v in values],
+                    "mean": round(mean_val, 1),
+                    "median": round(median_val, 1),
+                    "sd": round(sd_val, 1),
+                }
+        cohort_distributions = dists if dists else None
+
+    # --- Scatterplot data (N≥5, all Bridge items) ---
+    scatterplot_data = None
+    if participant_count >= 5:
+        scatter = []
+        for g in games_data:
+            scores = g.get("sender_scores") or {}
+            item_num = g["game_number"]
+            item_cfg = battery[item_num - 1] if item_num <= len(battery) else {}
+            task = item_cfg.get("task", g.get("game_type", ""))
+            if task != "bridge":
+                continue
+            div = scores.get("divergence")
+            ali = scores.get("alignment_display", scores.get("alignment"))
+            if div is None or ali is None:
+                continue
+            if isinstance(ali, float) and ali <= 1:
+                ali = ali * 100
+            scatter.append({
+                "item_number": item_num,
+                "divergence": round(div, 1),
+                "alignment": round(ali, 1),
+                "parsimony": round(scores["parsimony"], 2) if scores.get("parsimony") is not None else None,
+                "m": item_cfg.get("m"),
+                "n": item_cfg.get("n"),
+            })
+        scatterplot_data = scatter if scatter else None
+
+    # --- Constraint effects: item 4 (5,3) vs item 8 (3,5) ---
+    constraint_effects = None
+    if participant_count >= 5:
+        i4_par, i8_par, i4_ali, i8_ali = [], [], [], []
+        for g in games_data:
+            scores = g.get("sender_scores") or {}
+            if g["game_number"] == 4:
+                if scores.get("parsimony") is not None:
+                    i4_par.append(round(scores["parsimony"], 2))
+                ali = scores.get("alignment_display", scores.get("alignment"))
+                if ali is not None:
+                    i4_ali.append(round(ali if ali > 1 else ali * 100, 1))
+            elif g["game_number"] == 8:
+                if scores.get("parsimony") is not None:
+                    i8_par.append(round(scores["parsimony"], 2))
+                ali = scores.get("alignment_display", scores.get("alignment"))
+                if ali is not None:
+                    i8_ali.append(round(ali if ali > 1 else ali * 100, 1))
+        if i4_par and i8_par:
+            constraint_effects = {
+                "item_4_parsimony": i4_par,
+                "item_8_parsimony": i8_par,
+                "item_4_alignment": i4_ali,
+                "item_8_alignment": i8_ali,
+            }
+
+    # --- Learning curve: mean ± SE per item (N≥10 full completers) ---
+    learning_curve = None
+    # Count full completers (all 10 items)
+    full_completers = set()
+    items_per_participant = {}
+    for g in games_data:
+        sid = g["sender_id"]
+        if sid not in items_per_participant:
+            items_per_participant[sid] = set()
+        items_per_participant[sid].add(g["game_number"])
+    for sid, items in items_per_participant.items():
+        gen_items = {i for i in items if i in {1, 2, 3, 4, 8, 9, 10}}
+        if len(gen_items) >= 7:  # All 7 generative items
+            full_completers.add(sid)
+
+    if len(full_completers) >= 10:
+        # Collect scores per item from full completers only
+        item_scores = {}
+        for g in games_data:
+            if g["sender_id"] not in full_completers:
+                continue
+            item_num = g["game_number"]
+            scores = g.get("sender_scores") or {}
+            if item_num not in item_scores:
+                item_scores[item_num] = {"divergence": [], "alignment": [], "parsimony": []}
+            if scores.get("divergence") is not None:
+                item_scores[item_num]["divergence"].append(scores["divergence"])
+            ali = scores.get("alignment_display", scores.get("alignment"))
+            if ali is not None:
+                item_scores[item_num]["alignment"].append(ali if ali > 1 else ali * 100)
+            if scores.get("parsimony") is not None:
+                item_scores[item_num]["parsimony"].append(scores["parsimony"])
+
+        curve = []
+        for item_num in [1, 2, 3, 4, 8, 9, 10]:
+            if item_num not in item_scores:
+                continue
+            item_cfg = battery[item_num - 1] if item_num <= len(battery) else {}
+            entry = {
+                "item_number": item_num,
+                "game_type": item_cfg.get("task", ""),
+                "m": item_cfg.get("m"),
+                "n": item_cfg.get("n"),
+            }
+            for metric in ["divergence", "alignment", "parsimony"]:
+                vals = item_scores[item_num][metric]
+                if vals:
+                    mean = sum(vals) / len(vals)
+                    se = (sum((v - mean) ** 2 for v in vals) / max(len(vals) - 1, 1)) ** 0.5 / max(len(vals) ** 0.5, 1)
+                    entry[f"{metric}_mean"] = round(mean, 2)
+                    entry[f"{metric}_se"] = round(se, 2)
+                else:
+                    entry[f"{metric}_mean"] = None
+                    entry[f"{metric}_se"] = None
+            curve.append(entry)
+        learning_curve = curve if curve else None
+
+    # --- Validation panels (N≥10) ---
+    validation = None
+    if participant_count >= 10:
+        val = {}
+
+        # Alignment ranking (item 5)
+        try:
+            evals_5 = svc.table("study_evaluations") \
+                .select("response") \
+                .eq("study_slug", slug) \
+                .eq("item_number", 5) \
+                .execute()
+            if evals_5.data:
+                counts = {"A": 0, "B": 0, "C": 0}
+                for row in evals_5.data:
+                    resp = row.get("response")
+                    if isinstance(resp, str):
+                        resp = json.loads(resp)
+                    ranking = (resp or {}).get("ranking", [])
+                    if ranking:
+                        first = ranking[0]
+                        if first in counts:
+                            counts[first] += 1
+                total = sum(counts.values())
+                # Binomial test: max count vs chance (1/3)
+                if total > 0:
+                    max_count = max(counts.values())
+                    # Approximate p-value using normal approximation to binomial
+                    expected = total / 3
+                    p_val = None
+                    if total >= 10:
+                        z = (max_count - expected) / max((expected * (1 - 1/3)) ** 0.5, 0.001)
+                        # One-tailed p from z-score (approximation)
+                        p_val = round(max(0.0001, 0.5 * math.erfc(z / math.sqrt(2))), 4)
+                    val["alignment_ranking"] = {"counts": counts, "total": total, "p_value": p_val}
+        except Exception:
+            pass
+
+        # Parsimony LOO (item 6)
+        try:
+            evals_6 = svc.table("study_evaluations") \
+                .select("response") \
+                .eq("study_slug", slug) \
+                .eq("item_number", 6) \
+                .execute()
+            if evals_6.data:
+                item_6_cfg = battery[5] if len(battery) >= 6 else {}
+                expected_word = item_6_cfg.get("stimulus_set", {}).get("expected_redundant", "spark")
+                all_words = item_6_cfg.get("stimulus_set", {}).get("words", [])
+                counts = {w: 0 for w in all_words}
+                for row in evals_6.data:
+                    resp = row.get("response")
+                    if isinstance(resp, str):
+                        resp = json.loads(resp)
+                    w = (resp or {}).get("selected_word") or (resp or {}).get("selected")
+                    if w in counts:
+                        counts[w] += 1
+                total = sum(counts.values())
+                p_val = None
+                if total >= 10:
+                    correct_count = counts.get(expected_word, 0)
+                    chance = 1 / max(len(all_words), 1)
+                    expected_n = total * chance
+                    z = (correct_count - expected_n) / max((expected_n * (1 - chance)) ** 0.5, 0.001)
+                    p_val = round(max(0.0001, 0.5 * math.erfc(z / math.sqrt(2))), 4)
+                val["parsimony_loo"] = {
+                    "counts": counts,
+                    "correct_word": expected_word,
+                    "total": total,
+                    "p_value": p_val,
+                }
+        except Exception:
+            pass
+
+        # Peer rating correlations
+        try:
+            # Get all peer ratings with the scored game's metrics
+            ratings_result = svc.table("peer_ratings") \
+                .select("difference, connection, uniqueness, rated_game_id") \
+                .execute()
+            if ratings_result.data:
+                # Get scores for rated games
+                game_ids = list({r["rated_game_id"] for r in ratings_result.data})
+                # Fetch in chunks to avoid URL length limits
+                game_scores_map = {}
+                for i in range(0, len(game_ids), 50):
+                    chunk = game_ids[i:i+50]
+                    games_result = svc.table("games") \
+                        .select("id, sender_scores") \
+                        .eq("study_slug", slug) \
+                        .in_("id", chunk) \
+                        .execute()
+                    for g in (games_result.data or []):
+                        game_scores_map[g["id"]] = g.get("sender_scores") or {}
+
+                # Build paired arrays
+                pairs = []
+                for r in ratings_result.data:
+                    gscores = game_scores_map.get(r["rated_game_id"])
+                    if not gscores:
+                        continue
+                    div = gscores.get("divergence")
+                    ali = gscores.get("alignment_display", gscores.get("alignment"))
+                    par = gscores.get("parsimony")
+                    if div is not None and ali is not None and par is not None:
+                        pairs.append({
+                            "diff": r["difference"], "conn": r["connection"], "uniq": r["uniqueness"],
+                            "div": div, "ali": ali if ali > 1 else ali * 100, "par": par,
+                        })
+
+                if len(pairs) >= 5:
+                    def pearson_r(xs, ys):
+                        n = len(xs)
+                        if n < 3:
+                            return None
+                        mx, my = sum(xs) / n, sum(ys) / n
+                        cov = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+                        sx = sum((x - mx) ** 2 for x in xs) ** 0.5
+                        sy = sum((y - my) ** 2 for y in ys) ** 0.5
+                        if sx == 0 or sy == 0:
+                            return None
+                        return round(cov / (sx * sy), 2)
+
+                    val["peer_correlations"] = {
+                        "diff_div_r": pearson_r([p["diff"] for p in pairs], [p["div"] for p in pairs]),
+                        "conn_ali_r": pearson_r([p["conn"] for p in pairs], [p["ali"] for p in pairs]),
+                        "uniq_par_r": pearson_r([p["uniq"] for p in pairs], [p["par"] for p in pairs]),
+                        "n": len(pairs),
+                    }
+        except Exception:
+            pass
+
+        validation = val if val else None
+
+    # --- Participant feedback (N≥5 post-surveys) ---
+    feedback = None
+    try:
+        surveys = svc.table("study_surveys") \
+            .select("responses") \
+            .eq("study_slug", slug) \
+            .eq("timing", "post") \
+            .execute()
+
+        post_survey_items = study_result.data.get("post_survey", [])
+        if isinstance(post_survey_items, str):
+            post_survey_items = json.loads(post_survey_items)
+
+        if surveys.data and len(surveys.data) >= 5:
+            # Build response map: item_id -> list of values
+            response_map = {}
+            free_texts = []
+            for row in surveys.data:
+                resps = row.get("responses", [])
+                if isinstance(resps, str):
+                    resps = json.loads(resps)
+                for r in resps:
+                    item_id = r.get("item_id")
+                    value = r.get("value")
+                    if item_id == "free_text" and value:
+                        free_texts.append(str(value))
+                    elif isinstance(value, (int, float)):
+                        if item_id not in response_map:
+                            response_map[item_id] = []
+                        response_map[item_id].append(int(value))
+
+            # Build feedback items from post_survey definition
+            items = []
+            for ps_item in post_survey_items:
+                item_id = ps_item.get("id")
+                if item_id == "free_text" or ps_item.get("type") != "likert":
+                    continue
+                vals = response_map.get(item_id, [])
+                if not vals:
+                    continue
+                mean = round(sum(vals) / len(vals), 1)
+                dist = [0, 0, 0, 0, 0]
+                for v in vals:
+                    if 1 <= v <= 5:
+                        dist[v - 1] += 1
+                items.append({
+                    "label": ps_item.get("text", item_id),
+                    "key": item_id,
+                    "mean": mean,
+                    "distribution": dist,
+                    "n": len(vals),
+                })
+
+            feedback = {
+                "items": items,
+                "quotes": free_texts,
+            }
+    except Exception:
+        pass
+
+    return GroupResultsData(
+        study_slug=slug,
+        study_title=study_result.data["title"],
+        participant_count=participant_count,
+        date_range=date_range,
+        cohort_distributions=cohort_distributions,
+        scatterplot_data=scatterplot_data,
+        constraint_effects=constraint_effects,
+        learning_curve=learning_curve,
+        validation=validation,
+        feedback=feedback,
     )
 
 
