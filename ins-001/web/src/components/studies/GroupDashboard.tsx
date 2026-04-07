@@ -12,7 +12,6 @@ const DivAlignScatterAll = lazy(() => import('../dashboard/group/DivAlignScatter
 const ConstraintEffects = lazy(() => import('../dashboard/group/ConstraintEffects').then(m => ({ default: m.ConstraintEffects })));
 const LearningCurveAll = lazy(() => import('../dashboard/group/LearningCurveAll').then(m => ({ default: m.LearningCurveAll })));
 const ValidationPanels = lazy(() => import('../dashboard/group/ValidationPanels').then(m => ({ default: m.ValidationPanels })));
-const FeedbackSummary = lazy(() => import('../dashboard/group/FeedbackSummary').then(m => ({ default: m.FeedbackSummary })));
 const JoinCTA = lazy(() => import('../dashboard/group/JoinCTA').then(m => ({ default: m.JoinCTA })));
 
 interface GroupDashboardProps {
@@ -238,16 +237,7 @@ export function GroupDashboard({ slug }: GroupDashboardProps) {
             )}
           </section>
 
-          {/* Section 8: Participant Feedback */}
-          <section style={sectionStyle}>
-            {data.feedback ? (
-              <FeedbackSummary feedback={data.feedback} />
-            ) : (
-              <ThresholdMessage message="Participant feedback will appear with 5+ post-survey responses." />
-            )}
-          </section>
-
-          {/* Section 9: Join CTA + Footer */}
+          {/* Join CTA + Footer */}
           <section style={{ borderTop: '1px solid var(--faded-light)', marginTop: '2rem' }}>
             <JoinCTA slug={slug} isActive={true} />
           </section>

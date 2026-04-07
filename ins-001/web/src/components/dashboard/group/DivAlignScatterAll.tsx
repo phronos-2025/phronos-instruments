@@ -84,7 +84,7 @@ export function DivAlignScatterAll({ data, userScores }: Props) {
   }
 
   const options = {
-    ...baseChartOptions('Divergence vs Alignment'),
+    ...baseChartOptions('Alignment vs Divergence'),
     scales: {
       x: {
         title: {
@@ -110,7 +110,7 @@ export function DivAlignScatterAll({ data, userScores }: Props) {
       },
     },
     plugins: {
-      ...baseChartOptions('Divergence vs Alignment').plugins,
+      ...baseChartOptions('Alignment vs Divergence').plugins,
       legend: {
         display: true,
         labels: {
@@ -141,7 +141,7 @@ export function DivAlignScatterAll({ data, userScores }: Props) {
         letterSpacing: '2px',
         color: 'var(--gold)',
         marginBottom: '0.5rem',
-      }}>Divergence vs Alignment</div>
+      }}>Alignment vs Divergence</div>
       <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--faded)', marginBottom: '1rem' }}>
         All Bridge games across all participants · Dot size = parsimony
       </p>

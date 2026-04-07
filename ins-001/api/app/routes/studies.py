@@ -1389,6 +1389,24 @@ async def get_group_results(slug: str, auth=Depends(get_optional_client)):
         .execute()
     games_data = all_games.data or []
 
+    def _get_alignment_display(scores: dict) -> float | None:
+        """Extract the sigmoid-transformed alignment score, computing from z if needed."""
+        # Best: alignment_display already computed
+        ad = scores.get("alignment_display")
+        if ad is not None:
+            return float(ad)
+        # Next best: compute sigmoid from alignment_z
+        az = scores.get("alignment_z")
+        if az is not None:
+            import math
+            c, beta = 1.5, 0.8
+            return 100.0 / (1.0 + math.exp(-beta * (float(az) - c)))
+        # Fallback: raw alignment (a_scaled) * 100
+        raw = scores.get("alignment")
+        if raw is not None:
+            return float(raw) * 100 if float(raw) <= 1 else float(raw)
+        return None
+
     # --- Cohort distributions (N≥20 for histograms, else mean/SD) ---
     cohort_distributions = None
     if participant_count >= 5:
@@ -1401,18 +1419,12 @@ async def get_group_results(slug: str, auth=Depends(get_optional_client)):
             participants[sid].append(g)
 
         # Per-item percentile ranks for each participant
-        def compute_participant_aggregates(metric, fallback=None):
+        def compute_participant_aggregates(extract_fn):
             """For each participant, compute mean percentile across items for a metric."""
-            # First build per-item distributions
             items = {}
             for g in games_data:
                 scores = g.get("sender_scores") or {}
-                val = scores.get(metric)
-                # Fallback for alignment_display -> alignment * 100
-                if val is None and fallback:
-                    raw = scores.get(fallback)
-                    if raw is not None:
-                        val = raw * 100 if raw <= 1 else raw
+                val = extract_fn(scores)
                 if val is None:
                     continue
                 item = g["game_number"]
@@ -1420,7 +1432,6 @@ async def get_group_results(slug: str, auth=Depends(get_optional_client)):
                     items[item] = []
                 items[item].append((g["sender_id"], val))
 
-            # Compute percentile for each participant in each item
             participant_pcts = {}
             for item, entries in items.items():
                 vals = [v for _, v in entries]
@@ -1434,12 +1445,15 @@ async def get_group_results(slug: str, auth=Depends(get_optional_client)):
                         participant_pcts[sid] = []
                     participant_pcts[sid].append(pct)
 
-            # Mean percentile per participant
             return [sum(pcts) / len(pcts) for pcts in participant_pcts.values() if pcts]
 
         dists = {}
-        for metric, key, fb in [("divergence", "divergence", None), ("alignment_display", "alignment", "alignment"), ("parsimony", "parsimony", None)]:
-            values = compute_participant_aggregates(metric, fallback=fb)
+        for key, extract_fn in [
+            ("divergence", lambda s: s.get("divergence")),
+            ("alignment", _get_alignment_display),
+            ("parsimony", lambda s: s.get("parsimony")),
+        ]:
+            values = compute_participant_aggregates(extract_fn)
             if values:
                 mean_val = sum(values) / len(values)
                 sorted_vals = sorted(values)
@@ -1466,11 +1480,9 @@ async def get_group_results(slug: str, auth=Depends(get_optional_client)):
             if task != "bridge":
                 continue
             div = scores.get("divergence")
-            ali = scores.get("alignment_display", scores.get("alignment"))
+            ali = _get_alignment_display(scores)
             if div is None or ali is None:
                 continue
-            if isinstance(ali, float) and ali <= 1:
-                ali = ali * 100
             scatter.append({
                 "item_number": item_num,
                 "divergence": round(div, 1),
@@ -1490,15 +1502,15 @@ async def get_group_results(slug: str, auth=Depends(get_optional_client)):
             if g["game_number"] == 4:
                 if scores.get("parsimony") is not None:
                     i4_par.append(round(scores["parsimony"], 2))
-                ali = scores.get("alignment_display", scores.get("alignment"))
+                ali = _get_alignment_display(scores)
                 if ali is not None:
-                    i4_ali.append(round(ali if ali > 1 else ali * 100, 1))
+                    i4_ali.append(round(ali, 1))
             elif g["game_number"] == 8:
                 if scores.get("parsimony") is not None:
                     i8_par.append(round(scores["parsimony"], 2))
-                ali = scores.get("alignment_display", scores.get("alignment"))
+                ali = _get_alignment_display(scores)
                 if ali is not None:
-                    i8_ali.append(round(ali if ali > 1 else ali * 100, 1))
+                    i8_ali.append(round(ali, 1))
         if i4_par and i8_par:
             constraint_effects = {
                 "item_4_parsimony": i4_par,
@@ -1534,9 +1546,9 @@ async def get_group_results(slug: str, auth=Depends(get_optional_client)):
                 item_scores[item_num] = {"divergence": [], "alignment": [], "parsimony": []}
             if scores.get("divergence") is not None:
                 item_scores[item_num]["divergence"].append(scores["divergence"])
-            ali = scores.get("alignment_display", scores.get("alignment"))
+            ali = _get_alignment_display(scores)
             if ali is not None:
-                item_scores[item_num]["alignment"].append(ali if ali > 1 else ali * 100)
+                item_scores[item_num]["alignment"].append(ali)
             if scores.get("parsimony") is not None:
                 item_scores[item_num]["parsimony"].append(scores["parsimony"])
 
@@ -1666,12 +1678,12 @@ async def get_group_results(slug: str, auth=Depends(get_optional_client)):
                     if not gscores:
                         continue
                     div = gscores.get("divergence")
-                    ali = gscores.get("alignment_display", gscores.get("alignment"))
+                    ali = _get_alignment_display(gscores)
                     par = gscores.get("parsimony")
                     if div is not None and ali is not None and par is not None:
                         pairs.append({
                             "diff": r["difference"], "conn": r["connection"], "uniq": r["uniqueness"],
-                            "div": div, "ali": ali if ali > 1 else ali * 100, "par": par,
+                            "div": div, "ali": ali, "par": par,
                         })
 
                 if len(pairs) >= 5:
@@ -1769,9 +1781,7 @@ async def get_group_results(slug: str, auth=Depends(get_optional_client)):
                 scores = g.get("sender_scores") or {}
                 item_num = g["game_number"]
                 item_cfg = battery[item_num - 1] if item_num <= len(battery) else {}
-                ali = scores.get("alignment_display", scores.get("alignment"))
-                if ali is not None and ali <= 1:
-                    ali = ali * 100
+                ali = _get_alignment_display(scores)
                 per_item.append({
                     "item_number": item_num,
                     "game_type": item_cfg.get("task", g.get("game_type", "")),
@@ -1784,35 +1794,25 @@ async def get_group_results(slug: str, auth=Depends(get_optional_client)):
 
             # Compute aggregate percentiles for this user
             agg_pcts = {}
-            for metric, fb in [("divergence", None), ("alignment_display", "alignment"), ("parsimony", None)]:
+            for display_key, extract_fn in [
+                ("divergence", lambda s: s.get("divergence")),
+                ("alignment", _get_alignment_display),
+                ("parsimony", lambda s: s.get("parsimony")),
+            ]:
                 pcts = []
                 for g in my_games:
                     scores = g.get("sender_scores") or {}
-                    val = scores.get(metric)
-                    if val is None and fb:
-                        raw = scores.get(fb)
-                        if raw is not None:
-                            val = raw * 100 if raw <= 1 else raw
+                    val = extract_fn(scores)
                     if val is None:
                         continue
-                    # Count how many in this item scored <= this user
                     same_item = [
                         gg["sender_scores"] for gg in games_data
                         if gg["game_number"] == g["game_number"] and gg.get("sender_scores")
                     ]
-                    vals = []
-                    for s in same_item:
-                        v = s.get(metric)
-                        if v is None and fb:
-                            raw = s.get(fb)
-                            if raw is not None:
-                                v = raw * 100 if raw <= 1 else raw
-                        if v is not None:
-                            vals.append(v)
+                    vals = [v for s in same_item if (v := extract_fn(s)) is not None]
                     if vals:
                         count_below = sum(1 for v in vals if v <= val)
                         pcts.append(100 * count_below / len(vals))
-                display_key = "alignment" if metric == "alignment_display" else metric
                 if pcts:
                     agg_pcts[display_key] = round(sum(pcts) / len(pcts), 1)
 
