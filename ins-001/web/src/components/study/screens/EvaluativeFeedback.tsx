@@ -53,25 +53,41 @@ export function EvaluativeFeedback() {
         {evaluation.feedback && typeof evaluation.feedback === 'object' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
             {/* Alignment ranking feedback */}
-            {evaluation.feedback.correct_order && (
+            {evaluation.task === 'alignment_ranking' && (
               <div>
-                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'var(--faded)', textTransform: 'uppercase', marginBottom: 'var(--space-xs)' }}>
-                  Computed ranking
-                </p>
-                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem', color: 'var(--text-light)' }}>
-                  {(evaluation.feedback.correct_order as string[]).join(' > ')}
-                </p>
+                {evaluation.feedback.correct_order ? (
+                  <>
+                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'var(--faded)', textTransform: 'uppercase', marginBottom: 'var(--space-xs)' }}>
+                      Computed ranking
+                    </p>
+                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem', color: 'var(--text-light)' }}>
+                      {(evaluation.feedback.correct_order as string[]).join(' > ')}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'var(--faded)', textTransform: 'uppercase', marginBottom: 'var(--space-xs)' }}>
+                      Your ranking
+                    </p>
+                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem', color: 'var(--text-light)' }}>
+                      {(evaluation.feedback.participant_ranking as string[])?.join(' > ') || 'Submitted'}
+                    </p>
+                    <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--faded)', marginTop: 'var(--space-xs)', lineHeight: 1.5 }}>
+                      Thanks for your ranking! Computed alignment scores will be available once we have enough data to compare.
+                    </p>
+                  </>
+                )}
               </div>
             )}
 
             {/* Parsimony LOO feedback */}
-            {evaluation.feedback.expected_word && (
+            {(evaluation.feedback.expected_word || evaluation.feedback.expected_redundant) && (
               <div>
                 <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'var(--faded)', textTransform: 'uppercase', marginBottom: 'var(--space-xs)' }}>
                   Most redundant word
                 </p>
                 <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem', color: 'var(--gold)' }}>
-                  {evaluation.feedback.expected_word as string}
+                  {(evaluation.feedback.expected_word || evaluation.feedback.expected_redundant) as string}
                 </p>
                 {evaluation.feedback.explanation && (
                   <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--faded)', marginTop: 'var(--space-xs)', lineHeight: 1.5 }}>

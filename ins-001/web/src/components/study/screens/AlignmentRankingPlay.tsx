@@ -5,11 +5,20 @@
  * based on how well they connect to the target words.
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { useStudy } from '../../../lib/study-state';
 import { api } from '../../../lib/api';
 import { Panel } from '../../ui/Panel';
 import { Button } from '../../ui/Button';
+
+function shuffleArray<T>(arr: T[]): T[] {
+  const shuffled = [...arr];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
 
 export function AlignmentRankingPlay() {
   const { state, dispatch } = useStudy();
@@ -17,7 +26,8 @@ export function AlignmentRankingPlay() {
   const config = item.config;
   const stimulus = item.stimulus?.stimulus_sets || config.stimulus_sets || {};
 
-  const setKeys = Object.keys(stimulus);
+  // Randomize set presentation order (stable across re-renders)
+  const setKeys = useMemo(() => shuffleArray(Object.keys(stimulus)), []);
   const [ranking, setRanking] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const startTimeRef = useRef(Date.now());

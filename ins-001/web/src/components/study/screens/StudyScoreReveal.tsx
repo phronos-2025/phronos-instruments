@@ -10,6 +10,46 @@ import { useStudy } from '../../../lib/study-state';
 import { Panel } from '../../ui/Panel';
 import { Button } from '../../ui/Button';
 
+// Normative data from Bowden & Jung-Beeman (2003)
+// Each entry: [time_sec, cumulative_percent_solved]
+const RAT_NORMS: Record<string, Array<[number, number]>> = {
+  'print,berry,bird': [[2, 10], [7, 38], [15, 49], [30, 77]],
+  'water,mine,shaker': [[2, 12], [7, 28], [15, 41], [30, 85]],
+};
+
+function getRatNormKey(item: any): string | null {
+  const targets = item?.config?.targets;
+  if (!targets || !Array.isArray(targets)) return null;
+  return targets.map((t: string) => t.toLowerCase()).join(',');
+}
+
+function getRatNormComparison(normKey: string, timeMs: number): { bracket: string; pctSolved: number } | null {
+  const norms = RAT_NORMS[normKey];
+  if (!norms) return null;
+  const timeSec = timeMs / 1000;
+  // Find which bracket the user falls into
+  for (let i = norms.length - 1; i >= 0; i--) {
+    if (timeSec <= norms[i][0]) {
+      continue;
+    }
+    // User took longer than this bracket
+    if (i === norms.length - 1) {
+      return { bracket: `>${norms[i][0]}s`, pctSolved: norms[i][1] };
+    }
+  }
+  // User was within the first bracket
+  if (timeSec <= norms[0][0]) {
+    return { bracket: `\u2264${norms[0][0]}s`, pctSolved: norms[0][1] };
+  }
+  // Find exact bracket
+  for (let i = 0; i < norms.length; i++) {
+    if (timeSec <= norms[i][0]) {
+      return { bracket: `\u2264${norms[i][0]}s`, pctSolved: norms[i][1] };
+    }
+  }
+  return { bracket: `>${norms[norms.length - 1][0]}s`, pctSolved: norms[norms.length - 1][1] };
+}
+
 const METRIC_INFO: Record<string, { label: string; explanation: string }> = {
   divergence: {
     label: 'Divergence',
@@ -27,19 +67,24 @@ const METRIC_INFO: Record<string, { label: string; explanation: string }> = {
     label: 'Parsimony',
     explanation: 'Whether each of your words pulled its weight — no redundancy.',
   },
-  recovery_mrr: {
-    label: 'Recovery',
-    explanation: 'How well your words make the targets identifiable among all possible words.',
-  },
 };
 
 export function StudyScoreReveal() {
   const { state, dispatch } = useStudy();
   const score = state.currentScore!;
+  const isRat = score.game_type === 'rat';
 
   const metricsToShow = Object.keys(score.scores).filter(
-    (key) => key !== 'exact_match' && typeof score.scores[key] === 'number'
+    (key) => key !== 'exact_match' && key !== 'recovery_mrr'
+      && (isRat ? key !== 'alignment' : true)
+      && typeof score.scores[key] === 'number'
   );
+
+  // RAT normative timing comparison
+  const ratNormKey = isRat ? getRatNormKey(state.currentItem) : null;
+  const ratNorm = (ratNormKey && score.time_to_complete_ms)
+    ? getRatNormComparison(ratNormKey, score.time_to_complete_ms)
+    : null;
 
   const isLastItem = state.itemsCompleted >= state.totalItems;
   const comparison = score.comparison;
@@ -55,7 +100,7 @@ export function StudyScoreReveal() {
 
   const formatScore = (metric: string, value: number): string => {
     if (metric === 'divergence' || metric === 'divergence_glove') return value.toFixed(1);
-    if (metric === 'alignment' || metric === 'parsimony' || metric === 'recovery_mrr') {
+    if (metric === 'alignment' || metric === 'parsimony') {
       return (value * 100).toFixed(0) + '%';
     }
     return value.toFixed(2);
@@ -91,6 +136,46 @@ export function StudyScoreReveal() {
             Correct answer!
           </span>
         </div>
+      )}
+
+      {/* RAT normative timing comparison */}
+      {isRat && ratNorm && score.time_to_complete_ms && (
+        <Panel style={{ maxWidth: '500px', margin: '0 auto var(--space-md)', textAlign: 'center' }}>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'var(--faded)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 'var(--space-xs)' }}>
+            Your time
+          </p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.4rem', color: 'var(--gold)', fontWeight: 600 }}>
+            {(score.time_to_complete_ms / 1000).toFixed(1)}s
+          </p>
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--text-light)', marginTop: 'var(--space-xs)', lineHeight: 1.5 }}>
+            In normative data (Bowden & Jung-Beeman, 2003), {ratNorm.pctSolved}% of participants
+            solved this item within {ratNorm.bracket.replace('\u2264', '').replace('>', '')}.
+          </p>
+          {/* Full breakdown */}
+          {ratNormKey && RAT_NORMS[ratNormKey] && (
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--space-md)', marginTop: 'var(--space-sm)', flexWrap: 'wrap' }}>
+              {RAT_NORMS[ratNormKey].map(([sec, pct]) => {
+                const userSec = score.time_to_complete_ms! / 1000;
+                const isUserBracket = userSec <= sec && (RAT_NORMS[ratNormKey].findIndex(([s]) => s === sec) === 0 || userSec > RAT_NORMS[ratNormKey][RAT_NORMS[ratNormKey].findIndex(([s]) => s === sec) - 1][0]);
+                return (
+                  <div key={sec} style={{ textAlign: 'center' }}>
+                    <p style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: '0.7rem',
+                      color: isUserBracket ? 'var(--gold)' : 'var(--faded)',
+                      fontWeight: isUserBracket ? 600 : 400,
+                    }}>
+                      {pct}%
+                    </p>
+                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', color: 'var(--faded)' }}>
+                      {'\u2264'}{sec}s
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Panel>
       )}
 
       {/* Score cards */}

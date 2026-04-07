@@ -115,6 +115,7 @@ class GameScoreResponse(BaseModel):
     exact_match: Optional[bool] = None
     insufficient_data: bool = False
     comparison: Optional[dict[str, Any]] = None
+    time_to_complete_ms: Optional[int] = None
 
 
 class SubmitEvaluationRequest(BaseModel):
@@ -926,6 +927,7 @@ async def submit_game(
         exact_match=scores.get("exact_match"),
         insufficient_data=percentiles.get("insufficient_data", False) if percentiles else True,
         comparison=comparison,
+        time_to_complete_ms=request.time_to_complete_ms,
     )
 
 
