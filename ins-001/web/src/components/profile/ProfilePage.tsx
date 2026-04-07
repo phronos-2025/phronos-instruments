@@ -9,7 +9,8 @@ import { AuthProvider, useAuth } from '../auth/AuthProvider';
 import { MagicLinkModal } from '../auth/MagicLinkModal';
 import { Panel } from '../ui/Panel';
 import { api } from '../../lib/api';
-import type { UserResponse, ProfileResponse, GameHistoryResponse } from '../../lib/api';
+import type { UserResponse, ProfileResponse, GameHistoryResponse, StudyListItem } from '../../lib/api';
+import { StudyCard } from '../studies/StudyCard';
 
 // Lazy load the dashboard to avoid loading chart.js on initial page load
 const PeerComparison = lazy(() => import('./PeerComparison').then(m => ({ default: m.PeerComparison })));
@@ -19,6 +20,7 @@ const ProfilePageInner: React.FC = () => {
   const [userData, setUserData] = useState<UserResponse | null>(null);
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
   const [gameHistory, setGameHistory] = useState<GameHistoryResponse | null>(null);
+  const [enrolledStudies, setEnrolledStudies] = useState<StudyListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -33,15 +35,17 @@ const ProfilePageInner: React.FC = () => {
         setLoading(true);
         setError(null);
 
-        const [userRes, profileRes, historyRes] = await Promise.all([
+        const [userRes, profileRes, historyRes, studiesRes] = await Promise.all([
           api.users.getMe(),
           api.users.getProfile(),
           api.users.getGameHistory(50, 0),
+          api.studies.list().catch(() => ({ studies: [] })),
         ]);
 
         setUserData(userRes);
         setProfile(profileRes);
         setGameHistory(historyRes);
+        setEnrolledStudies(studiesRes.studies.filter(s => s.enrollment != null));
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load profile');
       } finally {
@@ -159,6 +163,24 @@ const ProfilePageInner: React.FC = () => {
         )}
       </Panel>
 
+      {/* Study Results (Peer Comparison Dashboard) */}
+      <div id="study-results">
+        <Suspense fallback={null}>
+          <PeerComparison />
+        </Suspense>
+      </div>
+
+      {/* Studies Participated */}
+      {enrolledStudies.length > 0 && (
+        <Panel title="Studies Participated" meta={`${enrolledStudies.length} ${enrolledStudies.length === 1 ? 'study' : 'studies'}`}>
+          <div className="studies-participated-list">
+            {enrolledStudies.map(study => (
+              <StudyCard key={study.slug} study={study} variant="profile" />
+            ))}
+          </div>
+        </Panel>
+      )}
+
       {/* Game History */}
       <Panel title="Game History" meta={`${gameHistory?.total || 0} sessions`}>
         {gameHistory && gameHistory.games.length > 0 ? (
@@ -169,7 +191,12 @@ const ProfilePageInner: React.FC = () => {
                   <span className="history-type">
                     {game.game_type === 'radiation' ? 'Signal' : 'Common Ground'}
                   </span>
-                  <span className="history-date">{formatDate(game.created_at)}</span>
+                  <span className="history-date">
+                    {formatDate(game.created_at)}
+                    {game.study_slug && (
+                      <span className="history-study-tag">{game.study_slug.toUpperCase()}</span>
+                    )}
+                  </span>
                 </div>
                 <div className="history-item-details">
                   <span className="history-seed">
@@ -196,11 +223,6 @@ const ProfilePageInner: React.FC = () => {
           <p className="no-games-text">No games played yet. Start with Signal or Common Ground.</p>
         )}
       </Panel>
-
-      {/* Peer Comparison Dashboard (from study participation) */}
-      <Suspense fallback={null}>
-        <PeerComparison />
-      </Suspense>
 
       {/* Data & Privacy */}
       <Panel title="Data & Privacy">
@@ -418,6 +440,23 @@ const styles = `
   .history-date {
     font-size: var(--text-xs);
     color: var(--faded);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .history-study-tag {
+    font-size: 9px;
+    color: var(--gold);
+    border: 1px solid var(--gold-dim);
+    padding: 1px 4px;
+    letter-spacing: 0.5px;
+  }
+
+  .studies-participated-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
   }
 
   .history-item-details {

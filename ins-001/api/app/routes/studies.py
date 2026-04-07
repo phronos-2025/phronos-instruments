@@ -323,6 +323,100 @@ def _increment_items_only(supabase, slug: str, user_id: str):
 # ROUTES
 # ============================================
 
+
+class StudyListEnrollment(BaseModel):
+    items_completed: int
+    completed_at: Optional[str] = None
+    opted_partial: Optional[bool] = None
+    enrolled_at: str
+
+
+class StudyListItem(BaseModel):
+    slug: str
+    title: str
+    description: Optional[str] = None
+    is_active: bool
+    game_count: int
+    participant_count: int
+    created_at: str
+    enrollment: Optional[StudyListEnrollment] = None
+
+
+class StudyListResponse(BaseModel):
+    studies: list[StudyListItem]
+
+
+@router.get("/", response_model=StudyListResponse)
+async def list_studies(auth=Depends(get_optional_client)):
+    """List all studies with participant counts. If authenticated, includes enrollment status."""
+    supabase, user = auth
+
+    # Get all studies
+    studies_result = supabase.table("studies") \
+        .select("slug, title, description, is_active, config, created_at") \
+        .order("is_active", desc=True) \
+        .order("created_at", desc=True) \
+        .execute()
+
+    studies_data = studies_result.data or []
+    if not studies_data:
+        return StudyListResponse(studies=[])
+
+    slugs = [s["slug"] for s in studies_data]
+
+    # Get participant counts per study (completed enrollments)
+    counts_result = supabase.table("study_enrollments") \
+        .select("study_slug, id", count="exact") \
+        .in_("study_slug", slugs) \
+        .not_.is_("completed_at", "null") \
+        .execute()
+
+    # Count per slug manually since supabase doesn't group
+    count_map: dict[str, int] = {}
+    for row in (counts_result.data or []):
+        slug = row["study_slug"]
+        count_map[slug] = count_map.get(slug, 0) + 1
+
+    # If authenticated, get user's enrollments
+    enrollment_map: dict[str, dict] = {}
+    if user:
+        enroll_result = supabase.table("study_enrollments") \
+            .select("study_slug, items_completed, completed_at, opted_partial, enrolled_at") \
+            .eq("user_id", user["id"]) \
+            .in_("study_slug", slugs) \
+            .execute()
+        for row in (enroll_result.data or []):
+            enrollment_map[row["study_slug"]] = row
+
+    items = []
+    for study in studies_data:
+        battery, _, _ = _parse_study_config(study.get("config", []))
+        slug = study["slug"]
+
+        enrollment = None
+        if slug in enrollment_map:
+            e = enrollment_map[slug]
+            enrollment = StudyListEnrollment(
+                items_completed=e.get("items_completed", 0),
+                completed_at=e.get("completed_at"),
+                opted_partial=e.get("opted_partial"),
+                enrolled_at=e["enrolled_at"],
+            )
+
+        items.append(StudyListItem(
+            slug=slug,
+            title=study["title"],
+            description=study.get("description"),
+            is_active=study["is_active"],
+            game_count=len(battery),
+            participant_count=count_map.get(slug, 0),
+            created_at=study["created_at"],
+            enrollment=enrollment,
+        ))
+
+    return StudyListResponse(studies=items)
+
+
 @router.get("/{slug}", response_model=StudyResponse)
 async def get_study(slug: str, auth=Depends(get_optional_client)):
     """Get study metadata and participant count (public)."""
@@ -332,7 +426,6 @@ async def get_study(slug: str, auth=Depends(get_optional_client)):
         result = supabase.table("studies") \
             .select("*") \
             .eq("slug", slug) \
-            .eq("is_active", True) \
             .single() \
             .execute()
     except APIError:

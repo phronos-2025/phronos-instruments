@@ -14,6 +14,7 @@ import InstrumentCard from '../components/landing/InstrumentCard.astro';
 import InstrumentFamilyCard from '../components/landing/InstrumentFamilyCard.astro';
 import SectionHeader from '../components/landing/SectionHeader.astro';
 import LandingFooter from '../components/landing/LandingFooter.astro';
+import { StudiesSection } from '../components/studies/StudiesSection';
 ---
 
 <!doctype html>
@@ -121,9 +122,12 @@ import LandingFooter from '../components/landing/LandingFooter.astro';
         </div>
       </section>
 
+      <!-- RESEARCH STUDIES -->
+      <StudiesSection client:load />
+
       <!-- HOW IT WORKS -->
       <section class="info-section">
-        <SectionHeader id="02" title="How Instruments Work" />
+        <SectionHeader id="03" title="How Instruments Work" />
         
         <div class="info-grid">
           <div class="info-panel">

@@ -471,6 +471,7 @@ class GameHistoryItem(BaseModel):
     status: str
     created_at: datetime
     completed_at: Optional[datetime] = None
+    study_slug: Optional[str] = None
 
 
 class GameHistoryResponse(BaseModel):
