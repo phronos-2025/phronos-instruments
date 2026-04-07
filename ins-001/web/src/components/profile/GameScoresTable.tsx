@@ -7,7 +7,7 @@
 import React from 'react';
 
 interface GameScore {
-  game_number: number;
+  item_number: number;
   game_type: string;
   m: number;
   n: number;
@@ -74,8 +74,8 @@ export function GameScoresTable({ games, showPercentiles }: Props) {
           </thead>
           <tbody>
             {games.map((g) => (
-              <tr key={g.game_number} style={{ borderBottom: '1px solid var(--faded-ultra)' }}>
-                <td style={tdStyle}>{g.game_number}</td>
+              <tr key={g.item_number} style={{ borderBottom: '1px solid var(--faded-ultra)' }}>
+                <td style={tdStyle}>{g.item_number}</td>
                 <td style={{ ...tdStyle, color: 'var(--gold)' }}>
                   {TYPE_LABELS[g.game_type] || g.game_type} ({g.m},{g.n})
                 </td>

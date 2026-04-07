@@ -16,6 +16,48 @@ const METRIC_META: Record<string, { label: string; color: string }> = {
   parsimony: { label: 'Parsimony', color: '#6B8FD4' },
 };
 
+function MiniHistogram({ percentile, color }: { percentile: number; color: string }) {
+  const bars = 20;
+  const barWidth = 200 / bars;
+  const userBar = Math.min(Math.floor(percentile / (100 / bars)), bars - 1);
+
+  return (
+    <svg
+      viewBox="0 0 200 44"
+      style={{ width: '100%', height: '40px', marginTop: 'var(--space-sm)' }}
+      preserveAspectRatio="none"
+    >
+      {Array.from({ length: bars }, (_, i) => {
+        // Gaussian bell shape centered at bar 10 (50th percentile)
+        const h = 32 * Math.exp(-0.5 * ((i - 10) / 4) ** 2);
+        const isUser = i === userBar;
+        return (
+          <rect
+            key={i}
+            x={i * barWidth + 1}
+            y={40 - h}
+            width={barWidth - 2}
+            height={h}
+            fill={isUser ? color : 'rgba(242, 240, 233, 0.08)'}
+            opacity={isUser ? 0.6 : 1}
+            rx={1}
+          />
+        );
+      })}
+      {/* User position marker line */}
+      <line
+        x1={(percentile / 100) * 200}
+        y1={2}
+        x2={(percentile / 100) * 200}
+        y2={42}
+        stroke={color}
+        strokeWidth={2}
+        opacity={0.9}
+      />
+    </svg>
+  );
+}
+
 export function PercentileCards({ percentiles }: Props) {
   return (
     <div style={{
@@ -65,21 +107,8 @@ export function PercentileCards({ percentiles }: Props) {
               percentile
             </p>
 
-            {/* Simple visual bar */}
-            <div style={{
-              marginTop: 'var(--space-sm)',
-              height: '4px',
-              background: 'var(--faded-light)',
-              borderRadius: '2px',
-              overflow: 'hidden',
-            }}>
-              <div style={{
-                height: '100%',
-                width: `${value}%`,
-                background: meta.color,
-                transition: 'width 0.5s ease',
-              }} />
-            </div>
+            {/* Mini histogram with user position */}
+            <MiniHistogram percentile={value} color={meta.color} />
           </div>
         );
       })}

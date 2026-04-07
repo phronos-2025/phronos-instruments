@@ -9,7 +9,7 @@ import { Line } from 'react-chartjs-2';
 import { CHART_COLORS, METRIC_COLORS, baseChartOptions } from '../../lib/chart-config';
 
 interface CurvePoint {
-  game_number: number;
+  item_number: number;
   game_type: string;
   divergence_percentile: number | null;
   alignment_percentile: number | null;
@@ -21,7 +21,7 @@ interface Props {
 }
 
 export function LearningCurve({ data }: Props) {
-  const labels = data.map(d => `G${d.game_number}`);
+  const labels = data.map(d => `G${d.item_number}`);
 
   const chartData = {
     labels,

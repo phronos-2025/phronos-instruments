@@ -11,7 +11,7 @@ import { CHART_COLORS, METRIC_COLORS, baseChartOptions } from '../../lib/chart-c
 
 interface DataPoint {
   sender_id: string;
-  game_number: number;
+  item_number: number;
   divergence: number;
   alignment: number;
   parsimony: number | null;
@@ -93,7 +93,7 @@ export function DivAlignScatter({ data }: Props) {
           label: (ctx: any) => {
             const d = ctx.dataset.label === 'You' ? userPoints[ctx.dataIndex] : peerPoints[ctx.dataIndex];
             if (!d) return '';
-            return `Game ${d.game_number}: Div=${d.divergence.toFixed(1)}, Ali=${(d.alignment * 100).toFixed(0)}%`;
+            return `Item ${d.item_number}: Div=${d.divergence.toFixed(1)}, Ali=${(d.alignment * 100).toFixed(0)}%`;
           },
         },
       },

@@ -1013,6 +1013,36 @@ async def _compute_percentiles(
     return {"percentiles": percentiles, "insufficient_data": False, "participant_count": len(all_scores)}
 
 
+@router.get("/my-completed", response_model=list[dict[str, str]])
+async def get_my_completed_studies(auth=Depends(get_authenticated_client)):
+    """Get list of studies the current user has completed."""
+    supabase, user = auth
+
+    result = supabase.table("study_enrollments") \
+        .select("study_slug, completed_at") \
+        .eq("user_id", user["id"]) \
+        .not_.is_("completed_at", "null") \
+        .order("completed_at", desc=True) \
+        .execute()
+
+    if not result.data:
+        return []
+
+    # Get study titles
+    slugs = [r["study_slug"] for r in result.data]
+    studies = supabase.table("studies") \
+        .select("slug, title") \
+        .in_("slug", slugs) \
+        .execute()
+
+    title_map = {s["slug"]: s["title"] for s in (studies.data or [])}
+
+    return [
+        {"study_slug": r["study_slug"], "study_title": title_map.get(r["study_slug"], r["study_slug"])}
+        for r in result.data
+    ]
+
+
 @router.get("/{slug}/dashboard", response_model=DashboardData)
 async def get_dashboard(slug: str, auth=Depends(get_authenticated_client)):
     """Get peer comparison dashboard data."""

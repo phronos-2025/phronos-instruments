@@ -10,7 +10,9 @@ import { useAuth } from '../auth/AuthProvider';
 import { api, type StudyDashboardResponse } from '../../lib/api';
 import { Panel } from '../ui/Panel';
 import { PercentileCards } from './PercentileCards';
+import { ComparisonChart } from './ComparisonChart';
 import { DivAlignScatter } from './DivAlignScatter';
+import { PeerFeedbackCard } from './PeerFeedbackCard';
 import { GameScoresTable } from './GameScoresTable';
 import { LearningCurve } from './LearningCurve';
 
@@ -28,25 +30,11 @@ export function PeerComparison() {
 
     async function checkStudies() {
       try {
-        // Try to get dashboard for known studies
-        // For now, check aaai2026 specifically
-        const slugs = ['aaai2026'];
-        const available: string[] = [];
-
-        for (const slug of slugs) {
-          try {
-            const progress = await api.studies.getProgress(slug);
-            if (progress.completed_at) {
-              available.push(slug);
-            }
-          } catch {
-            // Not enrolled or not found
-          }
-        }
-
-        setStudies(available);
-        if (available.length > 0) {
-          setSelectedStudy(available[0]);
+        const completed = await api.studies.getMyCompletedStudies();
+        const slugs = completed.map(s => s.study_slug);
+        setStudies(slugs);
+        if (slugs.length > 0) {
+          setSelectedStudy(slugs[0]);
         }
       } catch {
         // Silently fail — dashboard just won't show
@@ -160,10 +148,31 @@ export function PeerComparison() {
               <PercentileCards percentiles={dashboard.aggregate_percentiles} />
             )}
 
+            {/* Bridge comparison (first vs last) */}
+            {dashboard.comparison_charts?.filter(c => c.label.includes('Bridge')).map(comp => (
+              <div key={comp.label} style={{ marginTop: 'var(--space-lg)' }}>
+                <ComparisonChart comparison={comp} />
+              </div>
+            ))}
+
+            {/* Constraint comparison (asymmetric m,n) */}
+            {dashboard.comparison_charts?.filter(c => c.label.includes('Asymmetric')).map(comp => (
+              <div key={comp.label} style={{ marginTop: 'var(--space-lg)' }}>
+                <ComparisonChart comparison={comp} />
+              </div>
+            ))}
+
             {/* Scatterplot */}
             {dashboard.scatterplot_data && dashboard.scatterplot_data.length > 0 && (
               <div style={{ marginTop: 'var(--space-lg)' }}>
                 <DivAlignScatter data={dashboard.scatterplot_data} />
+              </div>
+            )}
+
+            {/* Peer feedback */}
+            {dashboard.peer_feedback && (
+              <div style={{ marginTop: 'var(--space-lg)' }}>
+                <PeerFeedbackCard feedback={dashboard.peer_feedback} />
               </div>
             )}
           </>

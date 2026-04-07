@@ -763,6 +763,9 @@ export const api = {
 
     getDashboard: (slug: string): Promise<StudyDashboardResponse> =>
       apiCall(`/api/v1/studies/${slug}/dashboard`),
+
+    getMyCompletedStudies: (): Promise<Array<{ study_slug: string; study_title: string }>> =>
+      apiCall('/api/v1/studies/my-completed'),
   },
 };
 
@@ -910,7 +913,6 @@ export interface StudyDashboardResponse {
   insufficient_data: boolean;
   aggregate_percentiles: Record<string, number> | null;
   per_game_scores: Array<{
-    game_number: number;
     item_number: number;
     game_type: string;
     m: number;
@@ -920,14 +922,14 @@ export interface StudyDashboardResponse {
   }>;
   scatterplot_data: Array<{
     sender_id: string;
-    game_number: number;
+    item_number: number;
     divergence: number;
     alignment: number;
     parsimony: number | null;
     is_current_user: boolean;
   }> | null;
   learning_curve: Array<{
-    game_number: number;
+    item_number: number;
     game_type: string;
     divergence_percentile: number | null;
     alignment_percentile: number | null;
@@ -935,14 +937,13 @@ export interface StudyDashboardResponse {
   }> | null;
   comparison_charts: Array<{
     label: string;
-    item_a: number;
-    item_b: number;
-    scores_a: Record<string, number>;
-    scores_b: Record<string, number>;
+    earlier: { item_number: number; scores: Record<string, number | boolean> };
+    later: { item_number: number; scores: Record<string, number | boolean> };
   }> | null;
   peer_feedback: {
+    game_id: string;
     item_number: number;
-    n_raters: number;
+    rating_count: number;
     mean_difference: number;
     mean_connection: number;
     mean_uniqueness: number;
