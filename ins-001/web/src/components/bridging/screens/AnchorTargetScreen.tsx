@@ -9,7 +9,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useBridgingSenderState } from '../../../lib/bridging-state';
 import { api } from '../../../lib/api';
 import type { SemanticDistanceResponse } from '../../../lib/api';
-import { supabase } from '../../../lib/supabase';
+import { getParticipant } from '../../../lib/participant';
 import { Button } from '../../ui/Button';
 import { ProgressBar } from '../../ui/ProgressBar';
 
@@ -35,40 +35,14 @@ export const AnchorTargetScreen: React.FC<AnchorTargetScreenProps> = ({
   const [distance, setDistance] = useState<SemanticDistanceResponse | null>(null);
   const [isLoadingDistance, setIsLoadingDistance] = useState(false);
 
-  // Ensure user is authenticated
+  // Warm the participant id before the first game action (idempotent).
   useEffect(() => {
-    const ensureAuth = async () => {
-      try {
-        const {
-          data: { session },
-          error: sessionError,
-        } = await supabase.auth.getSession();
-
-        if (sessionError) {
-          console.error('Session error:', sessionError);
-          setAuthReady(true);
-          return;
-        }
-
-        if (!session) {
-          const { error: authError } = await supabase.auth.signInAnonymously();
-
-          if (authError) {
-            console.error('Auth error:', authError);
-            setError(`Authentication failed: ${authError.message}`);
-            setAuthReady(true);
-            return;
-          }
-        }
-
-        setAuthReady(true);
-      } catch (err) {
-        console.error('Auth setup error:', err);
-        setAuthReady(true);
-      }
-    };
-
-    ensureAuth();
+    getParticipant()
+      .catch((err) => {
+        console.error('Participant setup error:', err);
+        setError('Failed to initialize. You can still try to continue.');
+      })
+      .finally(() => setAuthReady(true));
   }, []);
 
   // Fetch semantic distance when both words are entered

@@ -4,7 +4,7 @@
  * Typed API client for backend communication
  */
 
-import { supabase } from './supabase';
+import { participantHeaders } from './participant';
 
 /**
  * Normalize API URL to ensure it has a protocol.
@@ -454,43 +454,11 @@ export interface GameHistoryResponse {
   offset: number;
 }
 
-// Helper to get auth headers
+// Helper to get auth headers.
+// Mints a participant on first use and sends the X-Participant-* headers the API
+// expects. Replaces the old Supabase anonymous-JWT flow.
 async function getAuthHeaders(): Promise<HeadersInit> {
-  // Check for existing session
-  let { data: { session }, error: sessionError } = await supabase.auth.getSession();
-  
-  if (sessionError) {
-    console.error('Session error in getAuthHeaders:', sessionError);
-    // Try to sign in anonymously as fallback
-    const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
-    if (authError) {
-      throw new Error(`Authentication failed: ${authError.message}`);
-    }
-    session = authData.session;
-  }
-  
-  if (!session) {
-    // Try to sign in anonymously
-    const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
-    if (authError) {
-      console.error('Failed to sign in anonymously:', authError);
-      throw new Error(`Authentication failed: ${authError.message}`);
-    }
-    session = authData.session;
-  }
-  
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  };
-  
-  if (session?.access_token) {
-    headers['Authorization'] = `Bearer ${session.access_token}`;
-  } else {
-    console.error('No access token in session:', session);
-    throw new Error('No access token available. Please refresh the page.');
-  }
-  
-  return headers;
+  return participantHeaders();
 }
 
 // Generic API call helper

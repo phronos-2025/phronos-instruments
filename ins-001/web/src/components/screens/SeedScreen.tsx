@@ -7,7 +7,7 @@
 import React, { useState, useEffect } from 'react';
 import { useGameState } from '../../lib/state';
 import { api } from '../../lib/api';
-import { supabase } from '../../lib/supabase';
+import { getParticipant } from '../../lib/participant';
 import { Panel } from '../ui/Panel';
 import { Button } from '../ui/Button';
 import { ProgressBar } from '../ui/ProgressBar';
@@ -21,60 +21,28 @@ export const SeedScreen: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [authReady, setAuthReady] = useState(false);
   
-  // Ensure user is authenticated (anonymous is fine)
+  // Ensure a participant id exists before the first game action. Minting is
+  // idempotent and cached, so this just warms it; the API call would mint anyway.
   useEffect(() => {
-    const ensureAuth = async () => {
-      try {
-        // Check for existing session first
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          console.error('Session error:', sessionError);
-          setError(`Session error: ${sessionError.message}`);
-          setAuthReady(true); // Allow user to try anyway
-          return;
-        }
-        
-        if (!session) {
-          // Sign in anonymously if no session
-          const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
-          
-          if (authError) {
-            console.error('Auth error:', authError);
-            setError(`Authentication failed: ${authError.message}. You can still try to continue.`);
-            setAuthReady(true); // Allow user to try anyway - API will handle auth
-            return;
-          }
-          
-          if (!authData.session) {
-            console.error('No session after anonymous sign-in');
-            setError('Failed to create anonymous session. Please refresh the page.');
-            setAuthReady(true); // Allow user to try anyway
-            return;
-          }
-          
-        }
-        
-        setAuthReady(true);
-      } catch (err) {
-        console.error('Auth setup error:', err);
-        setError(`Failed to initialize: ${err instanceof Error ? err.message : 'Unknown error'}`);
-        setAuthReady(true); // Allow user to try anyway
-      }
-    };
-    
-    // Add timeout to prevent infinite loading
     const timeout = setTimeout(() => {
       if (!authReady) {
-        console.warn('Auth initialization timeout');
-        setError('Authentication is taking longer than expected. You can try to continue.');
+        console.warn('Participant initialization timeout');
+        setError('Setup is taking longer than expected. You can try to continue.');
         setAuthReady(true);
       }
-    }, 5000); // 5 second timeout
-    
-    ensureAuth().finally(() => {
-      clearTimeout(timeout);
-    });
+    }, 5000);
+
+    getParticipant()
+      .catch((err) => {
+        console.error('Participant setup error:', err);
+        setError(`Failed to initialize: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      })
+      .finally(() => {
+        setAuthReady(true);
+        clearTimeout(timeout);
+      });
+
+    return () => clearTimeout(timeout);
   }, [authReady]);
   
   const handleSuggest = async () => {
