@@ -14,7 +14,7 @@ import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 
 # Import routes
-from app.routes import games, embeddings, users, share, bridging, mailing, studies
+from app.routes import games, embeddings, users, bridging, studies, participants
 
 
 # ============================================
@@ -102,12 +102,11 @@ app.add_middleware(
 # ============================================
 
 # Mount route modules
+app.include_router(participants.router, prefix="/api/v1/participants", tags=["participants"])
 app.include_router(games.router, prefix="/api/v1/games", tags=["games"])
 app.include_router(embeddings.router, prefix="/api/v1/embeddings", tags=["embeddings"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
-app.include_router(share.router, prefix="/api/v1", tags=["share"])
 app.include_router(bridging.router, prefix="/api/v1/bridging", tags=["bridging"])
-app.include_router(mailing.router, prefix="/api/v1/mailing", tags=["mailing"])
 app.include_router(studies.router, prefix="/api/v1/studies", tags=["studies"])
 
 

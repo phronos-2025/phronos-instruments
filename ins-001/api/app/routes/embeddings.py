@@ -13,7 +13,7 @@ from app.models import (
     NoiseFloorWord,
     ErrorResponse
 )
-from app.middleware.auth import get_authenticated_client
+from app.middleware.participant import get_participant
 from app.services.embeddings import (
     get_noise_floor,
     validate_word,
@@ -27,7 +27,7 @@ router = APIRouter()
 @router.post("/floor", response_model=NoiseFloorResponse)
 async def get_noise_floor_endpoint(
     request: NoiseFloorRequest,
-    auth = Depends(get_authenticated_client)
+    auth = Depends(get_participant)
 ):
     """
     Generate noise floor for a seed word.
@@ -38,7 +38,7 @@ async def get_noise_floor_endpoint(
     - Proper nouns
     - Slang/neologisms
     """
-    supabase, user = auth
+    supabase, participant_id = auth
     
     # Check if polysemous
     polysemous = is_polysemous(request.seed_word)
@@ -68,7 +68,7 @@ async def get_noise_floor_endpoint(
 @router.post("/validate", response_model=ValidateWordResponse)
 async def validate_word_endpoint(
     request: ValidateWordRequest,
-    auth = Depends(get_authenticated_client)
+    auth = Depends(get_participant)
 ):
     """
     Check if word exists in vocabulary.
@@ -76,7 +76,7 @@ async def validate_word_endpoint(
     FOR ANALYTICS ONLY - not used for blocking.
     All words (seeds, clues, guesses) are accepted regardless of vocabulary membership.
     """
-    supabase, user = auth
+    supabase, participant_id = auth
     
     valid = await validate_word(supabase, request.word)
     

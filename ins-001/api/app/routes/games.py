@@ -29,7 +29,7 @@ from app.models import (
     SubmitCluesRequest, SubmitCluesResponse,
     SubmitGuessesRequest, SubmitGuessesResponse,
 )
-from app.middleware.auth import get_authenticated_client
+from app.middleware.participant import get_participant
 from app.services.embeddings import (
     get_noise_floor,
     check_word_in_vocabulary,
@@ -182,14 +182,14 @@ def _extract_bridging_response(game: dict) -> BridgingGameResponse:
 @router.post("/radiation", response_model=CreateRadiationGameResponse)
 async def create_radiation_game(
     request: CreateRadiationGameRequest,
-    auth = Depends(get_authenticated_client)
+    auth = Depends(get_participant)
 ):
     """
     Create a new radiation game.
 
     Seed word can be ANY word (not restricted to vocabulary).
     """
-    supabase, user = auth
+    supabase, participant_id = auth
     seed_word = request.seed_word.lower().strip()
 
     # Check polysemy
@@ -231,7 +231,7 @@ async def create_radiation_game(
         "schema_version": 1,
         "instrument_id": "INS-001",
         "game_type": "radiation",
-        "sender_id": user["id"],
+        "sender_id": participant_id,
         "recipient_type": request.recipient_type.value,
         "embedding_model_id": model_versions.get("embedding_model_id"),
         "llm_model_id": model_versions.get("llm_model_id"),
@@ -254,10 +254,10 @@ async def create_radiation_game(
 @router.get("/radiation/{game_id}", response_model=RadiationGameResponse)
 async def get_radiation_game(
     game_id: str,
-    auth = Depends(get_authenticated_client)
+    auth = Depends(get_participant)
 ):
     """Get radiation game details."""
-    supabase, user = auth
+    supabase, participant_id = auth
 
     try:
         result = supabase.table("games") \
@@ -279,10 +279,10 @@ async def get_radiation_game(
 async def submit_radiation_clues(
     game_id: str,
     request: SubmitRadiationCluesRequest,
-    auth = Depends(get_authenticated_client)
+    auth = Depends(get_participant)
 ):
     """Submit clues for a radiation game."""
-    supabase, user = auth
+    supabase, participant_id = auth
     clues_clean = [c.lower().strip() for c in request.clues]
 
     # Get game
@@ -290,7 +290,7 @@ async def submit_radiation_clues(
         result = supabase.table("games") \
             .select("*") \
             .eq("id", game_id) \
-            .eq("sender_id", user["id"]) \
+            .eq("sender_id", participant_id) \
             .eq("game_type", "radiation") \
             .eq("status", "pending_clues") \
             .single() \
@@ -426,69 +426,6 @@ async def submit_radiation_clues(
         guess_similarities=guess_similarities
     )
 
-
-@router.post("/radiation/{game_id}/guesses", response_model=SubmitRadiationGuessesResponse)
-async def submit_radiation_guesses(
-    game_id: str,
-    request: SubmitRadiationGuessesRequest,
-    auth = Depends(get_authenticated_client)
-):
-    """Submit guesses for a radiation game (human recipient)."""
-    supabase, user = auth
-    guesses_clean = [g.lower().strip() for g in request.guesses]
-
-    try:
-        result = supabase.table("games") \
-            .select("*") \
-            .eq("id", game_id) \
-            .eq("recipient_id", user["id"]) \
-            .eq("game_type", "radiation") \
-            .eq("status", "pending_guess") \
-            .single() \
-            .execute()
-    except APIError:
-        raise HTTPException(status_code=404, detail={"error": "Game not found or not in correct state"})
-
-    if not result.data:
-        raise HTTPException(status_code=404, detail={"error": "Game not found or not in correct state"})
-
-    game = result.data
-    setup = game.get("setup") or {}
-    sender_input = game.get("sender_input") or {}
-    seed_word = setup.get("seed_word", "")
-    clues = sender_input.get("clues") or []
-
-    # Compute convergence
-    seed_emb = await get_contextual_embedding(seed_word, clues)
-    guess_embs = [await get_contextual_embedding(g, clues) for g in guesses_clean]
-
-    convergence_score, exact_match, guess_similarities = compute_convergence(
-        seed_emb, guess_embs, seed_word, guesses_clean
-    )
-
-    # Update game
-    supabase.table("games").update({
-        "recipient_input": {"guesses": guesses_clean},
-        "recipient_scores": {
-            "convergence": convergence_score,
-            "best_guess": guesses_clean[0] if guesses_clean else None,
-            "guess_similarities": guess_similarities,
-        },
-        "status": "completed",
-        "completed_at": "now()"
-    }).eq("id", game_id).execute()
-
-    return SubmitRadiationGuessesResponse(
-        game_id=game_id,
-        guesses=guesses_clean,
-        convergence_score=convergence_score,
-        exact_match=exact_match,
-        seed_word=seed_word,
-        status=GameStatus.COMPLETED,
-        guess_similarities=guess_similarities
-    )
-
-
 # ============================================
 # BRIDGING GAMES (INS-001.2)
 # ============================================
@@ -496,10 +433,10 @@ async def submit_radiation_guesses(
 @router.post("/bridging", response_model=CreateBridgingGameResponse)
 async def create_bridging_game(
     request: CreateBridgingGameRequest,
-    auth = Depends(get_authenticated_client)
+    auth = Depends(get_participant)
 ):
     """Create a new bridging game."""
-    supabase, user = auth
+    supabase, participant_id = auth
     anchor = request.anchor_word.lower().strip()
     target = request.target_word.lower().strip()
 
@@ -517,7 +454,7 @@ async def create_bridging_game(
         "schema_version": 1,
         "instrument_id": "INS-001",
         "game_type": "bridging",
-        "sender_id": user["id"],
+        "sender_id": participant_id,
         "recipient_type": request.recipient_type.value,
         "embedding_model_id": model_versions.get("embedding_model_id"),
         "llm_model_id": model_versions.get("llm_model_id"),
@@ -539,10 +476,10 @@ async def create_bridging_game(
 @router.get("/bridging/{game_id}", response_model=BridgingGameResponse)
 async def get_bridging_game(
     game_id: str,
-    auth = Depends(get_authenticated_client)
+    auth = Depends(get_participant)
 ):
     """Get bridging game details."""
-    supabase, user = auth
+    supabase, participant_id = auth
 
     try:
         result = supabase.table("games") \
@@ -564,17 +501,17 @@ async def get_bridging_game(
 async def submit_bridging_clues(
     game_id: str,
     request: SubmitBridgingCluesRequest,
-    auth = Depends(get_authenticated_client)
+    auth = Depends(get_participant)
 ):
     """Submit clues for a bridging game."""
-    supabase, user = auth
+    supabase, participant_id = auth
     clues_clean = [c.lower().strip() for c in request.clues]
 
     try:
         result = supabase.table("games") \
             .select("*") \
             .eq("id", game_id) \
-            .eq("sender_id", user["id"]) \
+            .eq("sender_id", participant_id) \
             .eq("game_type", "bridging") \
             .eq("status", "pending_clues") \
             .single() \
@@ -746,146 +683,6 @@ async def submit_bridging_clues(
         status=GameStatus.COMPLETED if is_llm_game else GameStatus.PENDING_GUESS,
         share_code=share_code if not is_llm_game else None
     )
-
-
-@router.post("/bridging/{game_id}/bridge", response_model=SubmitBridgingBridgeResponse)
-async def submit_bridging_bridge(
-    game_id: str,
-    request: SubmitBridgingBridgeRequest,
-    auth = Depends(get_authenticated_client)
-):
-    """Submit recipient's bridge (V2: bridge-vs-bridge)."""
-    supabase, user = auth
-    clues_clean = [c.lower().strip() for c in request.clues]
-
-    print(f"submit_bridging_bridge: START - game_id={game_id}, user_id={user['id']}")
-
-    # Use service client to debug (bypasses RLS)
-    try:
-        service_client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-        debug_result = service_client.table("games") \
-            .select("id, sender_id, recipient_id, status, game_type") \
-            .eq("id", game_id) \
-            .single() \
-            .execute()
-        if debug_result.data:
-            print(f"submit_bridging_bridge: Game state (service) = {debug_result.data}")
-            print(f"submit_bridging_bridge: recipient_id match? {debug_result.data.get('recipient_id')} == {user['id']} = {debug_result.data.get('recipient_id') == user['id']}")
-            print(f"submit_bridging_bridge: status is pending_guess? {debug_result.data.get('status')} == 'pending_guess' = {debug_result.data.get('status') == 'pending_guess'}")
-        else:
-            print(f"submit_bridging_bridge: Game {game_id} not found even with service client!")
-    except Exception as e:
-        print(f"submit_bridging_bridge: Service debug query failed: {e}")
-
-    # Now try with user's client (subject to RLS)
-    # Accept games in "pending_guess" status OR "completed" status without recipient_input
-    # (LLM games are marked completed after sender clues, but human recipient can still join and submit)
-    try:
-        print(f"submit_bridging_bridge: Querying with user client...")
-        result = supabase.table("games") \
-            .select("*") \
-            .eq("id", game_id) \
-            .eq("recipient_id", user["id"]) \
-            .eq("game_type", "bridging") \
-            .single() \
-            .execute()
-        print(f"submit_bridging_bridge: User query succeeded, got data: {result.data is not None}")
-
-        # Validate game state
-        if result.data:
-            status = result.data.get("status")
-            recipient_input = result.data.get("recipient_input")
-
-            # Allow pending_guess OR completed-without-recipient-input
-            if status == "pending_guess":
-                print(f"submit_bridging_bridge: Game is pending_guess, allowing submission")
-            elif status == "completed" and not recipient_input:
-                print(f"submit_bridging_bridge: Game is completed but no recipient input yet, allowing submission")
-            else:
-                print(f"submit_bridging_bridge: Invalid state - status={status}, has_recipient_input={recipient_input is not None}")
-                raise HTTPException(status_code=400, detail={"error": "Game already has recipient input or is in wrong state"})
-    except APIError as e:
-        print(f"submit_bridging_bridge: User query failed with APIError: {e}")
-        raise HTTPException(status_code=404, detail={"error": "Game not found or not in correct state"})
-
-    if not result.data:
-        raise HTTPException(status_code=404, detail={"error": "Game not found or not in correct state"})
-
-    game = result.data
-    setup = game.get("setup") or {}
-    sender_input = game.get("sender_input") or {}
-    sender_scores = game.get("sender_scores") or {}
-    baselines = game.get("baselines") or {}
-    anchor = setup.get("anchor_word", "")
-    target = setup.get("target_word", "")
-    sender_clues = sender_input.get("clues") or []
-
-    cache = EmbeddingCache.get_instance()
-
-    # Get embeddings
-    all_texts = [anchor, target] + clues_clean + sender_clues
-    all_embs = await cache.get_embeddings_batch(all_texts)
-
-    anchor_emb = all_embs[0]
-    target_emb = all_embs[1]
-    recipient_embs = all_embs[2:2+len(clues_clean)]
-    sender_embs = all_embs[2+len(clues_clean):]
-
-    # Get vocabulary pool for fidelity calculation
-    vocab_pool = VocabularyPool.get_instance()
-    vocab_with_emb = vocab_pool.get_random_with_embeddings(200)
-    vocab_embeddings = [emb for _, emb in vocab_with_emb] if vocab_with_emb else []
-
-    # Score recipient's bridge (with vocabulary for fidelity)
-    recipient_scores_dict = score_bridging(recipient_embs, anchor_emb, target_emb, vocab_embeddings)
-    bridge_sim = compute_bridge_similarity(sender_embs, recipient_embs)
-
-    # Build recipient input with optional timing data
-    recipient_input = {"clues": clues_clean}
-    if request.clue_timings:
-        recipient_input["clue_timings"] = [
-            {"word": t.word, "first_entered_ms": t.first_entered_ms, "last_modified_ms": t.last_modified_ms}
-            for t in request.clue_timings
-        ]
-
-    # Update game
-    supabase.table("games").update({
-        "recipient_input": recipient_input,
-        "recipient_scores": {
-            "fidelity": recipient_scores_dict["fidelity"],
-            "relevance": recipient_scores_dict["relevance"],  # Legacy
-            "divergence": recipient_scores_dict["divergence"],
-            "bridge_similarity": bridge_sim,
-        },
-        "status": "completed",
-        "completed_at": "now()"
-    }).eq("id", game_id).execute()
-
-    return SubmitBridgingBridgeResponse(
-        game_id=game_id,
-        recipient_clues=clues_clean,
-        recipient_fidelity=recipient_scores_dict["fidelity"],
-        recipient_relevance=recipient_scores_dict["relevance"],  # Legacy
-        recipient_divergence=recipient_scores_dict["divergence"],
-        sender_clues=sender_clues,
-        sender_fidelity=sender_scores.get("fidelity", 0),
-        sender_relevance=sender_scores.get("relevance", 0),  # Legacy
-        sender_divergence=sender_scores.get("divergence", 0),
-        bridge_similarity=bridge_sim,
-        haiku_clues=baselines.get("llm", {}).get("clues"),
-        haiku_fidelity=baselines.get("llm", {}).get("fidelity"),
-        haiku_relevance=baselines.get("llm", {}).get("relevance"),  # Legacy
-        haiku_divergence=baselines.get("llm", {}).get("divergence"),
-        lexical_bridge=baselines.get("lexical", {}).get("path"),
-        lexical_fidelity=baselines.get("lexical", {}).get("fidelity"),
-        lexical_relevance=baselines.get("lexical", {}).get("relevance"),  # Legacy
-        lexical_divergence=baselines.get("lexical", {}).get("divergence"),
-        anchor_word=anchor,
-        target_word=target,
-        status=GameStatus.COMPLETED
-    )
-
-
 # ============================================
 # LEGACY ROUTES (backwards compatibility)
 # ============================================
@@ -895,7 +692,7 @@ async def submit_bridging_bridge(
 @router.post("/", response_model=CreateGameResponse)
 async def create_game(
     request: CreateGameRequest,
-    auth = Depends(get_authenticated_client)
+    auth = Depends(get_participant)
 ):
     """Legacy: Create radiation game via old endpoint."""
     return await create_radiation_game(request, auth)
@@ -904,10 +701,10 @@ async def create_game(
 @router.get("/{game_id}", response_model=RadiationGameResponse)
 async def get_game(
     game_id: str,
-    auth = Depends(get_authenticated_client)
+    auth = Depends(get_participant)
 ):
     """Legacy: Get game (auto-detect type)."""
-    supabase, user = auth
+    supabase, participant_id = auth
 
     try:
         result = supabase.table("games") \
@@ -936,17 +733,7 @@ async def get_game(
 async def submit_clues(
     game_id: str,
     request: SubmitCluesRequest,
-    auth = Depends(get_authenticated_client)
+    auth = Depends(get_participant)
 ):
     """Legacy: Submit clues for radiation game."""
     return await submit_radiation_clues(game_id, request, auth)
-
-
-@router.post("/{game_id}/guesses", response_model=SubmitGuessesResponse)
-async def submit_guesses(
-    game_id: str,
-    request: SubmitGuessesRequest,
-    auth = Depends(get_authenticated_client)
-):
-    """Legacy: Submit guesses for radiation game."""
-    return await submit_radiation_guesses(game_id, request, auth)
