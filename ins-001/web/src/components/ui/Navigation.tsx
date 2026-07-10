@@ -7,8 +7,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { PhronosLogo } from './PhronosLogo';
-import { useAuth } from '../auth/AuthProvider';
-import { MagicLinkModal } from '../auth/MagicLinkModal';
 
 interface NavigationProps {
   instrumentId?: string;
@@ -20,12 +18,6 @@ export const Navigation: React.FC<NavigationProps> = ({
   instrumentTitle = 'SIGNAL'
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const { user } = useAuth();
-
-  // Check if user is registered (has email, not anonymous)
-  const isRegistered = user?.email && !user?.is_anonymous;
-  const displayEmail = user?.email ? (user.email.length > 20 ? user.email.slice(0, 17) + '...' : user.email) : null;
 
   // Lock body scroll when mobile menu is open
   useEffect(() => {
@@ -63,20 +55,6 @@ export const Navigation: React.FC<NavigationProps> = ({
         </ul>
 
         <div className="nav-right">
-          {isRegistered ? (
-            <div className="nav-user">
-              <a href="/profile" className="nav-user-email" title={`${user?.email} - View Profile`}>
-                {displayEmail}
-              </a>
-            </div>
-          ) : (
-            <button
-              className="nav-subscribe nav-subscribe-desktop"
-              onClick={() => setShowAuthModal(true)}
-            >
-              Authenticate
-            </button>
-          )}
           <div className="nav-status">
             <span className="status-dot"></span>
             <span className="status-text">{instrumentId} {instrumentTitle}</span>
@@ -123,31 +101,11 @@ export const Navigation: React.FC<NavigationProps> = ({
           </a>
         </div>
 
-        {isRegistered ? (
-          <div className="nav-mobile-user">
-            <a href="/profile" className="nav-mobile-user-email" onClick={handleLinkClick}>
-              {user?.email}
-            </a>
-          </div>
-        ) : (
-          <button
-            className="nav-mobile-subscribe"
-            onClick={() => {
-              setShowAuthModal(true);
-              handleLinkClick();
-            }}
-          >
-            Authenticate
-          </button>
-        )}
-
         <div className="nav-mobile-status">
           <span className="status-dot"></span>
           <span className="status-text">{instrumentId} {instrumentTitle}</span>
         </div>
       </div>
-
-      <MagicLinkModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
     </>
   );
 };

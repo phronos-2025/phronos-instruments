@@ -551,30 +551,12 @@ export const api = {
         body: JSON.stringify(data),
       }),
 
-    submitGuesses: (id: string, data: SubmitGuessesRequest): Promise<SubmitGuessesResponse> =>
-      apiCall(`/api/v1/games/${id}/guesses`, {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
-
     suggest: (attempt?: number): Promise<SuggestWordResponse> => {
       const params = new URLSearchParams();
       if (attempt) params.set('attempt', attempt.toString());
       const query = params.toString();
       return apiCall(`/api/v1/bridging/suggest${query ? `?${query}` : ''}`);
     },
-  },
-  
-  share: {
-    createToken: (gameId: string): Promise<CreateShareTokenResponse> =>
-      apiCall(`/api/v1/games/${gameId}/share`, {
-        method: 'POST',
-      }),
-    
-    join: (token: string): Promise<JoinGameResponse> =>
-      apiCall(`/api/v1/join/${token}`, {
-        method: 'POST',
-      }),
   },
   
   embeddings: {
@@ -616,21 +598,6 @@ export const api = {
       return apiCall(`/api/v1/bridging/suggest${query ? `?${query}` : ''}`);
     },
 
-    createShare: (gameId: string): Promise<CreateBridgingShareResponse> =>
-      apiCall(`/api/v1/bridging/${gameId}/share`, {
-        method: 'POST',
-      }),
-
-    join: (shareCode: string): Promise<JoinBridgingGameResponse> =>
-      apiCall(`/api/v1/bridging/join/${shareCode}`, {
-        method: 'POST',
-      }),
-
-    triggerHaikuGuess: (gameId: string): Promise<TriggerHaikuGuessResponse> =>
-      apiCall(`/api/v1/bridging/${gameId}/haiku-guess`, {
-        method: 'POST',
-      }),
-
     triggerHaikuBridge: (gameId: string): Promise<TriggerHaikuBridgeResponse> =>
       apiCall(`/api/v1/bridging/${gameId}/haiku-bridge`, {
         method: 'POST',
@@ -640,16 +607,6 @@ export const api = {
     getDistance: (anchor: string, target: string): Promise<SemanticDistanceResponse> =>
       apiCall(`/api/v1/bridging/distance?anchor=${encodeURIComponent(anchor)}&target=${encodeURIComponent(target)}`),
 
-    joinV2: (shareCode: string): Promise<JoinBridgingGameResponseV2> =>
-      apiCall(`/api/v1/bridging/join-v2/${shareCode}`, {
-        method: 'POST',
-      }),
-
-    submitBridge: (id: string, data: SubmitBridgingBridgeRequest): Promise<SubmitBridgingBridgeResponse> =>
-      apiCall(`/api/v1/bridging/${id}/bridge`, {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
   },
 
   // User & Profile API
