@@ -31,7 +31,7 @@ async def get_user_profile(supabase: Client, user_id: str) -> Optional[ProfileRe
     Returns:
         ProfileResponse or None if user not found
     """
-    result = supabase.table("user_profiles") \
+    result = supabase.table("participant_profiles") \
         .select("*") \
         .eq("user_id", user_id) \
         .single() \

@@ -17,8 +17,10 @@ FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:4321").rstrip('/
 
 # Supabase
 SUPABASE_URL = os.environ["SUPABASE_URL"]
-SUPABASE_ANON_KEY = os.environ["SUPABASE_ANON_KEY"]
-# Now the ONLY database credential the API uses. RLS is gone; this key reaches
+# The anon key is no longer used by the API (no user JWTs, no per-request anon
+# clients). Kept optional so existing deployments don't break if it's still set.
+SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY")
+# The ONLY database credential the API uses. RLS is gone; this key reaches
 # Postgres directly and never leaves the server.
 SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
 
