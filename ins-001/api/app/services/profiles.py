@@ -34,10 +34,13 @@ async def get_user_profile(supabase: Client, user_id: str) -> Optional[ProfileRe
     result = supabase.table("participant_profiles") \
         .select("*") \
         .eq("user_id", user_id) \
-        .single() \
+        .maybe_single() \
         .execute()
 
-    if not result.data:
+    # participant_profiles aggregates completed games, so a participant with none
+    # has no row at all (unlike the old users-joined view). maybe_single returns
+    # None/empty instead of raising.
+    if not result or not result.data:
         return None
 
     profile = result.data
