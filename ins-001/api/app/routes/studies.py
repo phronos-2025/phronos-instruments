@@ -228,14 +228,10 @@ def _parse_embedding(raw) -> list[float]:
 
 async def _get_vocab_embeddings_matrix():
     """Get vocabulary embeddings as numpy array for scoring."""
-    import numpy as np
     pool = VocabularyPool.get_instance()
     if not pool.is_initialized or pool.size == 0:
         return None
-    items = pool.get_random_with_embeddings(pool.size)
-    if not items:
-        return None
-    return np.array([emb for _, emb in items])
+    return pool.matrix
 
 
 async def _get_peer_responses(supabase, slug: str, user_id: str, source_item: int, config_item: dict) -> dict:

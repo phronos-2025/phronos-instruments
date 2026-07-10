@@ -254,7 +254,7 @@ async def find_lexical_union(
     """
     Find vocabulary words with minimum total embedding distance to both A and T.
 
-    Full vocabulary scan done server-side via database function for performance.
+    Full vocabulary scan done in-process against the memory-mapped artifact.
     This finds words in the intersection of neighborhoods around both endpoints.
 
     Scoring: For each word in vocabulary, calculate:
@@ -266,12 +266,12 @@ async def find_lexical_union(
         anchor: The anchor concept
         target: The target concept
         num_concepts: Number of union concepts (n = # used by participant)
-        supabase: Authenticated Supabase client
+        supabase: Unused; retained for signature compatibility
 
     Returns:
         List of union words (unordered set, but returned as list)
     """
-    import json
+    from app.services.cache import VocabularyPool
     from .embeddings import get_embeddings_batch
 
     # Get anchor and target embeddings
@@ -283,142 +283,37 @@ async def find_lexical_union(
     # (morphological variants, anchor/target themselves)
     k = num_concepts * 3 + 10
 
-    try:
-        # Use database function for fast server-side scoring
-        result = supabase.rpc(
-            "get_statistical_union",
-            {
-                "anchor_embedding": json.dumps(anchor_emb),
-                "target_embedding": json.dumps(target_emb),
-                "k": k
-            }
-        ).execute()
-
-        if not result.data:
-            print(f"[find_lexical_union] No data returned from get_statistical_union for {anchor}/{target}")
-            return []
-
-        print(f"[find_lexical_union] Got {len(result.data)} candidates for {anchor}/{target}")
-
-        # Filter results for morphological variants
-        used_words = [anchor.lower(), target.lower()]
-        union_words = []
-        filtered_count = 0
-
-        for row in result.data:
-            word = row["word"]
-
-            # Skip anchor/target
-            if word.lower() == anchor.lower() or word.lower() == target.lower():
-                filtered_count += 1
-                continue
-
-            # Skip morphological variants of anchor/target
-            if _is_morphological_variant(word, anchor) or _is_morphological_variant(word, target):
-                filtered_count += 1
-                continue
-
-            # Skip morphological variants of already selected words
-            is_variant = any(_is_morphological_variant(word, used) for used in used_words)
-            if is_variant:
-                filtered_count += 1
-                continue
-
-            union_words.append(word)
-            used_words.append(word.lower())
-
-            if len(union_words) >= num_concepts:
-                break
-
-        print(f"[find_lexical_union] Returning {len(union_words)} words after filtering {filtered_count} variants")
-        return union_words
-
-    except Exception as e:
-        print(f"[find_lexical_union] get_statistical_union failed: {e}, falling back to neighbor sampling")
-        import traceback
-        traceback.print_exc()
-        # Fallback to neighbor-based sampling if database function doesn't exist
-        return await _find_lexical_union_fallback(anchor, target, num_concepts, supabase, anchor_emb, target_emb)
-
-
-async def _find_lexical_union_fallback(
-    anchor: str,
-    target: str,
-    num_concepts: int,
-    supabase,
-    anchor_emb: list[float],
-    target_emb: list[float]
-) -> list[str]:
-    """
-    Fallback: Sample neighbors of anchor and target, score by sum of similarities.
-    Less accurate than full scan but works without database function.
-    """
-    import json
-
-    anchor_vec = np.array(anchor_emb)
-    target_vec = np.array(target_emb)
-
-    # Get candidates near both anchor and target regions
-    # Note: RPC expects TEXT (JSON array) after migration 110
-    anchor_result = supabase.rpc(
-        "get_noise_floor_by_embedding",
-        {
-            "seed_embedding": json.dumps(anchor_vec.tolist()),
-            "seed_word": anchor,
-            "k": 200
-        }
-    ).execute()
-
-    target_result = supabase.rpc(
-        "get_noise_floor_by_embedding",
-        {
-            "seed_embedding": json.dumps(target_vec.tolist()),
-            "seed_word": target,
-            "k": 200
-        }
-    ).execute()
-
-    if not anchor_result.data and not target_result.data:
+    # Exact search always ranks the anchor and target first (self-similarity 1.0).
+    # Exclude them so they don't eat candidate slots the filter below would drop.
+    candidates = VocabularyPool.get_instance().statistical_union(
+        anchor_emb, target_emb, k=k, exclude=[anchor, target]
+    )
+    if not candidates:
+        print(f"[find_lexical_union] No candidates for {anchor}/{target}")
         return []
 
-    # Combine and deduplicate candidates
-    candidate_words_set = set()
-    candidate_words = []
-    for r in (anchor_result.data or []) + (target_result.data or []):
-        word = r["word"]
-        if word not in candidate_words_set:
-            candidate_words_set.add(word)
-            candidate_words.append(word)
-
-    if not candidate_words:
-        return []
-
-    # Get embeddings for all candidates
-    from .embeddings import get_embeddings_batch
-    candidate_embeddings = await get_embeddings_batch(candidate_words)
-
-    # Score by sum of similarities
-    scored_candidates = []
-    for word, emb in zip(candidate_words, candidate_embeddings):
-        if _is_morphological_variant(word, anchor) or _is_morphological_variant(word, target):
-            continue
-
-        word_vec = np.array(emb)
-        sim_anchor = cosine_similarity(word_vec.tolist(), anchor_vec.tolist())
-        sim_target = cosine_similarity(word_vec.tolist(), target_vec.tolist())
-        score = sim_anchor + sim_target
-
-        scored_candidates.append((word, score))
-
-    scored_candidates.sort(key=lambda x: x[1], reverse=True)
-
-    # Select top N, filtering morphological variants
+    # Filter results for morphological variants
     used_words = [anchor.lower(), target.lower()]
     union_words = []
+    filtered_count = 0
 
-    for word, score in scored_candidates:
+    for row in candidates:
+        word = row["word"]
+
+        # Skip anchor/target
+        if word.lower() == anchor.lower() or word.lower() == target.lower():
+            filtered_count += 1
+            continue
+
+        # Skip morphological variants of anchor/target
+        if _is_morphological_variant(word, anchor) or _is_morphological_variant(word, target):
+            filtered_count += 1
+            continue
+
+        # Skip morphological variants of already selected words
         is_variant = any(_is_morphological_variant(word, used) for used in used_words)
         if is_variant:
+            filtered_count += 1
             continue
 
         union_words.append(word)
@@ -427,10 +322,10 @@ async def _find_lexical_union_fallback(
         if len(union_words) >= num_concepts:
             break
 
+    print(f"[find_lexical_union] Returning {len(union_words)} words after filtering {filtered_count} variants")
     return union_words
 
 
-# Keep old function name as alias for backwards compatibility
 async def find_lexical_bridge(
     anchor: str,
     target: str,

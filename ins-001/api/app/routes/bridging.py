@@ -101,22 +101,6 @@ async def suggest_distant_word(
                 from_word=from_word_clean
             )
 
-    # Fallback: database query if pool not initialized
-    try:
-        random_offset = random.randint(0, 29999)  # 30k vocabulary
-        result = supabase.table("vocabulary_embeddings") \
-            .select("word") \
-            .range(random_offset, random_offset) \
-            .execute()
-        if result.data:
-            word = result.data[0]["word"]
-            return SuggestWordResponse(
-                suggestion=word,
-                from_word=from_word_clean
-            )
-    except Exception as e:
-        print(f"suggest_distant_word database error: {e}")
-
     # Hardcoded fallback with more evocative words
     from app.services.cache.vocabulary_pool import FALLBACK_WORDS
     return SuggestWordResponse(

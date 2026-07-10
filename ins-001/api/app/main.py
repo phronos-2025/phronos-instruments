@@ -37,24 +37,11 @@ async def lifespan(app: FastAPI):
         )
         print("Sentry initialized")
 
-    # Initialize performance cache components
-    try:
-        from app.services.cache import VocabularyPool
-        from app.config import SUPABASE_URL, SUPABASE_SERVICE_KEY
-        from supabase import create_client
+    # Load the vocabulary artifact. Blocking: every scoring path needs it, and
+    # there is no longer a database table to fall back to.
+    from app.services.cache import VocabularyPool
 
-        # Use service key for startup initialization (no user context)
-        if SUPABASE_SERVICE_KEY:
-            service_client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-            pool = VocabularyPool.get_instance()
-            # Load vocabulary in background (non-blocking)
-            import asyncio
-            asyncio.create_task(pool.initialize(service_client, load_embeddings=True))
-            print("VocabularyPool initialization started (background)")
-        else:
-            print("VocabularyPool: No service key, will use DB fallback")
-    except Exception as e:
-        print(f"VocabularyPool initialization failed: {e}")
+    VocabularyPool.get_instance().initialize()
 
     yield
 

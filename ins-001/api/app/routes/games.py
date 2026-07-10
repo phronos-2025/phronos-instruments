@@ -80,29 +80,6 @@ async def get_current_model_versions(supabase) -> dict:
     return version_map
 
 
-def _parse_embedding(embedding, word: str) -> list[float] | None:
-    """Parse embedding from various formats returned by Supabase."""
-    if isinstance(embedding, str):
-        try:
-            embedding = json.loads(embedding)
-        except (json.JSONDecodeError, ValueError):
-            try:
-                cleaned = embedding.strip('[]{}')
-                embedding = [float(x.strip()) for x in cleaned.replace(',', ' ').split() if x.strip()]
-            except (ValueError, AttributeError):
-                return None
-    elif not isinstance(embedding, list):
-        try:
-            embedding = list(embedding)
-        except (TypeError, ValueError):
-            return None
-
-    if not isinstance(embedding, list) or not all(isinstance(x, (int, float)) for x in embedding):
-        return None
-
-    return embedding
-
-
 def _extract_radiation_response(game: dict) -> RadiationGameResponse:
     """Extract radiation game response from unified game record."""
     setup = game.get("setup") or {}
@@ -340,12 +317,8 @@ async def submit_radiation_clues(
 
     async def get_floor_embeddings():
         floor_words = [fw["word"] for fw in setup.get("noise_floor", [])]
-        floor_result = supabase.table("vocabulary_embeddings") \
-            .select("word, embedding") \
-            .in_("word", floor_words) \
-            .execute()
-        return [_parse_embedding(row["embedding"], row["word"])
-                for row in floor_result.data if _parse_embedding(row["embedding"], row["word"])]
+        vocab_pool = VocabularyPool.get_instance()
+        return [emb.tolist() for _, emb in vocab_pool.embeddings_for(floor_words)]
 
     # Parallel execution
     if is_llm_game:
