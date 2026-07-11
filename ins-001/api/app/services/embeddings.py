@@ -3,11 +3,12 @@ Embedding Service - INS-001 Semantic Associations
 
 Handles all embedding operations:
 - Contextual embeddings via OpenAI
-- Noise floor generation via pgvector (with LLM fallback for sparse domains)
+- Noise floor generation via VocabularyPool (with LLM fallback for sparse domains)
 - Word validation
 
 Hybrid Strategy (Option C):
-- Primary: pgvector similarity search against curated vocabulary (~30K words)
+- Primary: exact cosine search against the curated vocabulary (~30K words),
+  served in-process from the memory-mapped artifact (see cache/vocabulary_pool.py)
 - Fallback: LLM-generated semantic neighbors for domain-specific seeds
   when vocabulary coverage is insufficient
 """
@@ -139,6 +140,12 @@ async def _get_llm_semantic_neighbors(seed_word: str, k: int = 20) -> list[str]:
     if not anthropic_client:
         return []
 
+    # Single source of truth for the model id. This previously hardcoded
+    # claude-3-5-haiku-20241022, which has been retired and 404s — so the fallback
+    # that rescues sparse seeds (proper nouns, short words, domain terms) silently
+    # returned nothing and those games got a noise floor of orthographic noise.
+    from app.services.llm import MODEL as LLM_MODEL
+
     prompt = f"""Generate {k} words that are semantically related to "{seed_word}".
 
 Rules:
@@ -165,7 +172,7 @@ Now generate {k} words for "{seed_word}":"""
 
     try:
         response = await anthropic_client.messages.create(
-            model="claude-3-5-haiku-20241022",
+            model=LLM_MODEL,
             max_tokens=500,
             messages=[{"role": "user", "content": prompt}]
         )
@@ -360,17 +367,13 @@ async def get_noise_floor(
     # Fetch more than k to allow for filtering phonetic/orthographic matches
     fetch_k = k * 2
 
-    import json
-    result = supabase.rpc(
-        "get_noise_floor_by_embedding",
-        {
-            "seed_embedding": json.dumps(seed_emb),  # RPC expects TEXT (JSON array)
-            "seed_word": seed_word_clean,
-            "k": fetch_k
-        }
-    ).execute()
+    from app.services.cache import VocabularyPool
 
-    raw_results = result.data or []
+    pool = VocabularyPool.get_instance()
+    raw_results = [
+        {"word": word, "similarity": sim}
+        for word, sim in pool.nearest(seed_emb, k=fetch_k, exclude=[seed_word_clean])
+    ]
 
     # Filter for semantically meaningful associations
     vocab_results = [
@@ -429,9 +432,9 @@ async def check_word_in_vocabulary(supabase: Client, word: str) -> bool:
     
     Note: This is NOT for blocking - just for tracking whether
     the user chose a vocabulary word or a custom word.
-    
+
     Returns:
-        True if word exists in vocabulary_embeddings table
+        True if word exists in the vocabulary
     """
     return await validate_word(supabase, word)
 
@@ -463,34 +466,15 @@ async def get_vocabulary_sample(supabase: Client, n: int = 1000) -> list[list[fl
     against random baseline.
 
     Args:
-        supabase: Authenticated Supabase client
+        supabase: Unused; retained for signature compatibility
         n: Number of embeddings to sample (default 1000)
 
     Returns:
         List of embedding vectors (1536-dimensional each)
     """
-    # Use random() ordering to get a random sample
-    # TABLESAMPLE would be faster but requires specific PostgreSQL setup
-    result = supabase.table("vocabulary_embeddings") \
-        .select("embedding") \
-        .limit(n) \
-        .execute()
+    from app.services.cache import VocabularyPool
 
-    if not result.data:
-        return []
-
-    # Parse embeddings from database format
-    embeddings = []
-    for row in result.data:
-        emb = row.get("embedding")
-        if emb:
-            # Handle both list and string formats
-            if isinstance(emb, str):
-                import json
-                emb = json.loads(emb)
-            embeddings.append(emb)
-
-    return embeddings
+    return VocabularyPool.get_instance().random_embeddings(n).tolist()
 
 
 # ============================================
@@ -511,21 +495,15 @@ async def validate_word(supabase: Client, word: str) -> bool:
     For seed words, use is_blocked_word() from config instead.
     
     Args:
-        supabase: Authenticated Supabase client
+        supabase: Unused; retained for signature compatibility
         word: Word to validate
-        
+
     Returns:
-        True if word exists in vocabulary_embeddings table
+        True if word exists in the vocabulary
     """
-    word = word.lower().strip()
-    
-    result = supabase.table("vocabulary_embeddings") \
-        .select("word") \
-        .eq("word", word) \
-        .limit(1) \
-        .execute()
-    
-    return len(result.data) > 0
+    from app.services.cache import VocabularyPool
+
+    return VocabularyPool.get_instance().contains(word)
 
 
 async def validate_words(supabase: Client, words: list[str]) -> tuple[bool, list[str]]:
@@ -543,32 +521,3 @@ async def validate_words(supabase: Client, words: list[str]) -> tuple[bool, list
             invalid.append(word)
     
     return len(invalid) == 0, invalid
-
-
-# ============================================
-# SQL FUNCTION FOR CONTEXTUAL FLOOR
-# Add this to migrations if using polysemy feature
-# ============================================
-
-CONTEXTUAL_FLOOR_SQL = """
--- Get noise floor using a provided embedding vector
--- Used for polysemous words where we compute embedding with context
--- NOTE: Use vector(1536) if halfvec is not available
-CREATE OR REPLACE FUNCTION get_noise_floor_by_embedding(
-    seed_embedding vector(1536),  -- Changed from halfvec(1536) if halfvec unavailable
-    seed_word TEXT,
-    k INT DEFAULT 20
-)
-RETURNS TABLE(word TEXT, similarity FLOAT) AS $$
-BEGIN
-    RETURN QUERY
-    SELECT 
-        v.word,
-        (1 - (v.embedding <=> seed_embedding))::FLOAT as similarity
-    FROM vocabulary_embeddings v
-    WHERE v.word != seed_word
-    ORDER BY v.embedding <=> seed_embedding
-    LIMIT k;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-"""

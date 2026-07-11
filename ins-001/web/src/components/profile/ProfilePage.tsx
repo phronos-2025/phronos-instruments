@@ -5,8 +5,7 @@
  */
 
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { AuthProvider, useAuth } from '../auth/AuthProvider';
-import { MagicLinkModal } from '../auth/MagicLinkModal';
+import { AuthProvider, useParticipant } from '../auth/AuthProvider';
 import { Panel } from '../ui/Panel';
 import { api } from '../../lib/api';
 import type { UserResponse, ProfileResponse, GameHistoryResponse, GameHistoryItem, StudyListItem } from '../../lib/api';
@@ -34,16 +33,13 @@ function getStudyDetail(game: GameHistoryItem): string {
 }
 
 const ProfilePageInner: React.FC = () => {
-  const { user, loading: authLoading } = useAuth();
+  const { loading: authLoading } = useParticipant();
   const [userData, setUserData] = useState<UserResponse | null>(null);
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
   const [gameHistory, setGameHistory] = useState<GameHistoryResponse | null>(null);
   const [enrolledStudies, setEnrolledStudies] = useState<StudyListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showAuthModal, setShowAuthModal] = useState(false);
-
-  const isRegistered = user?.email && !user?.is_anonymous;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -114,23 +110,11 @@ const ProfilePageInner: React.FC = () => {
       {/* Header */}
       <section className="profile-header">
         <h1 className="profile-title">Your Profile</h1>
-        {isRegistered ? (
-          <div className="profile-identity">
-            <span className="profile-email">{user?.email}</span>
-            <span className="profile-member-since">
-              Member since {formatDate(userData?.created_at)}
-            </span>
-          </div>
-        ) : (
-          <div className="profile-anonymous">
-            <p className="anonymous-text">
-              You're using an anonymous session. Register to save your cognitive profile across devices.
-            </p>
-            <button className="register-button" onClick={() => setShowAuthModal(true)}>
-              Register with Email
-            </button>
-          </div>
-        )}
+        <div className="profile-anonymous">
+          <p className="anonymous-text">
+            This profile lives in this browser. Clearing site data resets it.
+          </p>
+        </div>
       </section>
 
       {/* Profile Stats */}
@@ -272,7 +256,6 @@ const ProfilePageInner: React.FC = () => {
         </div>
       </Panel>
 
-      <MagicLinkModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
     </div>
   );
 };

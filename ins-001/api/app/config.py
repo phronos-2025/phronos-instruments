@@ -17,8 +17,23 @@ FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:4321").rstrip('/
 
 # Supabase
 SUPABASE_URL = os.environ["SUPABASE_URL"]
-SUPABASE_ANON_KEY = os.environ["SUPABASE_ANON_KEY"]
-SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")  # Optional, for background jobs only
+# The anon key is no longer used by the API (no user JWTs, no per-request anon
+# clients). Kept optional so existing deployments don't break if it's still set.
+SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY")
+# The ONLY database credential the API uses. RLS is gone; this key reaches
+# Postgres directly and never leaves the server.
+SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
+
+# Participant identity (replaces Supabase Auth).
+# Secret used to HMAC-sign client-minted participant UUIDs. If it rotates, every
+# stored participant token is invalidated and returning participants lose their
+# history — so it must be a stable, explicitly-set value in production. The dev
+# fallback exists only so a fresh checkout runs; it must never reach production.
+PARTICIPANT_SECRET = os.environ.get("PARTICIPANT_SECRET", "")
+if not PARTICIPANT_SECRET:
+    if APP_ENV == "production":
+        raise RuntimeError("PARTICIPANT_SECRET must be set in production")
+    PARTICIPANT_SECRET = "dev-insecure-participant-secret-do-not-use-in-prod"
 
 # OpenAI
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]

@@ -36,3 +36,7 @@ build/
 
 # Secrets directory (if you put it in repo)
 Secrets/
+
+# Vocabulary artifact (184 MB float32 matrix; fetched from a GitHub Release at
+# build time, or regenerated with ins-001/api/scripts/export_vocab_artifact.py)
+ins-001/api/data/

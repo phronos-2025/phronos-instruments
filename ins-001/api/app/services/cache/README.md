@@ -35,12 +35,13 @@ stats = cache.get_stats()
 
 ### 2. VocabularyPool
 
-In-memory vocabulary for instant random selection.
+Memory-mapped vocabulary artifact: words, embeddings, and exact vector search.
 
 **Performance:**
-- Random word: <1ms (vs 500ms-1s DB query)
-- Memory: ~500KB for 50K words
-- Startup: ~2-3s to load (async)
+- Random word: <1ms
+- Exact nearest-neighbour over 30k x 1536: ~3ms (vs 270-600ms for the old pgvector RPC)
+- Memory: 184 MB float32, mmap'd — resident pages managed by the OS, not the heap
+- Startup: blocking (mmap is near-instant); the API cannot score without it
 
 **Usage:**
 ```python
@@ -158,14 +159,17 @@ When working on new instruments:
    emb = await get_embedding(word)  # Direct API call
    ```
 
-2. **Use VocabularyPool** for random word selection:
+2. **Use VocabularyPool** for anything vocabulary-shaped. There is no
+   `vocabulary_embeddings` table any more; the pool owns the words, the embeddings,
+   and nearest-neighbour search, served from a memory-mapped `.npy` artifact.
    ```python
-   # DO THIS
    pool = VocabularyPool.get_instance()
    word = pool.get_random()
-
-   # NOT THIS
-   supabase.table("vocabulary_embeddings").select("word")...
+   pool.nearest(query_vec, k=20, exclude="seed")      # was: get_noise_floor_by_embedding RPC
+   pool.statistical_union(anchor_vec, target_vec, 10) # was: get_statistical_union RPC
+   pool.embeddings_for(["a", "b"])
+   pool.random_embeddings(200)
+   pool.contains("word")
    ```
 
 3. **Precompute when possible**: If user will wait before needing results, start computation early using `EagerPrecompute`.

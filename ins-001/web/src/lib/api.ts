@@ -4,7 +4,7 @@
  * Typed API client for backend communication
  */
 
-import { supabase } from './supabase';
+import { participantHeaders } from './participant';
 
 /**
  * Normalize API URL to ensure it has a protocol.
@@ -454,43 +454,11 @@ export interface GameHistoryResponse {
   offset: number;
 }
 
-// Helper to get auth headers
+// Helper to get auth headers.
+// Mints a participant on first use and sends the X-Participant-* headers the API
+// expects. Replaces the old Supabase anonymous-JWT flow.
 async function getAuthHeaders(): Promise<HeadersInit> {
-  // Check for existing session
-  let { data: { session }, error: sessionError } = await supabase.auth.getSession();
-  
-  if (sessionError) {
-    console.error('Session error in getAuthHeaders:', sessionError);
-    // Try to sign in anonymously as fallback
-    const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
-    if (authError) {
-      throw new Error(`Authentication failed: ${authError.message}`);
-    }
-    session = authData.session;
-  }
-  
-  if (!session) {
-    // Try to sign in anonymously
-    const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
-    if (authError) {
-      console.error('Failed to sign in anonymously:', authError);
-      throw new Error(`Authentication failed: ${authError.message}`);
-    }
-    session = authData.session;
-  }
-  
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  };
-  
-  if (session?.access_token) {
-    headers['Authorization'] = `Bearer ${session.access_token}`;
-  } else {
-    console.error('No access token in session:', session);
-    throw new Error('No access token available. Please refresh the page.');
-  }
-  
-  return headers;
+  return participantHeaders();
 }
 
 // Generic API call helper
@@ -583,30 +551,12 @@ export const api = {
         body: JSON.stringify(data),
       }),
 
-    submitGuesses: (id: string, data: SubmitGuessesRequest): Promise<SubmitGuessesResponse> =>
-      apiCall(`/api/v1/games/${id}/guesses`, {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
-
     suggest: (attempt?: number): Promise<SuggestWordResponse> => {
       const params = new URLSearchParams();
       if (attempt) params.set('attempt', attempt.toString());
       const query = params.toString();
       return apiCall(`/api/v1/bridging/suggest${query ? `?${query}` : ''}`);
     },
-  },
-  
-  share: {
-    createToken: (gameId: string): Promise<CreateShareTokenResponse> =>
-      apiCall(`/api/v1/games/${gameId}/share`, {
-        method: 'POST',
-      }),
-    
-    join: (token: string): Promise<JoinGameResponse> =>
-      apiCall(`/api/v1/join/${token}`, {
-        method: 'POST',
-      }),
   },
   
   embeddings: {
@@ -648,21 +598,6 @@ export const api = {
       return apiCall(`/api/v1/bridging/suggest${query ? `?${query}` : ''}`);
     },
 
-    createShare: (gameId: string): Promise<CreateBridgingShareResponse> =>
-      apiCall(`/api/v1/bridging/${gameId}/share`, {
-        method: 'POST',
-      }),
-
-    join: (shareCode: string): Promise<JoinBridgingGameResponse> =>
-      apiCall(`/api/v1/bridging/join/${shareCode}`, {
-        method: 'POST',
-      }),
-
-    triggerHaikuGuess: (gameId: string): Promise<TriggerHaikuGuessResponse> =>
-      apiCall(`/api/v1/bridging/${gameId}/haiku-guess`, {
-        method: 'POST',
-      }),
-
     triggerHaikuBridge: (gameId: string): Promise<TriggerHaikuBridgeResponse> =>
       apiCall(`/api/v1/bridging/${gameId}/haiku-bridge`, {
         method: 'POST',
@@ -672,16 +607,6 @@ export const api = {
     getDistance: (anchor: string, target: string): Promise<SemanticDistanceResponse> =>
       apiCall(`/api/v1/bridging/distance?anchor=${encodeURIComponent(anchor)}&target=${encodeURIComponent(target)}`),
 
-    joinV2: (shareCode: string): Promise<JoinBridgingGameResponseV2> =>
-      apiCall(`/api/v1/bridging/join-v2/${shareCode}`, {
-        method: 'POST',
-      }),
-
-    submitBridge: (id: string, data: SubmitBridgingBridgeRequest): Promise<SubmitBridgingBridgeResponse> =>
-      apiCall(`/api/v1/bridging/${id}/bridge`, {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
   },
 
   // User & Profile API

@@ -28,11 +28,9 @@ function LandingStudyCard({
   isCompleted: boolean;
   isInProgress: boolean;
 }) {
-  const cta = isCompleted
-    ? { label: 'View Results', href: '/profile#study-results' }
-    : isInProgress
-      ? { label: 'Continue', href: `/studies/${study.slug}` }
-      : { label: 'Join Study', href: `/studies/${study.slug}` };
+  // The study is closed; enrollment/play is retired. All cards lead to the
+  // public group results dashboard.
+  const cta = { label: 'Group Dashboard', href: `/studies/${study.slug}/results` };
 
   return (
     <a href={cta.href} className="study-card study-card--landing">
@@ -104,16 +102,7 @@ function ProfileStudyCard({
         </p>
       </div>
       <div className="study-card__footer">
-        {isCompleted ? (
-          <>
-            <a href="/profile#study-results" className="study-card__cta">View Results</a>
-            <a href={`/studies/${study.slug}/results`} className="study-card__cta">Group Dashboard</a>
-          </>
-        ) : isInProgress ? (
-          <a href={`/studies/${study.slug}`} className="study-card__cta">Continue &rarr;</a>
-        ) : (
-          <a href={`/studies/${study.slug}`} className="study-card__cta">Join Study &rarr;</a>
-        )}
+        <a href={`/studies/${study.slug}/results`} className="study-card__cta">Group Dashboard &rarr;</a>
       </div>
     </div>
   );

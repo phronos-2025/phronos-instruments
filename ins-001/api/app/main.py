@@ -14,7 +14,7 @@ import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 
 # Import routes
-from app.routes import games, embeddings, users, share, bridging, mailing, studies
+from app.routes import games, embeddings, users, bridging, studies, participants
 
 
 # ============================================
@@ -37,24 +37,11 @@ async def lifespan(app: FastAPI):
         )
         print("Sentry initialized")
 
-    # Initialize performance cache components
-    try:
-        from app.services.cache import VocabularyPool
-        from app.config import SUPABASE_URL, SUPABASE_SERVICE_KEY
-        from supabase import create_client
+    # Load the vocabulary artifact. Blocking: every scoring path needs it, and
+    # there is no longer a database table to fall back to.
+    from app.services.cache import VocabularyPool
 
-        # Use service key for startup initialization (no user context)
-        if SUPABASE_SERVICE_KEY:
-            service_client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-            pool = VocabularyPool.get_instance()
-            # Load vocabulary in background (non-blocking)
-            import asyncio
-            asyncio.create_task(pool.initialize(service_client, load_embeddings=True))
-            print("VocabularyPool initialization started (background)")
-        else:
-            print("VocabularyPool: No service key, will use DB fallback")
-    except Exception as e:
-        print(f"VocabularyPool initialization failed: {e}")
+    VocabularyPool.get_instance().initialize()
 
     yield
 
@@ -115,12 +102,11 @@ app.add_middleware(
 # ============================================
 
 # Mount route modules
+app.include_router(participants.router, prefix="/api/v1/participants", tags=["participants"])
 app.include_router(games.router, prefix="/api/v1/games", tags=["games"])
 app.include_router(embeddings.router, prefix="/api/v1/embeddings", tags=["embeddings"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
-app.include_router(share.router, prefix="/api/v1", tags=["share"])
 app.include_router(bridging.router, prefix="/api/v1/bridging", tags=["bridging"])
-app.include_router(mailing.router, prefix="/api/v1/mailing", tags=["mailing"])
 app.include_router(studies.router, prefix="/api/v1/studies", tags=["studies"])
 
 

@@ -18,12 +18,11 @@ from app.models import (
     JoinBridgingGameResponseV2,
     ErrorResponse,
 )
-from app.middleware.auth import get_authenticated_client
+from app.middleware.participant import get_participant
 from app.routes.games import (
     create_bridging_game as games_create_bridging,
     get_bridging_game as games_get_bridging,
     submit_bridging_clues as games_submit_clues,
-    submit_bridging_bridge as games_submit_bridge,
 )
 from app.services.cache import VocabularyPool
 from app.services.scoring import cosine_similarity
@@ -39,7 +38,7 @@ router = APIRouter()
 async def suggest_distant_word(
     from_word: str = Query(default=None, max_length=50),
     attempt: int = Query(default=1, ge=1, le=100),
-    auth = Depends(get_authenticated_client)
+    auth = Depends(get_participant)
 ):
     """
     Suggest a random word from vocabulary.
@@ -49,7 +48,7 @@ async def suggest_distant_word(
 
     Uses in-memory vocabulary pool for instant response (<100ms).
     """
-    supabase, user = auth
+    supabase, participant_id = auth
     from_word_clean = from_word.lower().strip() if from_word else None
 
     pool = VocabularyPool.get_instance()
@@ -101,22 +100,6 @@ async def suggest_distant_word(
                 from_word=from_word_clean
             )
 
-    # Fallback: database query if pool not initialized
-    try:
-        random_offset = random.randint(0, 29999)  # 30k vocabulary
-        result = supabase.table("vocabulary_embeddings") \
-            .select("word") \
-            .range(random_offset, random_offset) \
-            .execute()
-        if result.data:
-            word = result.data[0]["word"]
-            return SuggestWordResponse(
-                suggestion=word,
-                from_word=from_word_clean
-            )
-    except Exception as e:
-        print(f"suggest_distant_word database error: {e}")
-
     # Hardcoded fallback with more evocative words
     from app.services.cache.vocabulary_pool import FALLBACK_WORDS
     return SuggestWordResponse(
@@ -129,7 +112,7 @@ async def suggest_distant_word(
 async def get_semantic_distance(
     anchor: str = Query(min_length=1, max_length=50),
     target: str = Query(min_length=1, max_length=50),
-    auth = Depends(get_authenticated_client)
+    auth = Depends(get_participant)
 ):
     """
     Get semantic distance (spread) between two words using DAT-style scoring.
@@ -181,110 +164,6 @@ async def get_semantic_distance(
             "distance": 78.0,
             "interpretation": "average"
         }
-
-
-@router.post("/join-v2/{share_code}", response_model=JoinBridgingGameResponseV2)
-async def join_bridging_game_v2(
-    share_code: str,
-    auth = Depends(get_authenticated_client)
-):
-    """
-    Join a bridging game via share code (V2: bridge-vs-bridge).
-
-    Looks up game by share_code, assigns recipient, and returns game info
-    for the recipient to create their own bridge.
-    """
-    from supabase import create_client
-    from app.config import SUPABASE_URL, SUPABASE_SERVICE_KEY
-
-    supabase, user = auth
-
-    # Use service client to bypass RLS when looking up games by share_code
-    # (recipient can't see the game until they're assigned as recipient)
-    if not SUPABASE_SERVICE_KEY:
-        raise HTTPException(
-            status_code=500,
-            detail={"error": "Service key not configured"}
-        )
-
-    service_client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-
-    # Find game by share_code in setup JSONB
-    print(f"join_bridging_game_v2: Looking for share_code={share_code}")
-    try:
-        # Query all bridging games using service client (bypasses RLS)
-        all_games = service_client.table("games") \
-            .select("*") \
-            .eq("game_type", "bridging") \
-            .execute()
-
-        print(f"join_bridging_game_v2: Found {len(all_games.data or [])} bridging games (service client)")
-
-        game = None
-        for g in all_games.data or []:
-            setup = g.get("setup", {})
-            g_share_code = setup.get("share_code")
-            if g_share_code:
-                print(f"join_bridging_game_v2: Game {g['id'][:8]} has share_code={g_share_code}")
-            if g_share_code == share_code:
-                game = g
-                break
-
-        if not game:
-            raise HTTPException(
-                status_code=404,
-                detail={"error": "Game not found", "detail": "Invalid or expired share code"}
-            )
-
-        print(f"join_bridging_game_v2: Found game {game['id']}")
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"join_bridging_game_v2 error: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail={"error": "Failed to join game", "detail": str(e)}
-        )
-
-    # Check if game already has a recipient (and it's not this user)
-    if game.get("recipient_id") and game["recipient_id"] != user["id"]:
-        raise HTTPException(
-            status_code=400,
-            detail={"error": "Game already has a recipient"}
-        )
-
-    # Prevent sender from joining their own game
-    if game["sender_id"] == user["id"]:
-        raise HTTPException(
-            status_code=400,
-            detail={"error": "Cannot join your own game"}
-        )
-
-    # Assign recipient if not already set (use service client to bypass RLS)
-    if not game.get("recipient_id"):
-        print(f"join_bridging_game_v2: Assigning recipient_id={user['id']} to game {game['id']}")
-        update_result = service_client.table("games").update({
-            "recipient_id": user["id"],
-            "recipient_type": "stranger"  # Valid values: network, stranger, llm
-        }).eq("id", game["id"]).execute()
-        print(f"join_bridging_game_v2: Update result = {update_result.data}")
-    else:
-        print(f"join_bridging_game_v2: Game already has recipient_id={game.get('recipient_id')}, user is {user['id']}")
-
-    # Get setup data
-    setup = game.get("setup", {})
-    sender_input = game.get("sender_input", {})
-    clues = sender_input.get("clues", [])
-
-    return JoinBridgingGameResponseV2(
-        game_id=game["id"],
-        anchor_word=setup.get("anchor_word", ""),
-        target_word=setup.get("target_word", ""),
-        sender_clue_count=len(clues)
-    )
-
-
 # ============================================
 # FORWARDED ROUTES (to unified games router)
 # These MUST come AFTER static routes like /suggest and /distance
@@ -293,7 +172,7 @@ async def join_bridging_game_v2(
 @router.post("/", response_model=CreateBridgingGameResponse)
 async def create_bridging_game(
     request: CreateBridgingGameRequest,
-    auth = Depends(get_authenticated_client)
+    auth = Depends(get_participant)
 ):
     """Create a new bridging game."""
     return await games_create_bridging(request, auth)
@@ -302,7 +181,7 @@ async def create_bridging_game(
 @router.get("/{game_id}", response_model=BridgingGameResponse)
 async def get_bridging_game(
     game_id: str,
-    auth = Depends(get_authenticated_client)
+    auth = Depends(get_participant)
 ):
     """Get bridging game details."""
     return await games_get_bridging(game_id, auth)
@@ -312,80 +191,7 @@ async def get_bridging_game(
 async def submit_bridging_clues(
     game_id: str,
     request: SubmitBridgingCluesRequest,
-    auth = Depends(get_authenticated_client)
+    auth = Depends(get_participant)
 ):
     """Submit clues for a bridging game."""
     return await games_submit_clues(game_id, request, auth)
-
-
-@router.post("/{game_id}/bridge", response_model=SubmitBridgingBridgeResponse)
-async def submit_bridging_bridge(
-    game_id: str,
-    request: SubmitBridgingBridgeRequest,
-    auth = Depends(get_authenticated_client)
-):
-    """Submit recipient's bridge (V2: bridge-vs-bridge)."""
-    print(f"bridging.py submit_bridging_bridge: game_id={game_id}, forwarding to games router")
-    return await games_submit_bridge(game_id, request, auth)
-
-
-@router.post("/{game_id}/share", response_model=CreateBridgingShareResponse)
-async def create_bridging_share(
-    game_id: str,
-    auth = Depends(get_authenticated_client)
-):
-    """
-    Get or create a share link for a bridging game.
-
-    Returns the share URL for inviting a human to compare their bridge.
-    """
-    from app.config import FRONTEND_URL
-    from postgrest.exceptions import APIError
-    import secrets
-
-    supabase, user = auth
-
-    # Get the game
-    try:
-        result = supabase.table("games") \
-            .select("*") \
-            .eq("id", game_id) \
-            .eq("sender_id", user["id"]) \
-            .single() \
-            .execute()
-    except APIError:
-        raise HTTPException(
-            status_code=404,
-            detail={"error": "Game not found or not owned by you"}
-        )
-
-    if not result.data:
-        raise HTTPException(
-            status_code=404,
-            detail={"error": "Game not found or not owned by you"}
-        )
-
-    game = result.data
-    setup = game.get("setup", {})
-    share_code = setup.get("share_code")
-
-    print(f"create_bridging_share: game_id={game_id}, existing share_code={share_code}")
-    print(f"create_bridging_share: setup before={setup}")
-
-    # If no share code exists, generate one
-    if not share_code:
-        share_code = secrets.token_hex(4)
-        setup["share_code"] = share_code
-        print(f"create_bridging_share: Generated new share_code={share_code}")
-        print(f"create_bridging_share: setup after={setup}")
-        update_result = supabase.table("games").update({"setup": setup}).eq("id", game_id).execute()
-        print(f"create_bridging_share: update result={update_result.data}")
-
-    # Construct the share URL with correct path
-    share_url = f"{FRONTEND_URL}/ins-001/ins-001-2/join/{share_code}"
-    print(f"create_bridging_share: returning share_url={share_url}")
-
-    return CreateBridgingShareResponse(
-        share_code=share_code,
-        share_url=share_url
-    )

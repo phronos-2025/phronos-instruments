@@ -7,13 +7,10 @@
 
 import React, { useState } from 'react';
 import { useGameState } from '../../lib/state';
-import { useAuth } from '../auth/AuthProvider';
 import { api } from '../../lib/api';
 import type { GameResponse, NoiseFloorWord } from '../../lib/api';
 import { Panel } from '../ui/Panel';
 import { Button } from '../ui/Button';
-import { ShareLinkBox } from '../ui/ShareLinkBox';
-import { MagicLinkModal } from '../auth/MagicLinkModal';
 import { InterpretationPanel, MetricRow } from '../ui/InterpretationPanel';
 import {
   SPREAD_INTERPRETATIONS_001_1,
@@ -236,32 +233,9 @@ function SpreadBar({ score, label }: SpreadBarProps) {
 
 export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
   const { state, dispatch } = useGameState();
-  const { user, loading: authLoading } = useAuth();
   const game = state.screen === 'results' ? state.game : null;
-  const [showInitModal, setShowInitModal] = useState(false);
-  const [shareUrl, setShareUrl] = useState<string | null>(null);
-  const [isCreatingShare, setIsCreatingShare] = useState(false);
-  const [shareError, setShareError] = useState<string | null>(null);
-
-  // Check if user is registered (has email, not anonymous)
-  const isRegistered = user?.email && !user?.is_anonymous;
 
   if (!game) return null;
-
-  const handleCreateShareLink = async () => {
-    if (!game.game_id) return;
-    setIsCreatingShare(true);
-    setShareError(null);
-    try {
-      const response = await api.share.createToken(game.game_id);
-      const url = `${window.location.origin}/ins-001/ins-001-1/join/${response.token}`;
-      setShareUrl(url);
-    } catch (err) {
-      setShareError(err instanceof Error ? err.message : 'Failed to create share link');
-    } finally {
-      setIsCreatingShare(false);
-    }
-  };
 
   // Use new unified scoring if available, otherwise fall back to legacy mapping
   // New API: relevance (0-1), spread (0-100 DAT-style)
@@ -446,47 +420,6 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
           </div>
         )}
 
-        {/* Share section */}
-        <div style={{
-          marginTop: 'var(--space-lg)',
-          paddingTop: 'var(--space-md)',
-          borderTop: '1px solid var(--border)',
-        }}>
-          <div style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.65rem',
-            color: 'var(--faded)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px',
-            marginBottom: 'var(--space-sm)',
-          }}>
-            Test a Friend
-          </div>
-
-          {!shareUrl ? (
-            <Button
-              variant="secondary"
-              onClick={handleCreateShareLink}
-              disabled={isCreatingShare}
-              style={{ fontSize: '0.75rem' }}
-            >
-              {isCreatingShare ? 'Creating...' : 'Can they guess your word?'}
-            </Button>
-          ) : (
-            <ShareLinkBox url={shareUrl} />
-          )}
-
-          {shareError && (
-            <div style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: '0.65rem',
-              color: 'var(--alert)',
-              marginTop: 'var(--space-xs)',
-            }}>
-              {shareError}
-            </div>
-          )}
-        </div>
       </Panel>
 
       {/* Interpretation Panel */}
@@ -535,92 +468,6 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
         )}
       </InterpretationPanel>
 
-      <Panel
-        className=""
-        style={{
-          borderColor: isRegistered ? 'var(--active)' : 'var(--gold)',
-          background: isRegistered
-            ? 'linear-gradient(to bottom, var(--card-bg), rgba(85, 176, 120, 0.05))'
-            : 'linear-gradient(to bottom, var(--card-bg), rgba(176, 141, 85, 0.05))',
-        }}
-      >
-        <div className="panel-header" style={{ borderBottomColor: isRegistered ? 'var(--active)' : 'var(--gold-dim)' }}>
-          <span className="panel-title" style={{ color: isRegistered ? 'var(--active)' : 'var(--gold)' }}>
-            {isRegistered ? 'Registered Record' : 'Unregistered Record'}
-          </span>
-          <span className="panel-meta">
-            Session ID: #{game.game_id?.slice(0, 4).toUpperCase() || '----'}
-          </span>
-        </div>
-        <div className="panel-content">
-          {isRegistered ? (
-            <div
-              style={{
-                display: 'flex',
-                gap: 'var(--space-md)',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-              }}
-            >
-              <div style={{ flex: 1, minWidth: '200px' }}>
-                <p
-                  style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '0.75rem',
-                    color: 'var(--text-light)',
-                    marginBottom: 'var(--space-xs)',
-                  }}
-                >
-                  Linked to {user?.email}
-                </p>
-                <p
-                  style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '0.65rem',
-                    color: 'var(--faded)',
-                    margin: 0,
-                  }}
-                >
-                  This session is saved to your cognitive profile.
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div
-              style={{
-                display: 'flex',
-                gap: 'var(--space-md)',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-              }}
-            >
-              <div style={{ flex: 1, minWidth: '200px' }}>
-                <p
-                  style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '0.75rem',
-                    color: 'var(--text-light)',
-                    marginBottom: 'var(--space-xs)',
-                  }}
-                >
-                  Save your scores to your permanent cognitive profile.
-                </p>
-              </div>
-
-              <Button
-                variant="primary"
-                style={{ fontSize: '0.65rem', padding: '10px 20px' }}
-                onClick={() => setShowInitModal(true)}
-              >
-                Initialize ID
-              </Button>
-            </div>
-          )}
-        </div>
-      </Panel>
-
       <div className="btn-group">
         <Button
           variant="secondary"
@@ -636,8 +483,6 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
       <footer className="footer">
         <div>© 2026 Phronos.org</div>
       </footer>
-
-      <MagicLinkModal isOpen={showInitModal} onClose={() => setShowInitModal(false)} />
     </div>
   );
 };

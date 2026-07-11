@@ -5,7 +5,6 @@
  */
 
 import { PhronosLogo } from '../ui/PhronosLogo';
-import { NavAuthButton } from '../auth/NavAuthButton';
 ---
 
 <nav class="nav">
@@ -20,8 +19,6 @@ import { NavAuthButton } from '../auth/NavAuthButton';
     <li><a href="https://phronos.org/methods" class="nav-link">Methods</a></li>
     <li><a href="/" class="nav-link nav-link-active">Instruments</a></li>
   </ul>
-
-  <NavAuthButton client:load variant="desktop" />
 
   <button class="nav-hamburger" aria-label="Open menu">
     <span></span>
@@ -46,8 +43,6 @@ import { NavAuthButton } from '../auth/NavAuthButton';
     <a href="https://phronos.org/methods" class="nav-mobile-link">Methods</a>
     <a href="/" class="nav-mobile-link nav-mobile-link-active">Instruments</a>
   </div>
-
-  <NavAuthButton client:load variant="mobile" />
 </div>
 
 <script>

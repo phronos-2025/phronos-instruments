@@ -411,6 +411,49 @@ CONVENTIONS.md was invaluable. Critical rules in one place:
 
 ---
 
+## 2. Vector Search: pgvector → exact in-process search (2026-07-10)
+
+**Context:** Downgrading Supabase Pro → Free (500 MB cap). `vocabulary_embeddings`
+(30,000 × `vector(1536)` fp32) plus its ivfflat index accounted for ~430 MB of that
+budget. The table was moved to a memory-mapped `.npy` artifact and searched exactly
+with numpy.
+
+**The measurement that mattered.** The ivfflat index (lists=100, one probe) was a far
+worse approximation than assumed. Over 200 random seeds, comparing the
+`get_noise_floor_by_embedding` RPC against exact search:
+
+| Measure | Result |
+|---|---|
+| overlap@20 | mean 0.470, median 0.450 |
+| top-1 neighbour identical | 82/200 (41%) |
+| ivfflat returned a strictly worse #1 | 118/200 seeds |
+| cosine similarity forgone | mean +0.079, max +0.400 |
+
+Recomputing `divergence_raw` on archived games with an exact floor moves it by a
+median of 0.021 — roughly 8% of a typical score (they run 0.20–0.35); p95 0.089,
+max 0.149. The signed mean is +0.002, so the change is noise, not bias.
+
+**Retrieval was never stable.** The seed `coffee` was played on 2026-01-23, -24 and
+-25 and produced three *different* stored noise floors (`café` → `cafe` →
+`cappuccino`). Migrations 113–116 all rebuilt the ivfflat index in that window.
+Archived divergence scores were therefore computed against a moving retrieval
+baseline, not a fixed one. This belongs in the limitations section of any writeup
+that uses pre-2026-07 scores.
+
+**Decision:** adopt exact search. It is reproducible, matches a float64 brute-force
+reference to ~1e-7, and runs in 2.8 ms/query versus 270–600 ms for the RPC. Archived
+`sender_scores` are preserved verbatim as the historical record; exact-search scores
+are written to a new `sender_scores_v2` column so both eras remain inspectable and
+diffable. No score already reported is silently altered.
+
+**Superseded conventions:** "Halfvec storage" (the column was in fact `vector(1536)`
+after migration 116) and "never use the service key in routes" (there is no RLS left
+to bypass; the key never leaves Railway).
+
+Reproduce with `ins-001/api/scripts/parity_check.py`.
+
+---
+
 ## Version History
 
 | Version | Date | Author | Changes |
@@ -424,3 +467,4 @@ CONVENTIONS.md was invaluable. Critical rules in one place:
 | 2.5.0 | 2026-01-12 | - | Cost optimization (halfvec) |
 | 2.6.0 | 2026-01-12 | - | Open seed words |
 | 3.0.0 | 2026-01-12 | - | Implementation complete, docs updated |
+| 4.0.0 | 2026-07-10 | - | pgvector → exact in-process search; Supabase Pro → Free |

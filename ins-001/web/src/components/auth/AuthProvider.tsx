@@ -1,57 +1,81 @@
 /**
- * Auth Provider
- * 
- * Handles anonymous sign-in and session management
+ * Participant Provider
+ *
+ * Mints (or loads) a participant id on mount. Replaces the old Supabase
+ * anonymous-auth provider — there are no accounts, emails, or sessions.
+ *
+ * The component and hook keep the names AuthProvider / useAuth so existing
+ * consumers need no changes. useAuth() returns a minimal `user` shape where
+ * email is always null and is_anonymous is always true, so every "registered
+ * account" branch in the UI now resolves to the unregistered path.
  */
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabase';
-import type { Session, User } from '@supabase/supabase-js';
+import { getParticipant } from '../../lib/participant';
+
+interface ParticipantUser {
+  id: string;
+  email: null;
+  is_anonymous: true;
+}
 
 interface AuthContextType {
-  session: Session | null;
-  user: User | null;
+  participantId: string | null;
+  // Compatibility surface for existing consumers:
+  user: ParticipantUser | null;
+  session: null;
   loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType>({
-  session: null,
+  participantId: null,
   user: null,
-  loading: true
+  session: null,
+  loading: true,
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
+  const [participantId, setParticipantId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  
+
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-    
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-    
-    return () => subscription.unsubscribe();
+    let active = true;
+    getParticipant()
+      .then((p) => {
+        if (active) setParticipantId(p.participant_id);
+      })
+      .catch((e) => {
+        console.error('Failed to obtain participant:', e);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
-  
+
+  const user: ParticipantUser | null = participantId
+    ? { id: participantId, email: null, is_anonymous: true }
+    : null;
+
   return (
-    <AuthContext.Provider value={{ session, user, loading }}>
+    <AuthContext.Provider value={{ participantId, user, session: null, loading }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
+/** New name; prefer this in new code. */
+export function useParticipant() {
+  const { participantId, loading } = useContext(AuthContext);
+  return { participantId, loading };
+}
+
+/** Compatibility hook for existing consumers. */
 export function useAuth() {
   return useContext(AuthContext);
 }
+
+/** Alias so new code can import the provider by its intended name. */
+export const ParticipantProvider = AuthProvider;
